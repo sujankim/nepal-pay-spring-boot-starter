@@ -51,23 +51,107 @@
             </ul>
         </section>
 
-        <section id="install">
-            <h2>Install</h2>
-            <p>Step 1 — Add JitPack to your <code>pom.xml</code>:</p>
-            <pre><code>&lt;repositories&gt;
-    &lt;repository&gt;
-        &lt;id&gt;jitpack.io&lt;/id&gt;
-        &lt;url&gt;https://jitpack.io&lt;/url&gt;
-    &lt;/repository&gt;
-&lt;/repositories&gt;</code></pre>
+        <section class="install-strip">
+            <div class="install-inner">
 
-            <p>Step 2 — Add the dependency:</p>
-            <pre><code>&lt;dependency&gt;
-    &lt;groupId&gt;com.github.sujankim&lt;/groupId&gt;
-    &lt;artifactId&gt;nepal-pay-spring-boot-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.1.0&lt;/version&gt;
+                <!-- Tab buttons -->
+                <div class="install-tabs">
+                    <button class="install-tab-btn active"
+                            onclick="switchInstallTab('maven', this)">Maven</button>
+                    <button class="install-tab-btn"
+                            onclick="switchInstallTab('gradle-groovy', this)">Gradle (Groovy)</button>
+                    <button class="install-tab-btn"
+                            onclick="switchInstallTab('gradle-kotlin', this)">Gradle (Kotlin)</button>
+                </div>
+
+                <!-- Maven -->
+                <div id="install-maven" class="install-tab active">
+                    <div class="install-label">Spring Boot 3.2+ (Java 17+)</div>
+                    <pre class="install-pre"><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
+    &lt;version&gt;v0.3.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
+                    <div class="install-label" style="margin-top:1rem">Spring Boot 4.x (Java 21+)</div>
+                    <pre class="install-pre"><code>&lt;dependency&gt;
+    &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-4-starter&lt;/artifactId&gt;
+    &lt;version&gt;v0.3.0&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+                </div>
+
+                <!-- Gradle Groovy -->
+                <div id="install-gradle-groovy" class="install-tab">
+                    <div class="install-label">
+                        settings.gradle — add JitPack repository
+                    </div>
+                    <pre class="install-pre"><code>dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}</code></pre>
+                    <div class="install-label" style="margin-top:1rem">
+                        build.gradle — Spring Boot 3.2+ (Java 17+)
+                    </div>
+                    <pre class="install-pre"><code>dependencies {
+    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.3.0'
+}</code></pre>
+                    <div class="install-label" style="margin-top:1rem">
+                        build.gradle — Spring Boot 4.x (Java 21+)
+                    </div>
+                    <pre class="install-pre"><code>dependencies {
+    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.3.0'
+}</code></pre>
+                </div>
+
+                <!-- Gradle Kotlin -->
+                <div id="install-gradle-kotlin" class="install-tab">
+                    <div class="install-label">
+                        settings.gradle.kts — add JitPack repository
+                    </div>
+                    <pre class="install-pre"><code>dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}</code></pre>
+                    <div class="install-label" style="margin-top:1rem">
+                        build.gradle.kts — Spring Boot 3.2+ (Java 17+)
+                    </div>
+                    <pre class="install-pre"><code>dependencies {
+    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.3.0")
+}</code></pre>
+                    <div class="install-label" style="margin-top:1rem">
+                        build.gradle.kts — Spring Boot 4.x (Java 21+)
+                    </div>
+                    <pre class="install-pre"><code>dependencies {
+    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.3.0")
+}</code></pre>
+                </div>
+
+                <p class="install-note">
+                    🇳🇵 The public API is identical in both starters.
+                    <a href="getting-started.html">Full install guide →</a>
+                </p>
+
+            </div>
         </section>
+
+        <script>
+            function switchInstallTab(name, btn) {
+                document.querySelectorAll('.install-tab').forEach(function(el) {
+                    el.classList.remove('active');
+                });
+                document.querySelectorAll('.install-tab-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                });
+                document.getElementById('install-' + name).classList.add('active');
+                btn.classList.add('active');
+            }
+        </script>
 
         <section id="configure">
             <h2>Configure</h2>

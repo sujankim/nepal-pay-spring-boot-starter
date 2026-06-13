@@ -577,3 +577,103 @@ a.gateway:hover {
     .section-inner { padding: 0 1.25rem; }
     .docs-layout { padding: 2rem 1.25rem; }
 }
+
+/* ─── Tab Group ──────────────────────────────────── */
+.tab-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    padding: 0.55rem 1.1rem;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    border-radius: 6px 6px 0 0;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover {
+    color: var(--primary);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ─── Label text above code blocks ──────────────── */
+.label-text {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-top: 1.25rem;
+    margin-bottom: 0.4rem;
+}
+
+/* ─── Install Strip Tabs ─────────────────────────── */
+.install-tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+}
+
+.install-tab-btn {
+    padding: 0.45rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.55);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.install-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.install-tab-btn.active {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.5);
+    color: #93c5fd;
+}
+
+.install-tab {
+    display: none;
+}
+
+.install-tab.active {
+    display: block;
+}
+
+.install-note {
+    margin-top: 1rem;
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.install-note a {
+    color: #93c5fd;
+    font-weight: 700;
+}
