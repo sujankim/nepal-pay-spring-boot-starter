@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════
+# NepalPay Spring Boot Starter — .gitignore
+# Based on: github.com/github/gitignore/Maven.gitignore
+# ═══════════════════════════════════════════════
+
+# ── Maven build output ───────────────────────────
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+HELP.md
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# ── Compiled Java ────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+
+# ── Logs ─────────────────────────────────────────
+*.log
+logs/
+
+# ── IntelliJ IDEA ────────────────────────────────
+
+
+# ── Eclipse ──────────────────────────────────────
+*.launch
+.metadata
+tmp/
+*.tmp
+*.bak
+*.swp
+
+# ── macOS ─────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Windows ──────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Environment / Secrets ────────────────────────
+# NEVER commit real API keys
+.env
+*.env
+application-local.yml
+application-secrets.yml

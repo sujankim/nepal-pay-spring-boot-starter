@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>io.nepalpay</groupId>
+    <artifactId>nepal-pay-spring-boot-starter</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>NepalPay Spring Boot Starter</name>
+    <description>
+        Spring Boot Starter for Nepal payment gateways (Khalti, eSewa).
+        The first production-grade Java library for Nepal digital payments.
+    </description>
+    <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>sujanlamichhane</id>
+            <name>Sujan Lamichhane</name>
+            <email>sujan.officals@email.com</email>
+            <url>https://sujanlamichhane.com.np</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git</connection>
+        <developerConnection>scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git</developerConnection>
+        <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+    </scm>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+
+        <!-- Spring Boot Autoconfigure — core of how starters work -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Configuration Processor — generates IDE YAML autocomplete -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            SLF4J API — logging facade
+            WHY we need this explicitly:
+              spring-boot-autoconfigure is optional=true here
+              optional deps do NOT transitively pull their own deps
+              so SLF4J never arrives — we must declare it ourselves
+            WHY optional=true:
+              user's Spring Boot app already has SLF4J via spring-boot-starter-logging
+              we don't want to force a duplicate copy into their project
+            Version: managed by Spring Boot 4.1.0 BOM — no version tag needed
+        -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            Jackson 3 databind — Spring Boot 4.1.0
+            Group ID changed from com.fasterxml.jackson → tools.jackson
+        -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!--
+            jackson-annotations stays as com.fasterxml — intentional!
+            @JsonProperty, @JsonIgnoreProperties etc remain under com.fasterxml
+            for backward compatibility with Jackson 2 and 3 both
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+
+        <!-- Spring Web — for RestClient -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ====== TEST SCOPE ====== -->
+
+        <!-- Spring Boot Test — JUnit 5 + Mockito + AssertJ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- MockWebServer — simulate Khalti/eSewa servers in tests -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>4.12.0</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <annotationProcessorPaths>
+                        <!-- Lombok FIRST -->
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                        <!-- Config Processor SECOND -->
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
