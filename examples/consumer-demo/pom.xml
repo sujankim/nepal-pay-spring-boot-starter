@@ -20,8 +20,9 @@
 
     <name>NepalPay Consumer Demo</name>
     <description>
-        Example Spring Boot app showing how to integrate
-        NepalPay Spring Boot Starter for Khalti and eSewa payments.
+        Example Spring Boot 4 app showing how to integrate
+        NepalPay Spring Boot 4 Starter for Khalti, eSewa,
+        and ConnectIPS payments.
     </description>
 
     <properties>
@@ -29,7 +30,6 @@
     </properties>
 
     <repositories>
-        <!-- JitPack — where NepalPay is published -->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
@@ -38,13 +38,11 @@
 
     <dependencies>
 
-        <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -52,16 +50,15 @@
         </dependency>
 
         <!--
-            NepalPay Spring Boot Starter
-            This is the library we just built!
+            NepalPay Spring Boot 4 Starter.
+            Use nepal-pay-spring-boot-3-starter for Spring Boot 3.x projects.
         -->
         <dependency>
-            <groupId>com.github.sujankim</groupId>
-            <artifactId>nepal-pay-spring-boot-starter</artifactId>
-            <version>v0.1.0</version>
+            <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
+            <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
+            <version>v0.3.0</version>
         </dependency>
 
-        <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -75,6 +72,14 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>

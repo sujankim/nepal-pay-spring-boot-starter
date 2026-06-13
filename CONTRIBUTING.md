@@ -1,45 +1,39 @@
 # Contributing to NepalPay Spring Boot Starter
 
-Thank you for your interest in contributing to **NepalPay Spring Boot Starter**! 🇳🇵
+Thank you for your interest! 🇳🇵
 
-> The first production-grade Java library for Nepal payment gateways, including Khalti, eSewa, ConnectIPS, and Fonepay.
-
-We welcome contributions of all sizes, including:
-
-* 🐛 Bug fixes
-* ✨ New features
-* 📚 Documentation improvements
-* 🧪 Tests and examples
-* 💡 Suggestions and ideas
+**NepalPay** is the first production-grade Java library for Nepal payment gateways. Contributions of all sizes are welcome, whether it's fixing bugs, improving documentation, adding tests, or implementing new payment gateways.
 
 ---
 
-# 🚀 Local Setup
+## 🔧 Local Setup
 
-## 1. Fork the Repository
+### 1. Fork this repository on GitHub
 
-Fork this repository on GitHub.
+Click the **Fork** button at the top-right of the repository page.
 
-## 2. Clone Your Fork
+### 2. Clone your fork
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/nepal-pay-spring-boot-starter.git
 cd nepal-pay-spring-boot-starter
 ```
 
-## 3. Build the Project
+### 3. Build and run all tests
 
-```bash
-mvn clean install
-```
-
-## 4. Run Tests
+#### Maven
 
 ```bash
 mvn clean test
 ```
 
-✅ All tests must pass before submitting a Pull Request.
+#### Gradle
+
+```bash
+./gradlew test
+```
+
+### 4. All tests must pass before submitting a PR
 
 ---
 
@@ -47,218 +41,179 @@ mvn clean test
 
 ## 🐛 Reporting Bugs
 
-Please open an issue using the following format:
+Before opening a new issue:
 
-**Title**
+1. Search existing issues first.
+2. Open a new issue using the **Bug Report** template.
+3. Include:
 
-```text
-[BUG] Short description
-```
-
-**Include the following information:**
-
-* Java version
-* Spring Boot version
-* Operating system
-* Error message or stack trace
-* Steps to reproduce
-* Expected behavior
-* Actual behavior
+- Java version
+- Spring Boot version
+- Error message or stack trace
+- Steps to reproduce
+- Expected behavior
+- Actual behavior
 
 ---
 
-## ✨ Requesting Features
+## 💡 Requesting Features
 
-Please open an issue using the following format:
+1. Open a new issue using the **Feature Request** template.
+2. Explain:
 
-**Title**
-
-```text
-[FEATURE] Short description
-```
-
-Include:
-
-* Problem statement
-* Proposed solution
-* Example use case
-* Relevant payment gateway documentation (if applicable)
+- What problem does it solve?
+- Why is the feature needed?
+- Proposed API or implementation (optional)
 
 ---
 
-# 🔀 Submitting a Pull Request
+## 🚀 Submitting a Pull Request
 
-## 1. Create a Branch
+### 1. Create a branch
 
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-Examples:
+### 2. Write code and tests
 
-```bash
-git checkout -b feature/connectips-support
-git checkout -b fix/khalti-refund-bug
-git checkout -b docs/improve-readme
-```
+Please follow the code standards below.
 
----
+### 3. Run all tests
 
-## 2. Write Code and Tests
-
-All new features should include:
-
-* Unit tests
-* Integration tests (when applicable)
-* Documentation updates
-
----
-
-## 3. Run the Test Suite
+#### Maven
 
 ```bash
 mvn clean test
 ```
 
+#### Gradle
+
+```bash
+./gradlew test
+```
+
 All tests must be green ✅
 
----
-
-## 4. Commit Your Changes
+### 4. Commit using Conventional Commits
 
 Examples:
 
-```bash
-git commit -m "feat: add ConnectIPS integration"
-git commit -m "fix: handle Khalti timeout exception"
-git commit -m "docs: improve README examples"
+```text
+feat: add Fonepay integration
+fix: correct eSewa sandbox URL
+docs: update ConnectIPS guide
+test: add refund test for Khalti
+refactor: simplify RSA signing utility
 ```
 
-We follow the Conventional Commits specification:
-
-* `feat:`
-* `fix:`
-* `docs:`
-* `refactor:`
-* `test:`
-* `chore:`
-
----
-
-## 5. Push Your Branch
+### 5. Push and open a Pull Request
 
 ```bash
 git push origin feature/your-feature-name
 ```
 
----
+Then open a PR against the `main` branch.
 
-## 6. Open a Pull Request
+### 6. Update the Changelog
 
-Open a Pull Request against the `main` branch.
-
-Please include:
-
-* What changed
-* Why it changed
-* Screenshots (if applicable)
-* Related issue number
-
-Example:
+Add your changes under the `[Unreleased]` section in:
 
 ```text
-Closes #42
+CHANGELOG.md
 ```
 
 ---
 
-# 🗺️ Roadmap — What to Contribute
+# 🗺️ Roadmap — Best Places to Contribute
 
-| Priority  | Feature                 | Description                              |
-| --------- | ----------------------- | ---------------------------------------- |
-| 🔴 High   | ConnectIPS Integration  | Bank-linked payments                     |
-| 🔴 High   | Fonepay Integration     | QR-based payments                        |
-| 🟡 Medium | Refund Support (Khalti) | `KhaltiClient.refundPayment()`           |
-| 🟡 Medium | Retry Logic             | Auto-retry on transient errors           |
-| 🟢 Low    | Webhook Support         | Receive push notifications from gateways |
-| 🟢 Low    | Spring WebFlux Support  | Reactive/non-blocking clients            |
+| Priority | Feature | Notes |
+|----------|----------|--------|
+| 🔴 High | Fonepay integration | QR + bank transfer |
+| 🔴 High | Khalti refund API | `KhaltiClient.refundPayment()` |
+| 🟡 Medium | Retry with backoff | Auto-retry on transient errors |
+| 🟡 Medium | Spring WebFlux support | Reactive/non-blocking clients |
+| 🟢 Low | Webhook support | Receive push notifications |
+| 🟢 Low | Maven Central publishing | Removes JitPack requirement |
 
 ---
 
 # ✅ Code Standards
 
-## Java
-
-* Use **Java 21** features where appropriate.
-* Prefer **Java Records** for DTOs and models.
-* Use **constructor injection**.
-* Keep APIs immutable whenever possible.
-
-## Logging
-
-Use Lombok:
-
-```java
-@Slf4j
-```
-
-Avoid:
-
-```java
-private static final Logger log = LoggerFactory.getLogger(...);
-```
-
-## Documentation
-
-* All public classes must have Javadoc.
-* All public methods must have Javadoc.
-* Public APIs should include usage examples whenever possible.
-
-## Testing
-
-* All new features must include tests.
-* Prefer `MockWebServer` for gateway API testing.
-* Do not use real payment credentials in tests.
-* Tests must not depend on internet access.
-
-## Package Structure
-
-Please follow the existing package structure:
-
 ```text
-io.nepalpay
-├── autoconfigure
-├── config
-├── common
-├── khalti
-├── esewa
-├── connectips
-├── fonepay
-└── exception
+Models        → Java records (not classes)
+Logging       → @Slf4j (not manual Logger)
+Exceptions    → Extend NepalPayException
+HTTP Client   → RestClient (Spring Boot 4)
+Tests         → MockWebServer for HTTP, plain JUnit for logic
+Javadoc       → Required on all public methods and classes
+Secrets       → Never hardcode — always use properties
 ```
 
 ---
 
-# 🔐 Security
+# 🧪 Test Standards
 
-Please do **not** open public issues for security vulnerabilities.
+Every new gateway must include:
 
-Instead, contact:
+- `*PaymentStatusTest.java`
+  - Pure enum unit tests
 
-**Sujan Lamichhane**
+- `*ClientTest.java`
+  - MockWebServer HTTP tests
 
-📧 [sujan.officals@email.com](mailto:sujan.officals@email.com)
+- Configuration guard tests
+  - Missing configuration
+  - Invalid configuration
+  - Production vs sandbox behavior
+
+- Updated `NepalPayAutoConfigurationTest.java`
+  - Bean wiring tests
+  - Auto-configuration verification
+
+---
+
+# 📚 Documentation Standards
+
+New features should include:
+
+- Javadoc for all public APIs
+- README updates (if applicable)
+- Documentation site updates (`docs/`)
+- Example usage in `examples/consumer-demo/`
+- Changelog entry
+
+---
+
+# 🔐 Security Guidelines
+
+Never:
+
+- Hardcode API keys
+- Commit `.pfx` certificates
+- Commit merchant credentials
+- Log secrets or tokens
+
+Always:
+
+- Use configuration properties
+- Add sensitive files to `.gitignore`
+- Follow server-side payment verification rules
 
 ---
 
 # 📜 License
 
-By contributing to this project, you agree that your contributions will be licensed under the **[MIT License](LICENSE)**.
+By contributing to NepalPay Spring Boot Starter, you agree that your contributions will be licensed under the **MIT License**.
 
 ---
 
-# ❤️ Thank You
+<div align="center">
 
-Every contribution, no matter how small, helps improve the Java ecosystem for Nepal's digital payment infrastructure.
+Built with ❤️ for Nepal's developer community 🇳🇵
 
-**Happy Coding! 🇳🇵**
+Thank you for contributing!
+
+⭐ If you find NepalPay useful, consider starring the repository.
+
+</div>

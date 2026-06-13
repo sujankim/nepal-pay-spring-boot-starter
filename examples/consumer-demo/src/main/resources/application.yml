@@ -5,42 +5,46 @@ spring:
 server:
   port: 8080
 
-# ══════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 # NepalPay Configuration
-# ══════════════════════════════════════════════════
+#
+# These are SANDBOX credentials safe to use in local development.
+# NEVER use production keys in this file — always use env variables.
+# ══════════════════════════════════════════════════════════════════
 nepalpay:
 
-  # ── Khalti ──────────────────────────────────────
+  # ── Khalti Sandbox ────────────────────────────────────────────────
+  # Get your test key from: https://test-admin.khalti.com
   khalti:
-    # Set via environment variable: export KHALTI_SECRET_KEY=test_secret_key_xxx
     secret-key:  ${KHALTI_SECRET_KEY:test_secret_key_placeholder}
     return-url:  http://localhost:8080/api/demo/khalti/callback
     website-url: http://localhost:8080
-    sandbox: true   # ← always true for this demo
+    sandbox: true
 
-  # ── eSewa ────────────────────────────────────────
+  # ── eSewa Sandbox ─────────────────────────────────────────────────
+  # Official sandbox credentials from: https://developer.esewa.com.np
+  # eSewa ID: 9806800001  Password: Nepal@123  MPIN: 1122  Token: 123456
   esewa:
-    # Sandbox secret key (safe to use in local dev only)
     secret-key:   ${ESEWA_SECRET_KEY:8gBm/:&EnhH.1/q}
     product-code: ${ESEWA_PRODUCT_CODE:EPAYTEST}
     success-url:  http://localhost:8080/api/demo/esewa/callback
     failure-url:  http://localhost:8080/api/demo/esewa/failed
     sandbox: true
 
-     #── ConnectIPS ────────────────────────────────────────────────────────────
-     #Requires merchant registration with NCHL before use.
-     #Contact: connectips@nchl.com.np
-     #Uncomment and configure once you have NCHL credentials:
-
-  connectips:
-    merchant-id:  ${CONNECTIPS_MERCHANT_ID}
-    app-id:       ${CONNECTIPS_APP_ID}
-    app-name:     ${CONNECTIPS_APP_NAME}
-    app-password: ${CONNECTIPS_APP_PASSWORD}
-    pfx-path:     ${CONNECTIPS_PFX_PATH}      # e.g. file:/app/CREDITOR.pfx
-    pfx-password: ${CONNECTIPS_PFX_PASSWORD}
-    sandbox: true                              # false for production
+  # ── ConnectIPS ────────────────────────────────────────────────────
+  # Requires NCHL merchant registration before use.
+  # Contact: connectips@nchl.com.np or your bank to register.
+  # Uncomment and fill in once you have NCHL credentials:
+  #
+   connectips:
+     merchant-id:  ${CONNECTIPS_MERCHANT_ID}
+     app-id:       ${CONNECTIPS_APP_ID}
+     app-name:     ${CONNECTIPS_APP_NAME}
+     app-password: ${CONNECTIPS_APP_PASSWORD}
+     pfx-path:     ${CONNECTIPS_PFX_PATH}       # e.g. file:/app/CREDITOR.pfx
+     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+     sandbox: true
 
 logging:
   level:
-    io.nepalpay: DEBUG   # see NepalPay logs while developing
+    io.nepalpay: DEBUG   # see all NepalPay internal logs while developing

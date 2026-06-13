@@ -1,9 +1,10 @@
 package com.example.demo.controller;
 
 import io.nepalpay.connectips.ConnectIpsClient;
-import io.nepalpay.connectips.exception.ConnectIpsException;
-import io.nepalpay.connectips.model.ConnectIpsFormPayload;
-import io.nepalpay.connectips.model.ConnectIpsValidateResponse;
+import io.nepalpay.core.connectips.model.ConnectIpsFormPayload;
+import io.nepalpay.core.connectips.model.ConnectIpsPaymentRequest;
+import io.nepalpay.core.connectips.model.ConnectIpsValidateResponse;
+import io.nepalpay.core.exception.ConnectIpsException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,18 +20,28 @@ import java.util.Map;
 /**
  * Demo controller showing ConnectIPS payment integration.
  *
- * <p>ConnectIPS requires merchant registration with NCHL and a .pfx
- * certificate file before it can be used. This demo shows the
- * correct integration pattern once you have your credentials.
+ * <h2>Prerequisites</h2>
+ * ConnectIPS requires NCHL merchant registration before use.
+ * Contact connectips@nchl.com.np or your bank to register.
+ * You will receive a merchant ID, app credentials, and CREDITOR.pfx file.
  *
- * <p>To get ConnectIPS merchant credentials:
- * Contact NCHL at connectips@nchl.com.np or register via your bank.
+ * <h2>Flow</h2>
+ * <ol>
+ *   <li>POST /api/demo/connectips/initiate → returns signed form payload</li>
+ *   <li>Frontend POSTs form fields to payload.form_action_url</li>
+ *   <li>User completes bank transfer on ConnectIPS</li>
+ *   <li>ConnectIPS redirects to GET /api/demo/connectips/callback</li>
+ *   <li>We validate server-side with validateTransaction()</li>
+ * </ol>
  *
- * <p>Endpoints:
- * <ul>
- *   <li>POST /api/demo/connectips/initiate — build signed form payload</li>
- *   <li>GET  /api/demo/connectips/callback — handle ConnectIPS redirect</li>
- * </ul>
+ * <h2>Important: Amount in Paisa</h2>
+ * ConnectIPS uses paisa like Khalti. NPR 100 = 10000 paisa.
+ * Use {@code ConnectIpsPaymentRequest.builder().amountNPR(100L)} for
+ * automatic conversion.
+ *
+ * <h2>Security Rule</h2>
+ * NEVER trust redirect parameters alone.
+ * ALWAYS call {@code connectIpsClient.validateTransaction()} server-side.
  */
 @Slf4j
 @RestController
@@ -39,16 +50,19 @@ import java.util.Map;
 public class ConnectIpsDemoController {
 
     /**
-     * ConnectIpsClient is auto-injected by NepalPay when configured.
-     * Requires nepalpay.connectips.* properties to be set.
+     * ConnectIpsClient is auto-injected when nepalpay.connectips.* is configured.
+     * Requires NCHL merchant registration and a .pfx certificate file.
      */
     private final ConnectIpsClient connectIpsClient;
 
     /**
-     * Step 1 — Build signed ConnectIPS form payload.
+     * Build a signed ConnectIPS form payload and return it to the frontend.
      *
-     * <p>Example request body:
+     * <p>Example request:
      * <pre>
+     * POST /api/demo/connectips/initiate
+     * Content-Type: application/json
+     *
      * {
      *   "orderId": "ORD-001",
      *   "amountNPR": 100,
@@ -56,63 +70,71 @@ public class ConnectIpsDemoController {
      * }
      * </pre>
      *
-     * <p>Returns ConnectIpsFormPayload — your frontend POSTs all fields
-     * to payload.form_action_url as a form.
-     *
-     * <p>Amount is in PAISA (NPR x 100) for ConnectIPS.
+     * @param request payment details
+     * @return signed ConnectIPS form payload
      */
     @PostMapping("/initiate")
     public ResponseEntity<Map<String, Object>> initiatePayment(
             @RequestBody Map<String, Object> request) {
 
-        String orderId    = (String) request.get("orderId");
-        long amountNPR    = Long.parseLong(request.get("amountNPR").toString());
-        String txnId      = "TXN-" + orderId + "-" + System.currentTimeMillis();
+        String orderId  = (String) request.get("orderId");
+        long amountNPR  = Long.parseLong(request.get("amountNPR").toString());
 
-        log.info("[DEMO] Initiating ConnectIPS payment | orderId={} | amountNPR={}",
+        String txnId = "TXN-" + orderId + "-" + System.currentTimeMillis();
+
+        log.info("[DEMO] ConnectIPS initiate | orderId={} | amountNPR={}",
                 orderId, amountNPR);
 
         try {
-            // ConnectIPS uses PAISA — multiply by 100
-            long amountPaisa = amountNPR * 100L;
+            ConnectIpsPaymentRequest paymentRequest =
+                    ConnectIpsPaymentRequest.builder()
+                            .txnId(txnId)
+                            // ⚠️ ConnectIPS uses PAISA — amountNPR() converts automatically
+                            .amountNPR(amountNPR)
+                            .referenceId(orderId)
+                            .remarks("Payment for order " + orderId)
+                            .particulars("NepalPay Demo")
+                            .build();
 
-            ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
-                    txnId,
-                    amountPaisa,
-                    orderId,
-                    "Payment for " + orderId,
-                    "NepalPay Demo"
-            );
-
-            // In a real app: save txnId to your database here!
+            // In a real app: save txnId to your DB before returning!
+            ConnectIpsFormPayload payload =
+                    connectIpsClient.buildFormPayload(paymentRequest);
 
             log.info("[DEMO] ConnectIPS payload built | txnId={}", txnId);
 
             return ResponseEntity.ok(Map.of(
-                    "success",          true,
-                    "txn_id",           txnId,
-                    "payload",          payload,
-                    "message",          "POST all payload fields as a form to form_action_url",
-                    "form_action_url",  payload.formActionUrl()
+                    "txn_id",          txnId,
+                    "payload",         payload,
+                    "form_action_url", payload.formActionUrl(),
+                    "message",         "POST all UPPERCASE payload fields as a form to form_action_url"
             ));
 
         } catch (ConnectIpsException e) {
             log.error("[DEMO] ConnectIPS initiate failed", e);
             return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error",   e.getMessage()
+                    "error", e.getMessage()
             ));
         }
     }
 
     /**
-     * Step 2 — Handle ConnectIPS callback after payment.
+     * Handle ConnectIPS callback after payment.
      *
-     * <p>ConnectIPS redirects here after payment with query params.
-     * Always validate server-side — never trust redirect alone.
+     * <p>ConnectIPS redirects here after the user completes payment.
+     * We ALWAYS validate server-side — never trust redirect params alone.
      *
      * <p>Example redirect:
-     * GET /api/demo/connectips/callback?txnId=TXN-001&referenceId=ORD-001&txnAmt=10000
+     * <pre>
+     * GET /api/demo/connectips/callback
+     *     ?txnId=TXN-ORD-001-123456
+     *     &referenceId=ORD-001
+     *     &txnAmt=10000
+     * </pre>
+     *
+     * @param txnId       the transaction ID from your original initiate call
+     * @param referenceId your original order/reference ID
+     * @param txnAmt      transaction amount in paisa
+     * @return validation result
      */
     @GetMapping("/callback")
     public ResponseEntity<Map<String, Object>> handleCallback(
@@ -120,45 +142,48 @@ public class ConnectIpsDemoController {
             @RequestParam String referenceId,
             @RequestParam long txnAmt) {
 
-        log.info("[DEMO] ConnectIPS callback received | txnId={} | referenceId={}",
+        log.info("[DEMO] ConnectIPS callback | txnId={} | referenceId={}",
                 txnId, referenceId);
 
         try {
-            // Always validate server-side
+            // ✅ Always validate server-side
             ConnectIpsValidateResponse response =
                     connectIpsClient.validateTransaction(txnId, referenceId, txnAmt);
 
             if (!response.isPaymentSuccessful()) {
                 log.warn("[DEMO] ConnectIPS payment not confirmed | status={}",
                         response.status());
+
                 return ResponseEntity.ok(Map.of(
-                        "success",     false,
+                        "verified",    false,
                         "status",      response.status(),
-                        "status_desc", response.statusDesc(),
+                        "status_desc", response.statusDesc() != null
+                                ? response.statusDesc() : "",
                         "message",     "Payment not confirmed"
                 ));
             }
 
             // In a real app:
-            // 1. Look up order by referenceId from your database
+            // 1. Load order from DB by referenceId
             // 2. Verify amount matches
             // 3. Mark order as paid
 
             log.info("[DEMO] ConnectIPS payment verified | txnId={}", txnId);
 
             return ResponseEntity.ok(Map.of(
-                    "success",     true,
+                    "verified",    true,
                     "status",      response.status(),
-                    "status_desc", response.statusDesc(),
-                    "reference_id", response.referenceId(),
-                    "message",     "Payment verified — safe to fulfill order"
+                    "status_desc", response.statusDesc() != null
+                            ? response.statusDesc() : "",
+                    "reference_id", response.referenceId() != null
+                            ? response.referenceId() : "",
+                    "message",     "Payment verified — safe to fulfil order"
             ));
 
         } catch (ConnectIpsException e) {
-            log.error("[DEMO] ConnectIPS callback failed | txnId={}", txnId, e);
+            log.error("[DEMO] ConnectIPS callback error | txnId={}", txnId, e);
             return ResponseEntity.internalServerError().body(Map.of(
-                    "success", false,
-                    "error",   e.getMessage()
+                    "error", e.getMessage()
             ));
         }
     }

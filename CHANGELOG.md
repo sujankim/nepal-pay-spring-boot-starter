@@ -6,106 +6,103 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [Unreleased]
-
-### Planned
-
-* ConnectIPS integration
-* Fonepay integration
-* Khalti refund support
-* Retry logic with exponential backoff
-* Webhook support
-* Spring WebFlux support
-
----
-
-## [0.1.0] - 2026-06-13 🎉 First Release
+## [0.3.0] - 2026-06-14
 
 ### Added
 
-#### Khalti Payment Gateway
+#### Multi-Module Architecture
 
-* `KhaltiClient.initiatePayment()` — Server-side payment initiation
-* `KhaltiClient.lookupPayment()` — Server-side payment verification (always call after callback)
-* `KhaltiPaymentStatus` enum with all official statuses:
+* `nepal-pay-core` — pure Java 17 module with zero Spring dependencies
 
-    * `COMPLETED`
-    * `PENDING`
-    * `INITIATED`
-    * `EXPIRED`
-    * `USER_CANCELED`
-    * `REFUNDED`
-* Sandbox and production mode switching via `nepalpay.khalti.sandbox`
-* Zero-boilerplate auto-configuration using `@ConditionalOnProperty`
+    * All models (records), exceptions, and status enums live here
+    * Compatible with Spring Boot 3.x, Spring Boot 4.x, and plain Java 17+
+    * Package: `io.nepalpay.core.*`
 
-#### eSewa Payment Gateway
+* `nepal-pay-spring-boot-3-starter` — Spring Boot 3.2+ support
 
-* `EsewaClient.buildFormPayload()` — HMAC-SHA256 signed form payload generation
-* `EsewaClient.verifyCallback()` — Base64 decoding, signature verification, and status verification
-* `EsewaClient.checkStatus()` — Direct status API polling
-* `EsewaClient.generateTransactionUuid()` — eSewa-compatible UUID generation
-* `EsewaVerificationResult` record
-* `EsewaPaymentStatus` enum:
+    * Uses Jackson 2 (`com.fasterxml.jackson.databind.ObjectMapper`)
+    * Java 17 minimum
 
-    * `COMPLETE`
-    * `INCOMPLETE`
-    * `UNKNOWN`
-* Sandbox and production mode switching via `nepalpay.esewa.sandbox`
+* `nepal-pay-spring-boot-4-starter` — Spring Boot 4.x support
 
-#### Auto-Configuration
+    * Uses Jackson 3 (`tools.jackson.databind.json.JsonMapper`)
+    * Java 21 minimum
 
-* `NepalPayAutoConfiguration` for Spring Boot 4.1.0
-* `NepalPayProperties` using type-safe `@ConfigurationProperties`
-* IDE auto-completion via `spring-configuration-metadata.json`
-* `@ConditionalOnMissingBean` support for custom bean overrides
+#### Consumer Demo
 
-#### Testing
+* `examples/consumer-demo/` — complete working Spring Boot 4 demo application
 
-* 51 automated tests covering:
+    * `HealthController` — confirms auto-configuration
+    * `KhaltiDemoController` — initiate + callback with full comments
+    * `EsewaDemoController` — initiate + callback + failure handler
+    * `ConnectIpsDemoController` — initiate + callback
+    * `examples/consumer-demo/README.md` — usage guide with `curl` examples
 
-    * Happy paths
-    * Error paths
-    * Security validation
-* `KhaltiClientTest` using MockWebServer
-* `EsewaClientTest` with HMAC signature verification and MockWebServer
-* `NepalPayAutoConfigurationTest` using `ApplicationContextRunner`
+### Changed
 
-### Technical Stack
+* All model packages moved from `io.nepalpay.*` to `io.nepalpay.core.*`
+* All exception packages moved from `io.nepalpay.exception` to `io.nepalpay.core.exception`
+* Parent `pom.xml` changed from a Spring Boot parent to a plain Maven parent
+* CI workflow updated to build modules in the correct dependency order
 
-* Java 21
-* Spring Boot 4.1.0
-* Jackson 3 (`tools.jackson`)
-* SLF4J (Logging Facade)
-* MockWebServer 4.12.0
-* Maven
-* JUnit 5
-* AssertJ
-* Mockito
+### Migration from v0.2.0
 
-### Security
+Change your dependency:
 
-* Server-side payment verification enforced for Khalti
-* HMAC-SHA256 signature verification for eSewa callbacks
-* No real payment credentials used in automated tests
+#### Spring Boot 3.2+
+
+```xml
+<dependency>
+    <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
+    <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
+    <version>v0.3.0</version>
+</dependency>
+```
+
+#### Spring Boot 4.x
+
+```xml
+<dependency>
+    <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
+    <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
+    <version>v0.3.0</version>
+</dependency>
+```
+
+Update your imports:
+
+**Before (v0.2.0)**
+
+```java
+import io.nepalpay.khalti.model.KhaltiInitiateRequest;
+import io.nepalpay.exception.KhaltiException;
+```
+
+**After (v0.3.0)**
+
+```java
+import io.nepalpay.core.khalti.model.KhaltiInitiateRequest;
+import io.nepalpay.core.exception.KhaltiException;
+```
 
 ---
 
-## Release Notes
+## [0.2.0] - 2026-06-13
 
-### v0.1.0 Highlights
+### Added
 
-✅ First production-grade Java library for Nepal payment gateways
+* ConnectIPS payment gateway (RSA-SHA256 signed)
+* `ConnectIpsClient` — `buildFormPayload()` and `validateTransaction()`
+* `ConnectIpsPaymentRequest` — builder with `amountNPR()` auto-conversion
+* Full ConnectIPS documentation page
 
-✅ Spring Boot Starter with auto-configuration
+---
 
-✅ Khalti integration
+## [0.1.0] - 2026-06-13
 
-✅ eSewa integration
+### Added
 
-✅ Type-safe configuration properties
-
-✅ Comprehensive automated testing
-
-✅ Java 21 and Spring Boot 4.1 support
-
-🇳🇵 Built for the Nepal Java ecosystem.
+* Khalti payment gateway — initiate + lookup
+* eSewa payment gateway — form payload + verify + status API
+* Spring Boot 4.1.0 auto-configuration
+* 51 tests with MockWebServer

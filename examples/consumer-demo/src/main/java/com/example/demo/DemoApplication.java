@@ -6,11 +6,19 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * NepalPay Consumer Demo Application.
  *
- * <p>This is a minimal Spring Boot application showing how to use the
- * NepalPay Spring Boot Starter to integrate Khalti and eSewa payments.
+ * <p>This is a minimal Spring Boot 4 app showing how to integrate
+ * NepalPay Spring Boot Starter for Khalti, eSewa, and ConnectIPS.
  *
- * <p>Run with: mvn spring-boot:run
- * Then visit: http://localhost:8080/api/demo/health
+ * <p>Run with: {@code mvn spring-boot:run}
+ *
+ * <p>Then test with:
+ * <pre>
+ * POST http://localhost:8080/api/demo/khalti/initiate
+ * POST http://localhost:8080/api/demo/esewa/initiate
+ * GET  http://localhost:8080/api/demo/health
+ * </pre>
+ *
+ * <p>See README.md in this directory for full usage guide.
  */
 @SpringBootApplication
 public class DemoApplication {

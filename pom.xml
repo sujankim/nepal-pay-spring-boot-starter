@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        ROOT PARENT POM — no Spring Boot parent here.
+        We cannot inherit from Spring Boot parent because we have
+        two child starters using DIFFERENT Spring Boot versions (3 and 4).
+        Each child starter inherits from its own Spring Boot parent directly.
+    -->
+    <groupId>io.nepalpay</groupId>
+    <artifactId>nepal-pay-parent</artifactId>
+    <version>0.3.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>NepalPay Parent</name>
+    <description>
+        Parent POM for NepalPay Spring Boot Starter.
+        Multi-module project supporting Spring Boot 3.2+ and 4.x.
+    </description>
+    <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>sujanlamichhane</id>
+            <name>Sujan Lamichhane</name>
+            <email>sujan.officals@email.com</email>
+            <url>https://sujanlamichhane.com.np</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git</connection>
+        <developerConnection>scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git</developerConnection>
+        <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+    </scm>
+
+    <!--
+        THREE MODULES:
+        1. nepal-pay-core                    → pure Java 17, no Spring
+        2. nepal-pay-spring-boot-3-starter   → Spring Boot 3.2+, Java 17
+        3. nepal-pay-spring-boot-4-starter   → Spring Boot 4.x, Java 21
+    -->
+    <modules>
+        <module>nepal-pay-core</module>
+        <module>nepal-pay-spring-boot-3-starter</module>
+        <module>nepal-pay-spring-boot-4-starter</module>
+    </modules>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+</project>
