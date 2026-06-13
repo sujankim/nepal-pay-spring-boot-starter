@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Configuration — NepalPay Docs</title>
+    <link rel="stylesheet" href="css/style.css"/>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇳🇵</text></svg>"/>
+</head>
+<body>
+<div class="layout">
+
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-title">🇳🇵 NepalPay</span>
+            <span class="logo-version">v0.1.0</span>
+        </div>
+        <nav>
+            <div class="nav-section">Getting Started</div>
+            <a href="index.html">Introduction</a>
+            <a href="index.html#installation">Installation</a>
+            <a href="index.html#quickstart">Quick Start</a>
+
+            <div class="nav-section">Gateways</div>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
+
+            <div class="nav-section">Reference</div>
+            <a href="configuration.html" class="active">Configuration</a>
+            <a href="security.html">Security</a>
+
+            <div class="nav-section">Project</div>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
+            <a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter" target="_blank">JitPack ↗</a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div class="content">
+
+            <h1>Configuration Reference</h1>
+            <p>All properties are under the <code>nepalpay.*</code> prefix.
+                IDE autocomplete is supported — type <code>nepalpay.</code>
+                and your IDE shows all available options.</p>
+
+            <h2>Khalti Properties</h2>
+            <table>
+                <thead><tr><th>Property</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                <tr><td><code>nepalpay.khalti.secret-key</code></td><td>✅</td><td>—</td><td>Khalti secret key. Presence of this key enables the <code>KhaltiClient</code> bean.</td></tr>
+                <tr><td><code>nepalpay.khalti.return-url</code></td><td>✅</td><td>—</td><td>URL Khalti redirects to after payment.</td></tr>
+                <tr><td><code>nepalpay.khalti.website-url</code></td><td>✅</td><td>—</td><td>Your merchant website URL.</td></tr>
+                <tr><td><code>nepalpay.khalti.sandbox</code></td><td>No</td><td><code>true</code></td><td><code>true</code> = sandbox / <code>false</code> = production.</td></tr>
+                <tr><td><code>nepalpay.khalti.timeout-seconds</code></td><td>No</td><td><code>10</code></td><td>HTTP timeout for Khalti API calls.</td></tr>
+                </tbody>
+            </table>
+
+            <h2>eSewa Properties</h2>
+            <table>
+                <thead><tr><th>Property</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                <tr><td><code>nepalpay.esewa.secret-key</code></td><td>✅</td><td>—</td><td>eSewa HMAC secret key. Enables <code>EsewaClient</code> bean.</td></tr>
+                <tr><td><code>nepalpay.esewa.product-code</code></td><td>✅</td><td>—</td><td>Merchant code. Sandbox: <code>EPAYTEST</code>. Production: your code.</td></tr>
+                <tr><td><code>nepalpay.esewa.success-url</code></td><td>✅</td><td>—</td><td>URL eSewa redirects to on success.</td></tr>
+                <tr><td><code>nepalpay.esewa.failure-url</code></td><td>✅</td><td>—</td><td>URL eSewa redirects to on failure.</td></tr>
+                <tr><td><code>nepalpay.esewa.sandbox</code></td><td>No</td><td><code>true</code></td><td><code>true</code> = sandbox / <code>false</code> = production.</td></tr>
+                <tr><td><code>nepalpay.esewa.timeout-seconds</code></td><td>No</td><td><code>10</code></td><td>HTTP timeout for eSewa status API calls.</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Full Example</h2>
+            <pre><code><span class="cm"># ── Sandbox (development) ─────────────────────────────────────</span>
+nepalpay:
+  khalti:
+    secret-key:  ${KHALTI_SECRET_KEY}
+    return-url:  https://yourapp.com/api/payment/khalti/callback
+    website-url: https://yourapp.com
+    sandbox: true
+
+  esewa:
+    secret-key:   ${ESEWA_SECRET_KEY}    <span class="cm"># sandbox: 8gBm/:&EnhH.1/q</span>
+    product-code: ${ESEWA_PRODUCT_CODE}  <span class="cm"># sandbox: EPAYTEST</span>
+    success-url:  https://yourapp.com/api/payment/esewa/callback
+    failure-url:  https://yourapp.com/payment/failed
+    sandbox: true</code></pre>
+
+            <pre><code><span class="cm"># ── Production ────────────────────────────────────────────────</span>
+nepalpay:
+  khalti:
+    secret-key:  ${KHALTI_SECRET_KEY}
+    return-url:  https://yourapp.com/api/payment/khalti/callback
+    website-url: https://yourapp.com
+    sandbox: false                        <span class="cm"># ← production mode</span>
+
+  esewa:
+    secret-key:   ${ESEWA_SECRET_KEY}
+    product-code: ${ESEWA_PRODUCT_CODE}   <span class="cm"># ⚠️ real merchant code!</span>
+    success-url:  https://yourapp.com/api/payment/esewa/callback
+    failure-url:  https://yourapp.com/payment/failed
+    sandbox: false                        <span class="cm"># ← production mode</span></code></pre>
+
+            <h2>Use Only One Gateway</h2>
+            <p>Beans are only created when the corresponding <code>secret-key</code> is present.
+                Configure only what you need:</p>
+            <pre><code><span class="cm"># Only Khalti — no EsewaClient bean created</span>
+nepalpay:
+  khalti:
+    secret-key:  ${KHALTI_SECRET_KEY}
+    return-url:  ${KHALTI_RETURN_URL}
+    website-url: ${YOUR_WEBSITE_URL}</code></pre>
+
+            <div class="page-nav">
+                <a href="esewa.html">← eSewa</a>
+                <a href="security.html">Security →</a>
+            </div>
+
+            <footer>
+                Built by
+                <a href="https://sujanlamichhane.com.np">Sujan Lamichhane</a>
+                · MIT License ·
+                <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter">GitHub</a>
+            </footer>
+
+        </div>
+    </main>
+</div>
+</body>
+</html>

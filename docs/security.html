@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Security — NepalPay Docs</title>
+    <link rel="stylesheet" href="css/style.css"/>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇳🇵</text></svg>"/>
+</head>
+<body>
+<div class="layout">
+
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-title">🇳🇵 NepalPay</span>
+            <span class="logo-version">v0.1.0</span>
+        </div>
+        <nav>
+            <div class="nav-section">Getting Started</div>
+            <a href="index.html">Introduction</a>
+            <a href="index.html#installation">Installation</a>
+            <a href="index.html#quickstart">Quick Start</a>
+
+            <div class="nav-section">Gateways</div>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
+
+            <div class="nav-section">Reference</div>
+            <a href="configuration.html">Configuration</a>
+            <a href="security.html" class="active">Security</a>
+
+            <div class="nav-section">Project</div>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
+            <a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter" target="_blank">JitPack ↗</a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <div class="content">
+
+            <h1>Security Best Practices</h1>
+            <p>Payment integrations require extra security care.
+                NepalPay enforces safe patterns by design — but you must follow these rules too.</p>
+
+            <h2>✅ Always Do</h2>
+
+            <h3>1. Always verify server-side after Khalti redirect</h3>
+            <pre><code><span class="cm">// ✅ CORRECT</span>
+<span class="cl">KhaltiLookupResponse</span> lookup = khaltiClient.lookupPayment(pidx);
+<span class="kw">if</span> (lookup.isPaymentSuccessful()) {
+    markOrderAsPaid();
+}</code></pre>
+
+            <h3>2. Always use verifyCallback() for eSewa</h3>
+            <pre><code><span class="cm">// ✅ CORRECT — does all 3 checks automatically</span>
+<span class="cl">EsewaVerificationResult</span> result = esewaClient.verifyCallback(data);
+<span class="kw">if</span> (result.isPaymentSuccessful()) {
+    markOrderAsPaid();
+}</code></pre>
+
+            <h3>3. Verify amount matches your order</h3>
+            <pre><code><span class="cm">// ✅ Prevent amount-tampering attacks</span>
+<span class="kw">if</span> (!lookup.isAmountValid(expectedAmountPaisa)) {
+    <span class="kw">throw new</span> <span class="cl">SecurityException</span>(<span class="st">"Amount mismatch!"</span>);
+}</code></pre>
+
+            <h3>4. Store pidx/transactionUuid before redirecting</h3>
+            <pre><code><span class="cm">// ✅ Save BEFORE redirecting user</span>
+orderRepo.savePidx(orderId, response.pidx());
+<span class="kw">return</span> response.paymentUrl(); <span class="cm">// then redirect</span></code></pre>
+
+            <h3>5. Use environment variables for secrets</h3>
+            <pre><code>nepalpay:
+  khalti:
+    secret-key: ${KHALTI_SECRET_KEY}  <span class="cm"># ✅ from env var</span></code></pre>
+
+            <h2>❌ Never Do</h2>
+
+            <div class="callout callout-danger">
+                <strong>❌ NEVER trust redirect parameters alone</strong>
+                <pre><code><span class="cm">// ❌ WRONG — redirect can be faked by anyone</span>
+<span class="kw">if</span> (request.getParam(<span class="st">"status"</span>).equals(<span class="st">"Completed"</span>)) {
+    markOrderAsPaid(); <span class="cm">// VULNERABILITY!</span>
+}</code></pre>
+            </div>
+
+            <div class="callout callout-danger">
+                <strong>❌ NEVER hardcode secrets in code or yml</strong>
+                <pre><code><span class="cm">// ❌ WRONG — exposed in git history forever</span>
+secret-key: live_secret_key_abc123xyz</code></pre>
+            </div>
+
+            <div class="callout callout-danger">
+                <strong>❌ NEVER put secrets in frontend code</strong>
+                Secret keys must ONLY exist on your backend server.
+                Never in Angular, React, or any client-side code.
+            </div>
+
+            <h2>How NepalPay Protects You</h2>
+            <table>
+                <thead><tr><th>Threat</th><th>How NepalPay Handles It</th></tr></thead>
+                <tbody>
+                <tr><td>Redirect URL faking</td><td>Server-side lookup/verify enforced</td></tr>
+                <tr><td>eSewa response tampering</td><td>HMAC-SHA256 signature verified</td></tr>
+                <tr><td>Amount manipulation</td><td><code>isAmountValid()</code> helper provided</td></tr>
+                <tr><td>Secret key exposure</td><td>Keys only used server-side, never returned</td></tr>
+                <tr><td>Accidental production calls</td><td><code>sandbox=true</code> by default</td></tr>
+                </tbody>
+            </table>
+
+            <div class="page-nav">
+                <a href="configuration.html">← Configuration</a>
+                <span></span>
+            </div>
+
+            <footer>
+                Built by
+                <a href="https://sujanlamichhane.com.np">Sujan Lamichhane</a>
+                · MIT License ·
+                <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter">GitHub</a>
+            </footer>
+
+        </div>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,63 @@
+# ═══════════════════════════════════════════════════════════════
+# NepalPay Spring Boot Starter — CI Workflow
+# Runs on: every push to main + every pull request
+# Does: compile → test → report
+# ═══════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (Java ${{ matrix.java-version }})
+    runs-on: ubuntu-latest
+
+    # ── Test on multiple Java versions ──────────────────────────
+    # Java 21: minimum supported
+    # Java 24: latest LTS — forward compatibility check
+    strategy:
+      matrix:
+        java-version: [ '21', '24' ]
+      fail-fast: false  # run all matrix jobs even if one fails
+
+    steps:
+
+      # ── Step 1: Checkout source code ──────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Step 2: Set up Java ───────────────────────────────────
+      # Temurin = Eclipse's open-source JDK (recommended by Spring)
+      # cache: maven → caches ~/.m2 between runs (faster builds)
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          cache: maven
+
+      # ── Step 3: Compile ───────────────────────────────────────
+      - name: Compile
+        run: mvn --batch-mode compile
+
+      # ── Step 4: Run all tests ─────────────────────────────────
+      # --batch-mode  = no color output (cleaner CI logs)
+      # --update-snapshots = always use latest snapshot deps
+      - name: Run Tests
+        run: mvn --batch-mode --update-snapshots verify
+
+      # ── Step 5: Upload test report on failure ─────────────────
+      # When tests fail → upload Surefire HTML report as artifact
+      # Go to: Actions → failed run → Artifacts → test-report
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v4
+        if: failure()   # only upload when tests fail
+        with:
+          name: test-report-java-${{ matrix.java-version }}
+          path: target/surefire-reports/
+          retention-days: 7

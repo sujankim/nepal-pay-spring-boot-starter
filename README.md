@@ -3,14 +3,26 @@
 <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21"/>
 <img src="https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 4.1.0"/>
 <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT License"/>
-<img src="https://img.shields.io/badge/JitPack-v0.1.0-brightgreen?style=for-the-badge" alt="JitPack"/>
+
+<a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter">
+  <img src="https://jitpack.io/v/sujankim/nepal-pay-spring-boot-starter.svg?style=for-the-badge"
+       alt="JitPack Version"/>
+</a>
+<a href="https://github.com/sujankim/nepal-pay-spring-boot-starter/stargazers">
+  <img src="https://img.shields.io/github/stars/sujankim/nepal-pay-spring-boot-starter?style=for-the-badge" alt="GitHub Stars"/>
+</a>
+
+<a href="https://github.com/sujankim/nepal-pay-spring-boot-starter/network/members">
+  <img src="https://img.shields.io/github/forks/sujankim/nepal-pay-spring-boot-starter?style=for-the-badge" alt="GitHub Forks"/>
+</a>
+
 <img src="https://img.shields.io/badge/Tests-51%20passing-success?style=for-the-badge" alt="51 Tests"/>
 
 # 🇳🇵 NepalPay Spring Boot Starter
 
 **The first production-grade Java library for Nepal payment gateways.**
 
-Integrate Khalti and eSewa into any Spring Boot application  
+Integrate Khalti and eSewa into any Spring Boot application
 in under 5 minutes — with security baked in.
 
 [Getting Started](#-getting-started) •
