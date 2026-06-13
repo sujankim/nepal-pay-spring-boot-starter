@@ -11,9 +11,11 @@ permissions:
 
 jobs:
 
+  # ── Step 1: Build and install core ─────────────────────────────────────────
   build-core:
     name: Build and Install Core (Java 17)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,14 +27,16 @@ jobs:
           java-version: 17
           cache: maven
 
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
       - name: Install parent POM
-        # -N = non-recursive, installs root pom only
-        run: ./mvnw install -N
+        run: ./mvnw install -N -q
 
       - name: Install core
-        # install (not just test) so starters can resolve it
-        run: ./mvnw clean install -pl nepal-pay-core
+        run: ./mvnw clean install -pl nepal-pay-core -q
 
+  # ── Step 2a: Test Spring Boot 3 starter ────────────────────────────────────
   test-boot3:
     name: Test Spring Boot 3 Starter (Java 17)
     runs-on: ubuntu-latest
@@ -49,14 +53,26 @@ jobs:
           java-version: 17
           cache: maven
 
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
       - name: Install parent and core
         run: |
-          ./mvnw install -N
-          ./mvnw clean install -pl nepal-pay-core -DskipTests
+          ./mvnw install -N -q
+          ./mvnw clean install -pl nepal-pay-core -DskipTests -q
 
       - name: Test Boot 3 starter
         run: ./mvnw clean test -pl nepal-pay-spring-boot-3-starter
 
+      - name: Verify Boot 3 package builds
+        run: |
+          ./mvnw package \
+            -pl nepal-pay-spring-boot-3-starter \
+            -DskipTests \
+            -Dmaven.javadoc.skip=true \
+            -q
+
+  # ── Step 2b: Test Spring Boot 4 starter ────────────────────────────────────
   test-boot4:
     name: Test Spring Boot 4 Starter (Java 21)
     runs-on: ubuntu-latest
@@ -73,10 +89,21 @@ jobs:
           java-version: 21
           cache: maven
 
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
       - name: Install parent and core
         run: |
-          ./mvnw install -N
-          ./mvnw clean install -pl nepal-pay-core -DskipTests
+          ./mvnw install -N -q
+          ./mvnw clean install -pl nepal-pay-core -DskipTests -q
 
       - name: Test Boot 4 starter
         run: ./mvnw clean test -pl nepal-pay-spring-boot-4-starter
+
+      - name: Verify Boot 4 package builds
+        run: |
+          ./mvnw package \
+            -pl nepal-pay-spring-boot-4-starter \
+            -DskipTests \
+            -Dmaven.javadoc.skip=true \
+            -q
