@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ConnectIPS Integration — NepalPay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+
+<header class="page-header">
+    <nav class="navbar">
+        <a class="brand" href="index.html">🇳🇵 NepalPay</a>
+        <div class="nav-links">
+            <a href="getting-started.html">Getting Started</a>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
+            <a href="connectips.html" class="active">ConnectIPS</a>
+            <a href="configuration.html">Config</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+    </nav>
+    <div class="page-title">
+        <div class="page-badge">v0.2.0</div>
+        <h1>ConnectIPS Integration</h1>
+        <p>RSA-signed bank-to-bank payments via NCHL infrastructure.</p>
+    </div>
+</header>
+
+<div class="docs-layout">
+    <aside class="sidebar">
+        <nav>
+            <a href="#requirements">Requirements</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#configure">Configure</a>
+            <a href="#build-payload">buildFormPayload()</a>
+            <a href="#frontend">Frontend Form</a>
+            <a href="#validate">validateTransaction()</a>
+            <a href="#security">Security Notes</a>
+        </nav>
+    </aside>
+
+    <article class="docs-content">
+
+        <section id="requirements">
+            <h2>Requirements</h2>
+
+            <div class="callout warning">
+                ⚠️ <strong>Merchant registration required.</strong>
+                ConnectIPS requires registration with NCHL before use.
+                You cannot test or go live without NCHL credentials.
+            </div>
+
+            <p>You will need from NCHL:</p>
+            <ul>
+                <li>Merchant ID (integer)</li>
+                <li>Application ID and Application Name</li>
+                <li>Application Password</li>
+                <li>CREDITOR.pfx certificate file</li>
+                <li>Password for the .pfx file</li>
+            </ul>
+
+            <p>
+                To register, contact your bank or NCHL directly:
+                <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>
+            </p>
+        </section>
+
+        <section id="how-it-works">
+            <h2>How ConnectIPS Works</h2>
+
+            <div class="callout info">
+                ℹ️ ConnectIPS uses a <strong>form-submission model</strong> similar
+                to eSewa, but uses <strong>RSA-SHA256 digital signatures</strong>
+                instead of HMAC-SHA256.
+            </div>
+
+            <pre><code>Backend: builds ConnectIpsFormPayload
+         (RSA-SHA256 signed with your .pfx private key)
+    ↓ return to frontend
+Frontend: POSTs form to ConnectIPS gateway URL
+    ↓
+User completes bank transfer on ConnectIPS
+    ↓
+ConnectIPS redirects to your callback URL
+    ↓
+⚠️  DO NOT trust this redirect alone!
+    ↓
+Backend: calls validateTransaction() with Basic Auth
+         (uses appId:appPassword for HTTP Basic Auth)
+    ↓
+✅ mark order as paid when status = "SUCCESS"</code></pre>
+
+            <h3>Key Difference from Khalti and eSewa</h3>
+            <table class="table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Khalti</th>
+                    <th>eSewa</th>
+                    <th>ConnectIPS</th>
+                </tr>
+                <tr>
+                    <td>Flow type</td>
+                    <td>API-first</td>
+                    <td>Form submit</td>
+                    <td>Form submit</td>
+                </tr>
+                <tr>
+                    <td>Signature</td>
+                    <td>None (API key)</td>
+                    <td>HMAC-SHA256</td>
+                    <td>RSA-SHA256 (.pfx)</td>
+                </tr>
+                <tr>
+                    <td>Amount unit</td>
+                    <td>Paisa</td>
+                    <td>NPR</td>
+                    <td>Paisa</td>
+                </tr>
+                <tr>
+                    <td>Verify API auth</td>
+                    <td>Bearer key</td>
+                    <td>No auth needed</td>
+                    <td>HTTP Basic Auth</td>
+                </tr>
+                <tr>
+                    <td>Registration</td>
+                    <td>Self-service</td>
+                    <td>Self-service</td>
+                    <td>Via NCHL/bank</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="configure">
+            <h2>Configure</h2>
+            <pre><code>nepalpay:
+  connectips:
+    merchant-id:  ${CONNECTIPS_MERCHANT_ID}    # e.g. 550
+    app-id:       ${CONNECTIPS_APP_ID}          # e.g. "MER-550-APP-1"
+    app-name:     ${CONNECTIPS_APP_NAME}        # e.g. "MyStore"
+    app-password: ${CONNECTIPS_APP_PASSWORD}
+    pfx-path:     ${CONNECTIPS_PFX_PATH}       # e.g. file:/app/CREDITOR.pfx
+    pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+    sandbox: true    # false for production</code></pre>
+
+            <div class="callout warning">
+                ⚠️ <strong>Never commit your .pfx file to Git.</strong>
+                Add it to <code>.gitignore</code> and load it via environment variable or
+                a secrets manager.
+            </div>
+        </section>
+
+        <section id="build-payload">
+            <h2>buildFormPayload()</h2>
+            <pre><code>@Service
+@RequiredArgsConstructor
+public class PaymentService {
+
+    private final ConnectIpsClient connectIpsClient;
+
+    public ConnectIpsFormPayload startPayment(String orderId, long amountNPR) {
+        String txnId = "TXN-" + orderId + "-" + System.currentTimeMillis();
+
+        // ConnectIPS uses PAISA — multiply by 100
+        long amountPaisa = amountNPR * 100L;
+
+        // Store txnId in your database before returning!
+        ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
+            txnId,
+            amountPaisa,
+            orderId,           // referenceId — your order ID
+            "Order payment",   // remarks
+            "NepalPay"         // particulars
+        );
+
+        return payload;
+        // Return to frontend → frontend POSTs form to payload.formActionUrl()
+    }
+}</code></pre>
+
+            <div class="callout warning">
+                ⚠️ <strong>Amount is in Paisa.</strong>
+                ConnectIPS uses the same unit as Khalti.
+                NPR 100 → send 10000.
+            </div>
+        </section>
+
+        <section id="frontend">
+            <h2>Frontend Form Submission</h2>
+            <p>
+                ConnectIPS uses the same form-submission pattern as eSewa.
+                POST all payload fields to <code>form_action_url</code>.
+            </p>
+            <pre><code>// Angular/TypeScript:
+initiateConnectIps(payload: ConnectIpsFormPayload): void {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = payload.form_action_url;
+
+    const fields = ['MERCHANTID', 'APPID', 'APPNAME', 'TXNID',
+        'TXNDATE', 'TXNCRNCY', 'TXNAMT', 'REFERENCEID',
+        'REMARKS', 'PARTICULARS', 'TOKEN'];
+
+    fields.forEach(field => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = field;
+        input.value = (payload as any)[field.toLowerCase()] ?? '';
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+}</code></pre>
+        </section>
+
+        <section id="validate">
+            <h2>validateTransaction()</h2>
+            <pre><code>// ConnectIPS redirects to your callback URL after payment
+// Always verify server-side — never trust redirect alone!
+
+@GetMapping("/connectips/callback")
+public ResponseEntity&lt;String&gt; callback(
+        @RequestParam String txnId,
+        @RequestParam String referenceId,
+        @RequestParam long txnAmt) {
+
+    ConnectIpsValidateResponse response =
+        connectIpsClient.validateTransaction(txnId, referenceId, txnAmt);
+
+    if (!response.isPaymentSuccessful()) {
+        return ResponseEntity.badRequest()
+            .body("Payment not confirmed: " + response.statusDesc());
+    }
+
+    // ✅ Safe to mark order as paid
+    orderRepo.markPaid(referenceId);
+    return ResponseEntity.ok("Payment successful");
+}</code></pre>
+        </section>
+
+        <section id="security">
+            <h2>Security Notes</h2>
+
+            <div class="callout danger">
+                🔴 <strong>Never commit your CREDITOR.pfx file to Git.</strong>
+                It contains your private key. Add it to <code>.gitignore</code>.
+            </div>
+            <div class="callout danger">
+                🔴 <strong>Never trust the ConnectIPS redirect alone.</strong>
+                Always call <code>validateTransaction()</code> server-side.
+            </div>
+            <div class="callout success">
+                ✅ Store <code>txnId</code> in your database before
+                returning the form payload to the frontend.
+            </div>
+            <div class="callout success">
+                ✅ The RSA signature generation uses your .pfx private key
+                and happens entirely on your server — it never reaches the frontend.
+            </div>
+        </section>
+
+    </article>
+</div>
+
+<footer class="footer">
+    <p>
+        NepalPay · MIT License ·
+        <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+           target="_blank" rel="noopener">GitHub</a>
+    </p>
+</footer>
+
+</body>
+</html>

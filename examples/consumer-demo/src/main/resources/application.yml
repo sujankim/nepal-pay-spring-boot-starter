@@ -27,6 +27,20 @@ nepalpay:
     failure-url:  http://localhost:8080/api/demo/esewa/failed
     sandbox: true
 
+     #── ConnectIPS ────────────────────────────────────────────────────────────
+     #Requires merchant registration with NCHL before use.
+     #Contact: connectips@nchl.com.np
+     #Uncomment and configure once you have NCHL credentials:
+
+  connectips:
+    merchant-id:  ${CONNECTIPS_MERCHANT_ID}
+    app-id:       ${CONNECTIPS_APP_ID}
+    app-name:     ${CONNECTIPS_APP_NAME}
+    app-password: ${CONNECTIPS_APP_PASSWORD}
+    pfx-path:     ${CONNECTIPS_PFX_PATH}      # e.g. file:/app/CREDITOR.pfx
+    pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+    sandbox: true                              # false for production
+
 logging:
   level:
     io.nepalpay: DEBUG   # see NepalPay logs while developing
