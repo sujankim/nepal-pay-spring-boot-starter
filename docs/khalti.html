@@ -1,158 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Khalti Integration — NepalPay Docs</title>
-    <link rel="stylesheet" href="css/style.css"/>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇳🇵</text></svg>"/>
+    <meta charset="UTF-8">
+    <title>Khalti Integration — NepalPay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="layout">
 
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <span class="logo-title">🇳🇵 NepalPay</span>
-            <span class="logo-version">v0.1.0</span>
-        </div>
-        <nav>
-            <div class="nav-section">Getting Started</div>
-            <a href="index.html">Introduction</a>
-            <a href="index.html#installation">Installation</a>
-            <a href="index.html#quickstart">Quick Start</a>
-
-            <div class="nav-section">Gateways</div>
+<header class="page-header">
+    <nav class="navbar">
+        <a class="brand" href="index.html">🇳🇵 NepalPay</a>
+        <div class="nav-links">
+            <a href="getting-started.html">Getting Started</a>
             <a href="khalti.html" class="active">Khalti</a>
             <a href="esewa.html">eSewa</a>
+            <a href="configuration.html">Config</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+    </nav>
+    <div class="page-title">
+        <h1>Khalti Integration</h1>
+        <p>Server-side payment initiation and secure lookup verification.</p>
+    </div>
+</header>
 
-            <div class="nav-section">Reference</div>
-            <a href="configuration.html">Configuration</a>
-            <a href="security.html">Security</a>
-
-            <div class="nav-section">Project</div>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
-            <a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter" target="_blank">JitPack ↗</a>
+<div class="docs-layout">
+    <aside class="sidebar">
+        <nav>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#initiate">initiatePayment()</a>
+            <a href="#lookup">lookupPayment()</a>
+            <a href="#statuses">Payment Statuses</a>
+            <a href="#security">Security Rules</a>
         </nav>
     </aside>
 
-    <main class="main">
-        <div class="content">
+    <article class="docs-content">
 
-            <h1>Khalti Integration</h1>
-            <p>Khalti is Nepal's leading digital wallet and payment gateway.
-                NepalPay provides a type-safe, secure Java client for Khalti ePay v2.</p>
+        <section id="how-it-works">
+            <h2>How Khalti Works</h2>
+            <pre><code>Your Backend ──POST──▶ Khalti API
+                         │
+                         ▼
+                  returns { pidx, payment_url }
+                         │
+                ← redirect user to payment_url
+                         │
+                  user pays on Khalti
+                         │
+           Khalti redirects to your return_url
+                         │
+          ⚠️  NEVER trust this redirect alone!
+                         │
+Your Backend ──POST──▶ Khalti Lookup (pidx)
+                         │
+                  { status: "Completed" }
+                         │
+                 ✅ mark order as paid</code></pre>
+        </section>
 
-            <div class="callout callout-warning">
-                <strong>⚠️ Security Rule</strong>
-                Always call <code>lookupPayment(pidx)</code> after receiving the redirect.
-                Never trust redirect URL parameters alone — they can be faked.
+        <section id="initiate">
+            <h2>initiatePayment()</h2>
+            <pre><code>KhaltiInitiateResponse response = khaltiClient.initiatePayment(
+    KhaltiInitiateRequest.builder()
+        .amount(10000L)                 // NPR 100 = 10000 paisa
+        .purchaseOrderId("ORD-001")     // your unique order ID
+        .purchaseOrderName("Pro Plan")  // shown to user on Khalti
+        .returnUrl("https://yourapp.com/callback")  // optional override
+        .customerInfo(                  // optional
+            "Sujan Lamichhane",
+            "sujan@example.com",
+            "9800000001"
+        )
+        .build()
+);
+
+// IMPORTANT: store pidx before redirecting user
+orderRepo.savePidx(orderId, response.pidx());
+
+// Redirect user
+return redirect(response.paymentUrl());</code></pre>
+
+            <div class="callout warning">
+                ⚠️ <strong>Amount is in Paisa, not NPR.</strong>
+                NPR 100 = send 10000. NPR 10 minimum = send 1000.
             </div>
+        </section>
 
-            <h2>Payment Flow</h2>
-            <pre><code>Your Backend ──POST──▶ Khalti API ──▶ { pidx, payment_url }
-                                                  │
-                                        Redirect user to payment_url
-                                                  │
-                                          User pays on Khalti
-                                                  │
-                              Khalti redirects to your return_url?pidx=xxx
-                                                  │
-                        ⚠️  DO NOT trust this redirect alone!
-                                                  │
-Your Backend ──POST──▶ Khalti Lookup API(pidx) ──▶ { status: "Completed" }
-                                                  │
-                                        ✅ NOW mark as paid</code></pre>
+        <section id="lookup">
+            <h2>lookupPayment()</h2>
+            <pre><code>// Call this AFTER receiving the Khalti redirect
+// The redirect URL parameters can be faked — always verify server-side!
 
-            <h2>Configuration</h2>
-            <pre><code>nepalpay:
-  khalti:
-    secret-key:  ${KHALTI_SECRET_KEY}    <span class="cm"># from Khalti merchant dashboard</span>
-    return-url:  ${KHALTI_RETURN_URL}    <span class="cm"># your callback endpoint</span>
-    website-url: ${YOUR_WEBSITE_URL}     <span class="cm"># your merchant website</span>
-    sandbox: true                        <span class="cm"># false for production</span></code></pre>
+KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
 
-            <h2>Step 1 — Initiate Payment</h2>
-            <pre><code><span class="an">@PostMapping</span>(<span class="st">"/api/payment/khalti/initiate"</span>)
-<span class="kw">public</span> <span class="cl">ResponseEntity</span>&lt;<span class="cl">Map</span>&lt;<span class="cl">String</span>, <span class="cl">String</span>&gt;&gt; initiatePayment(
-        <span class="an">@RequestBody</span> <span class="cl">PaymentRequest</span> request) {
+if (!lookup.isPaymentSuccessful()) {
+    return "Payment failed: " + lookup.status();
+}
 
-    <span class="cl">KhaltiInitiateResponse</span> response = khaltiClient.initiatePayment(
-        <span class="cl">KhaltiInitiateRequest</span>.builder()
-            .amount(request.amountNPR() * <span class="nm">100L</span>) <span class="cm">// ⚠️ NPR → paisa (×100)</span>
-            .purchaseOrderId(request.orderId())
-            .purchaseOrderName(request.productName())
-            .build()
-    );
+// Optional but recommended: verify amount was not tampered
+if (!lookup.isAmountValid(expectedPaisa)) {
+    log.error("Amount mismatch — possible tampering!");
+    return "Payment error";
+}
 
-    <span class="cm">// ✅ Store pidx in DB immediately!</span>
-    orderRepo.savePidx(request.orderId(), response.pidx());
+// ✅ Safe to mark order as paid
+orderRepo.markPaid(orderId, lookup.transactionId());</code></pre>
+        </section>
 
-    <span class="kw">return</span> <span class="cl">ResponseEntity</span>.ok(<span class="cl">Map</span>.of(
-        <span class="st">"pidx"</span>,        response.pidx(),
-        <span class="st">"payment_url"</span>, response.paymentUrl()
-    ));
-}</code></pre>
-
-            <h2>Step 2 — Verify Callback</h2>
-            <pre><code><span class="an">@GetMapping</span>(<span class="st">"/api/payment/khalti/callback"</span>)
-<span class="kw">public</span> <span class="cl">ResponseEntity</span>&lt;<span class="cl">String</span>&gt; handleCallback(
-        <span class="an">@RequestParam</span> <span class="cl">String</span> pidx) {
-
-    <span class="cm">// ✅ Always verify server-side</span>
-    <span class="cl">KhaltiLookupResponse</span> lookup = khaltiClient.lookupPayment(pidx);
-
-    <span class="kw">if</span> (!lookup.isPaymentSuccessful()) {
-        <span class="kw">return</span> <span class="cl">ResponseEntity</span>.badRequest()
-            .body(<span class="st">"Payment failed: "</span> + lookup.status());
-    }
-
-    <span class="cm">// ✅ Optional: verify amount was not tampered</span>
-    <span class="kw">if</span> (!lookup.isAmountValid(expectedAmountPaisa)) {
-        <span class="kw">throw new</span> <span class="cl">SecurityException</span>(<span class="st">"Amount mismatch!"</span>);
-    }
-
-    orderRepo.markAsPaid(lookup.purchaseOrderId(), lookup.transactionId());
-    <span class="kw">return</span> <span class="cl">ResponseEntity</span>.ok(<span class="st">"Payment successful!"</span>);
-}</code></pre>
-
+        <section id="statuses">
             <h2>Payment Statuses</h2>
-            <table>
-                <thead><tr><th>Status</th><th>Meaning</th><th>Action</th></tr></thead>
-                <tbody>
-                <tr><td><code>COMPLETED</code></td><td>✅ Confirmed</td><td>Mark order as paid</td></tr>
-                <tr><td><code>PENDING</code></td><td>⏳ Processing</td><td>Poll again later</td></tr>
-                <tr><td><code>USER_CANCELED</code></td><td>❌ User backed out</td><td>Offer retry</td></tr>
-                <tr><td><code>EXPIRED</code></td><td>❌ Link expired (60 min)</td><td>Generate new payment</td></tr>
-                <tr><td><code>FAILED</code></td><td>❌ Failed</td><td>Offer retry</td></tr>
-                <tr><td><code>UNKNOWN</code></td><td>⚠️ Unexpected</td><td>Contact Khalti</td></tr>
-                </tbody>
+            <table class="table">
+                <tr>
+                    <th>Status</th>
+                    <th>isSuccess()</th>
+                    <th>isTerminalFailure()</th>
+                    <th>Action</th>
+                </tr>
+                <tr>
+                    <td><code>COMPLETED</code></td>
+                    <td>✅ true</td>
+                    <td>false</td>
+                    <td>Mark order as paid</td>
+                </tr>
+                <tr>
+                    <td><code>PENDING</code></td>
+                    <td>false</td>
+                    <td>false</td>
+                    <td>Poll again later</td>
+                </tr>
+                <tr>
+                    <td><code>USER_CANCELED</code></td>
+                    <td>false</td>
+                    <td>✅ true</td>
+                    <td>Offer retry</td>
+                </tr>
+                <tr>
+                    <td><code>CANCELED</code></td>
+                    <td>false</td>
+                    <td>✅ true</td>
+                    <td>Offer retry</td>
+                </tr>
+                <tr>
+                    <td><code>EXPIRED</code></td>
+                    <td>false</td>
+                    <td>✅ true</td>
+                    <td>Generate new payment</td>
+                </tr>
+                <tr>
+                    <td><code>FAILED</code></td>
+                    <td>false</td>
+                    <td>✅ true</td>
+                    <td>Offer retry</td>
+                </tr>
+                <tr>
+                    <td><code>UNKNOWN</code></td>
+                    <td>false</td>
+                    <td>false</td>
+                    <td>Contact Khalti support</td>
+                </tr>
             </table>
+        </section>
 
-            <h2>Amount — Important Note</h2>
-            <div class="callout callout-warning">
-                <strong>⚠️ Khalti uses PAISA, not NPR</strong>
-                NPR 1 = 100 paisa. NPR 100 → send 10000. Minimum: NPR 10 = 1000 paisa.
+        <section id="security">
+            <h2>Security Rules</h2>
+            <div class="callout danger">
+                🔴 <strong>Never</strong> trust redirect URL parameters alone.
+                Always call <code>lookupPayment(pidx)</code> to confirm.
             </div>
-            <pre><code><span class="cm">// ✅ Correct</span>
-<span class="kw">long</span> amountPaisa = amountNPR * <span class="nm">100L</span>;
-
-<span class="cm">// ❌ Wrong — sending NPR directly to Khalti</span>
-.amount(<span class="nm">100L</span>)  <span class="cm">// This is 1 paisa = NPR 0.01 !</span></code></pre>
-
-            <div class="page-nav">
-                <a href="index.html">← Introduction</a>
-                <a href="esewa.html">eSewa Integration →</a>
+            <div class="callout danger">
+                🔴 <strong>Never</strong> hardcode your secret key.
+                Use environment variables.
             </div>
+            <div class="callout success">
+                ✅ Always store <code>pidx</code> in your database
+                before redirecting the user.
+            </div>
+            <div class="callout success">
+                ✅ Always call <code>isAmountValid()</code> to detect
+                tampered amounts.
+            </div>
+        </section>
 
-            <footer>
-                Built by
-                <a href="https://sujanlamichhane.com.np">Sujan Lamichhane</a>
-                · MIT License ·
-                <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter">GitHub</a>
-            </footer>
-
-        </div>
-    </main>
+    </article>
 </div>
+
+<footer class="footer">
+    <p>
+        NepalPay · MIT License ·
+        <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+           target="_blank" rel="noopener">GitHub</a>
+    </p>
+</footer>
+
 </body>
 </html>

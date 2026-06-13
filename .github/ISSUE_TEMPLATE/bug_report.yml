@@ -1,0 +1,96 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in NepalPay
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! 🙏
+        Please fill in as much detail as possible so we can fix it faster.
+
+  - type: dropdown
+    id: gateway
+    attributes:
+      label: Which gateway is affected?
+      options:
+        - Khalti
+        - eSewa
+        - ConnectIPS
+        - Auto-configuration
+        - Other / Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: "When I call khaltiClient.initiatePayment(), it throws..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: "I expected to receive a KhaltiInitiateResponse with a paymentUrl..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal code to reproduce the issue.
+      placeholder: |
+        1. Add dependency v0.1.0
+        2. Configure application.yml with...
+        3. Call khaltiClient.initiatePayment(...)
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message / Stack trace
+      description: Paste the full error message and stack trace here.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: NepalPay version
+      placeholder: "v0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: java
+    attributes:
+      label: Java version
+      placeholder: "21"
+    validations:
+      required: true
+
+  - type: input
+    id: springboot
+    attributes:
+      label: Spring Boot version
+      placeholder: "4.1.0"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I am using the latest version of NepalPay
+          required: false

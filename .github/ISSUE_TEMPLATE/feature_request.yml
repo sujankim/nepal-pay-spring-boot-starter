@@ -1,0 +1,66 @@
+name:  Feature Request
+description: Suggest a new gateway, feature, or improvement
+title: "[FEATURE] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve NepalPay! 🇳🇵
+        Please describe your feature request clearly.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: What type of feature is this?
+      options:
+        - New payment gateway (e.g. ConnectIPS, Fonepay)
+        - New method on existing client (e.g. refund)
+        - Configuration improvement
+        - Testing improvement
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the problem or gap this feature would fill.
+      placeholder: "Currently there is no way to integrate ConnectIPS using NepalPay..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you want
+      description: What should the API look like?
+      placeholder: |
+        I would like a ConnectIpsClient bean that I can inject:
+
+        @Autowired
+        private ConnectIpsClient connectIpsClient;
+
+        ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(...);
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      placeholder: "I considered calling the ConnectIPS API directly, but..."
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I am willing to contribute this feature via a pull request
+          required: false

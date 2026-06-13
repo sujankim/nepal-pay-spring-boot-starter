@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: nepal-pay-consumer-demo
+
+server:
+  port: 8080
+
+# ══════════════════════════════════════════════════
+# NepalPay Configuration
+# ══════════════════════════════════════════════════
+nepalpay:
+
+  # ── Khalti ──────────────────────────────────────
+  khalti:
+    # Set via environment variable: export KHALTI_SECRET_KEY=test_secret_key_xxx
+    secret-key:  ${KHALTI_SECRET_KEY:test_secret_key_placeholder}
+    return-url:  http://localhost:8080/api/demo/khalti/callback
+    website-url: http://localhost:8080
+    sandbox: true   # ← always true for this demo
+
+  # ── eSewa ────────────────────────────────────────
+  esewa:
+    # Sandbox secret key (safe to use in local dev only)
+    secret-key:   ${ESEWA_SECRET_KEY:8gBm/:&EnhH.1/q}
+    product-code: ${ESEWA_PRODUCT_CODE:EPAYTEST}
+    success-url:  http://localhost:8080/api/demo/esewa/callback
+    failure-url:  http://localhost:8080/api/demo/esewa/failed
+    sandbox: true
+
+logging:
+  level:
+    io.nepalpay: DEBUG   # see NepalPay logs while developing

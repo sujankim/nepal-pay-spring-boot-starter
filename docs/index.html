@@ -1,229 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>NepalPay Spring Boot Starter — Docs</title>
+    <meta charset="UTF-8">
+    <title>NepalPay — Spring Boot Starter for Nepal Payments</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-          content="The first production-grade Java library for Nepal payment gateways. Integrate Khalti and eSewa into Spring Boot in minutes."/>
-    <link rel="stylesheet" href="css/style.css"/>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇳🇵</text></svg>"/>
+          content="NepalPay is the first production-grade Spring Boot library
+                   for Nepal payment gateways — Khalti, eSewa, and more.">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="layout">
 
-    <!-- ── Sidebar ───────────────────────────────────────────── -->
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <span class="logo-title">🇳🇵 NepalPay</span>
-            <span class="logo-version">v0.1.0</span>
-        </div>
-        <nav>
-            <div class="nav-section">Getting Started</div>
-            <a href="index.html" class="active">Introduction</a>
-            <a href="index.html#installation">Installation</a>
-            <a href="index.html#quickstart">Quick Start</a>
-
-            <div class="nav-section">Gateways</div>
+<header class="hero">
+    <nav class="navbar">
+        <span class="brand">🇳🇵 NepalPay</span>
+        <div class="nav-links">
+            <a href="getting-started.html">Getting Started</a>
             <a href="khalti.html">Khalti</a>
             <a href="esewa.html">eSewa</a>
+            <a href="configuration.html">Config</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+    </nav>
 
-            <div class="nav-section">Reference</div>
-            <a href="configuration.html">Configuration</a>
-            <a href="security.html">Security</a>
+    <div class="hero-content">
+        <p class="badge">Spring Boot 4.1.0 · Java 21 · MIT License · v0.1.0</p>
+        <h1>NepalPay<br>Spring Boot Starter</h1>
+        <p class="subtitle">
+            The first production-grade Java library for Nepal payment gateways.
+            Integrate Khalti and eSewa in minutes — security baked in.
+        </p>
+        <div class="buttons">
+            <a class="btn primary" href="getting-started.html">Get Started →</a>
+            <a class="btn secondary"
+               href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">View on GitHub</a>
+        </div>
+    </div>
+</header>
 
-            <div class="nav-section">Project</div>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
-            <a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter" target="_blank">JitPack ↗</a>
-        </nav>
-    </aside>
+<main>
 
-    <!-- ── Main ──────────────────────────────────────────────── -->
-    <main class="main">
-        <div class="content">
+    <!-- Install snippet -->
+    <section class="install-strip">
+        <div class="install-inner">
+            <span class="install-label">Maven</span>
+            <code class="install-code">&lt;dependency&gt;
+                &lt;groupId&gt;com.github.sujankim&lt;/groupId&gt;
+                &lt;artifactId&gt;nepal-pay-spring-boot-starter&lt;/artifactId&gt;
+                &lt;version&gt;v0.1.0&lt;/version&gt;
+                &lt;/dependency&gt;</code>
+        </div>
+    </section>
 
-            <!-- Hero -->
-            <div class="hero">
-                <h1>🇳🇵 NepalPay Spring Boot Starter</h1>
-                <p>The first production-grade Java library for Nepal payment gateways.<br/>
-                    Integrate Khalti and eSewa into any Spring Boot app in under 5 minutes.</p>
-                <div class="hero-badges">
-                    <span class="badge badge-white">Java 21</span>
-                    <span class="badge badge-white">Spring Boot 4.1.0</span>
-                    <span class="badge badge-white">51 Tests ✅</span>
-                    <span class="badge badge-white">MIT License</span>
+    <!-- Features -->
+    <section class="section">
+        <div class="section-inner">
+            <h2>Why NepalPay?</h2>
+            <div class="cards">
+                <div class="card">
+                    <div class="card-icon">⚡</div>
+                    <h3>Fast Integration</h3>
+                    <p>Add one dependency, set two config keys,
+                        inject the client — done in under 5 minutes.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🔐</div>
+                    <h3>Secure by Default</h3>
+                    <p>Server-side verification, HMAC signature
+                        validation, and callback security are built in.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">☕</div>
+                    <h3>Java Native</h3>
+                    <p>Built specifically for Java 21 and Spring Boot 4.
+                        No Node.js bridge. No copy-paste scripts.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🧪</div>
+                    <h3>Fully Tested</h3>
+                    <p>51 automated tests covering success paths,
+                        error paths, signatures, and auto-configuration.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📦</div>
+                    <h3>Zero Boilerplate</h3>
+                    <p>Spring Boot auto-configuration — no
+                        @EnableNepalPay, no @Bean, no config class needed.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🌍</div>
+                    <h3>Open Source</h3>
+                    <p>MIT licensed. Built for Nepal's developer
+                        community. Contributions welcome.</p>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- What is it -->
-            <h2>What is NepalPay?</h2>
-            <p>NepalPay is an open-source Spring Boot Starter that provides a
-                <strong>unified, secure, production-grade interface</strong> for Nepal's major
-                payment gateways — currently Khalti and eSewa.</p>
-            <p>Before NepalPay, every Java developer had to write 500+ lines of boilerplate
-                for each gateway, every single project. NepalPay reduces that to 3 lines —
-                with security baked in.</p>
+    <!-- Code example -->
+    <section class="section alt">
+        <div class="section-inner">
+            <h2>This simple. This clean.</h2>
+            <div class="code-compare">
+                <div class="code-block">
+                    <div class="code-label bad">❌ Without NepalPay</div>
+                    <pre><code>// 80+ lines of boilerplate just for Khalti
+HttpClient client = HttpClient.newHttpClient();
+String json = """
+    {
+      "return_url": "%s",
+      "website_url": "%s",
+      "amount": %d,
+      "purchase_order_id": "%s"
+    }
+    """.formatted(returnUrl, url, amount, orderId);
 
-            <div class="callout callout-success">
-                <strong>✅ Security by default</strong>
-                Server-side payment verification is enforced. The most common vulnerability
-                (trusting redirect URLs) is impossible to make with this library.
-            </div>
-
-            <!-- Installation -->
-            <h2 id="installation">Installation</h2>
-
-            <div class="steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>Add JitPack repository to <code>pom.xml</code></h3>
-                        <pre><code>&lt;repositories&gt;
-    &lt;repository&gt;
-        &lt;id&gt;jitpack.io&lt;/id&gt;
-        &lt;url&gt;https://jitpack.io&lt;/url&gt;
-    &lt;/repository&gt;
-&lt;/repositories&gt;</code></pre>
-                    </div>
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("https://dev.khalti.com/..."))
+    .header("Authorization", "Key " + secretKey)
+    .POST(HttpRequest.BodyPublishers.ofString(json))
+    .build();
+// ... then parse response manually
+// ... then write the same for eSewa with HMAC
+// ... then do ALL of this again next project</code></pre>
                 </div>
-
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>Add the dependency</h3>
-                        <pre><code>&lt;dependency&gt;
-    &lt;groupId&gt;com.github.sujankim&lt;/groupId&gt;
-    &lt;artifactId&gt;nepal-pay-spring-boot-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.1.0&lt;/version&gt;
-&lt;/dependency&gt;</code></pre>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>Configure in <code>application.yml</code></h3>
-                        <pre><code>nepalpay:
-  khalti:
-    secret-key: ${KHALTI_SECRET_KEY}
-    return-url:  ${KHALTI_RETURN_URL}
-    website-url: ${YOUR_WEBSITE_URL}
-    sandbox: true
-
-  esewa:
-    secret-key:   ${ESEWA_SECRET_KEY}
-    product-code: ${ESEWA_PRODUCT_CODE}
-    success-url:  ${ESEWA_SUCCESS_URL}
-    failure-url:  ${ESEWA_FAILURE_URL}
-    sandbox: true</code></pre>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <div class="step-content">
-                        <h3>Inject and use</h3>
-                        <pre><code><span class="an">@Service</span>
-<span class="an">@RequiredArgsConstructor</span>
-<span class="kw">public class</span> <span class="cl">PaymentService</span> {
-
-    <span class="cm">// Auto-injected — no @Bean, no config class needed</span>
-    <span class="kw">private final</span> <span class="cl">KhaltiClient</span> khaltiClient;
-    <span class="kw">private final</span> <span class="cl">EsewaClient</span>  esewaClient;
-}</code></pre>
-                        <div class="callout callout-info">
-                            No <code>@EnableNepalPay</code> needed.
-                            Spring Boot auto-configures everything when it detects your keys in <code>application.yml</code>.
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Start -->
-            <h2 id="quickstart">Quick Start</h2>
-            <h3>Khalti — Initiate and Verify</h3>
-            <pre><code><span class="cm">// Step 1: Initiate payment</span>
-<span class="cl">KhaltiInitiateResponse</span> response = khaltiClient.initiatePayment(
-    <span class="cl">KhaltiInitiateRequest</span>.builder()
-        .amount(<span class="nm">10000L</span>)             <span class="cm">// NPR 100 in paisa (×100)</span>
-        .purchaseOrderId(<span class="st">"ORD-001"</span>)
-        .purchaseOrderName(<span class="st">"Pro Plan"</span>)
+                <div class="code-block">
+                    <div class="code-label good">✅ With NepalPay</div>
+                    <pre><code>// 3 lines. Type-safe. Tested. Secure.
+var response = khaltiClient.initiatePayment(
+    KhaltiInitiateRequest.builder()
+        .amount(10000L)
+        .purchaseOrderId("ORD-001")
+        .purchaseOrderName("Premium Plan")
         .build()
 );
 
-<span class="cm">// Store pidx — needed for verification!</span>
-String pidx = response.pidx();
-String redirectUrl = response.paymentUrl();
-
-<span class="cm">// Step 2: After redirect, verify server-side</span>
-<span class="cl">KhaltiLookupResponse</span> lookup = khaltiClient.lookupPayment(pidx);
-<span class="kw">if</span> (lookup.isPaymentSuccessful()) {
-    <span class="cm">// ✅ Safe to mark order as paid</span>
-}</code></pre>
-
-            <h3>eSewa — Build Payload and Verify</h3>
-            <pre><code><span class="cm">// Step 1: Build signed form payload</span>
-<span class="cl">EsewaFormPayload</span> payload = esewaClient.buildFormPayload(
-    <span class="kw">new</span> <span class="cl">BigDecimal</span>(<span class="st">"100.00"</span>),   <span class="cm">// NPR directly (not paisa!)</span>
-    <span class="st">"ORD-001"</span>
-);
-<span class="cm">// Return payload to frontend → frontend POSTs form to payload.formActionUrl()</span>
-
-<span class="cm">// Step 2: After eSewa redirects with ?data=BASE64</span>
-<span class="cl">EsewaVerificationResult</span> result = esewaClient.verifyCallback(data);
-<span class="kw">if</span> (result.isPaymentSuccessful()) {
-    <span class="cm">// ✅ Safe to mark order as paid</span>
-}</code></pre>
-
-            <!-- Supported Gateways -->
-            <h2>Supported Gateways</h2>
-            <table>
-                <thead>
-                <tr>
-                    <th>Gateway</th>
-                    <th>Status</th>
-                    <th>Features</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <td><strong>Khalti / IME Khalti</strong></td>
-                    <td><span class="badge badge-green">✅ v0.1.0</span></td>
-                    <td>Initiate, Lookup/Verify</td>
-                </tr>
-                <tr>
-                    <td><strong>eSewa</strong></td>
-                    <td><span class="badge badge-green">✅ v0.1.0</span></td>
-                    <td>Form Payload, Verify Callback, Status Check</td>
-                </tr>
-                <tr>
-                    <td><strong>ConnectIPS</strong></td>
-                    <td><span class="badge badge-orange">🔲 Planned</span></td>
-                    <td>Bank-linked payments</td>
-                </tr>
-                <tr>
-                    <td><strong>Fonepay</strong></td>
-                    <td><span class="badge badge-orange">🔲 Planned</span></td>
-                    <td>QR-based payments</td>
-                </tr>
-                </tbody>
-            </table>
-
-            <!-- Page Nav -->
-            <div class="page-nav">
-                <span></span>
-                <a href="khalti.html">Khalti Integration →</a>
+// Redirect user to payment page
+return response.paymentUrl();</code></pre>
+                </div>
             </div>
-
-            <footer>
-                Built by
-                <a href="https://sujanlamichhane.com.np">Sujan Lamichhane</a>
-                · MIT License ·
-                <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter">GitHub</a>
-            </footer>
-
         </div>
-    </main>
-</div>
+    </section>
+
+    <!-- Gateways -->
+    <section class="section">
+        <div class="section-inner">
+            <h2>Supported Gateways</h2>
+            <div class="gateways">
+                <a class="gateway" href="khalti.html">
+                    <div class="gateway-status done">✅ v0.1.0</div>
+                    <h3>Khalti</h3>
+                    <p>Initiate + server-side lookup/verify.
+                        Sandbox and production mode.</p>
+                    <span class="gateway-link">View docs →</span>
+                </a>
+                <a class="gateway" href="esewa.html">
+                    <div class="gateway-status done">✅ v0.1.0</div>
+                    <h3>eSewa</h3>
+                    <p>HMAC-signed form payload + callback
+                        verification + status API.</p>
+                    <span class="gateway-link">View docs →</span>
+                </a>
+                <div class="gateway disabled">
+                    <div class="gateway-status planned">🔲 Planned</div>
+                    <h3>ConnectIPS</h3>
+                    <p>RSA-signed bank transfer payments
+                        via NCHL infrastructure.</p>
+                </div>
+                <div class="gateway disabled">
+                    <div class="gateway-status planned">🔲 Planned</div>
+                    <h3>Fonepay</h3>
+                    <p>QR-based and interbank transfer
+                        payment gateway.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="footer">
+    <p>
+        Built by
+        <a href="https://sujanlamichhane.com.np" target="_blank"
+           rel="noopener">Sujan Lamichhane</a>
+        for Nepal's developer community 🇳🇵
+    </p>
+    <p>
+        <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+           target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter"
+           target="_blank" rel="noopener">JitPack</a> ·
+        MIT License
+    </p>
+</footer>
+
 </body>
 </html>

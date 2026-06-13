@@ -1,173 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>eSewa Integration — NepalPay Docs</title>
-    <link rel="stylesheet" href="css/style.css"/>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇳🇵</text></svg>"/>
+    <meta charset="UTF-8">
+    <title>eSewa Integration — NepalPay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="layout">
 
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <span class="logo-title">🇳🇵 NepalPay</span>
-            <span class="logo-version">v0.1.0</span>
-        </div>
-        <nav>
-            <div class="nav-section">Getting Started</div>
-            <a href="index.html">Introduction</a>
-            <a href="index.html#installation">Installation</a>
-            <a href="index.html#quickstart">Quick Start</a>
-
-            <div class="nav-section">Gateways</div>
+<header class="page-header">
+    <nav class="navbar">
+        <a class="brand" href="index.html">🇳🇵 NepalPay</a>
+        <div class="nav-links">
+            <a href="getting-started.html">Getting Started</a>
             <a href="khalti.html">Khalti</a>
             <a href="esewa.html" class="active">eSewa</a>
+            <a href="configuration.html">Config</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+    </nav>
+    <div class="page-title">
+        <h1>eSewa Integration</h1>
+        <p>HMAC-signed form payload, callback verification, and status API.</p>
+    </div>
+</header>
 
-            <div class="nav-section">Reference</div>
-            <a href="configuration.html">Configuration</a>
-            <a href="security.html">Security</a>
-
-            <div class="nav-section">Project</div>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
-            <a href="https://jitpack.io/#sujankim/nepal-pay-spring-boot-starter" target="_blank">JitPack ↗</a>
+<div class="docs-layout">
+    <aside class="sidebar">
+        <nav>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#build-payload">buildFormPayload()</a>
+            <a href="#frontend">Frontend Form</a>
+            <a href="#verify">verifyCallback()</a>
+            <a href="#status">checkStatus()</a>
+            <a href="#security">Security Rules</a>
         </nav>
     </aside>
 
-    <main class="main">
-        <div class="content">
+    <article class="docs-content">
 
-            <h1>eSewa Integration</h1>
-            <p>eSewa is Nepal's first and largest payment service provider.
-                Unlike Khalti, eSewa uses a <strong>form-submission model</strong> —
-                your backend builds a signed payload, and the frontend POSTs directly to eSewa.</p>
-
-            <div class="callout callout-warning">
-                <strong>⚠️ Critical: Sandbox vs Production</strong>
-                The most common bug — <code>product-code</code> is <code>EPAYTEST</code> in sandbox
-                but YOUR merchant code in production. Always set this via environment variable.
-            </div>
-
+        <section id="how-it-works">
             <h2>How eSewa Works</h2>
-            <pre><code>Your Backend ──▶ builds signed EsewaFormPayload
-                         │
-               returns to your frontend
-                         │
-       Frontend POSTs form to eSewa URL
-                         │
-               User pays on eSewa
-                         │
-  eSewa redirects to successUrl?data=BASE64_JSON
-                         │
-         ⚠️  DO NOT trust redirect alone!
-                         │
-Your Backend: decode + verify HMAC signature
-                         │
-Your Backend: call eSewa Status API
-                         │
-                 ✅ mark as paid</code></pre>
+            <div class="callout info">
+                ℹ️ eSewa uses a <strong>form-submission model</strong> — unlike Khalti.
+                Your backend builds a signed payload. Your frontend submits it as a form.
+            </div>
+            <pre><code>Backend: builds EsewaFormPayload (with HMAC signature)
+    ↓ return to frontend
+Frontend: POSTs form directly to eSewa URL
+    ↓
+User pays on eSewa
+    ↓
+eSewa redirects to: yourSuccessUrl?data=BASE64_JSON
+    ↓
+⚠️  DO NOT trust this redirect alone!
+    ↓
+Backend: decodes Base64 → verifies HMAC → calls status API
+    ↓
+✅ mark order as paid</code></pre>
+        </section>
 
-            <h2>Sandbox Credentials</h2>
-            <table>
-                <thead><tr><th>Field</th><th>Value</th></tr></thead>
-                <tbody>
-                <tr><td>eSewa ID</td><td><code>9806800001</code> to <code>9806800005</code></td></tr>
-                <tr><td>Password</td><td><code>Nepal@123</code></td></tr>
-                <tr><td>MPIN</td><td><code>1122</code></td></tr>
-                <tr><td>Token</td><td><code>123456</code></td></tr>
-                <tr><td>Secret Key</td><td><code>8gBm/:&amp;EnhH.1/q</code></td></tr>
-                <tr><td>Product Code</td><td><code>EPAYTEST</code></td></tr>
-                </tbody>
-            </table>
+        <section id="build-payload">
+            <h2>buildFormPayload()</h2>
+            <pre><code>// Simple: just amount and UUID
+String uuid = EsewaClient.generateTransactionUuid();
+orderRepo.saveUuid(orderId, uuid); // store BEFORE returning!
 
-            <h2>Step 1 — Build Form Payload</h2>
-            <pre><code><span class="an">@PostMapping</span>(<span class="st">"/api/payment/esewa/initiate"</span>)
-<span class="kw">public</span> <span class="cl">ResponseEntity</span>&lt;<span class="cl">EsewaFormPayload</span>&gt; initiatePayment(
-        <span class="an">@RequestBody</span> <span class="cl">PaymentRequest</span> request) {
+EsewaFormPayload payload = esewaClient.buildFormPayload(
+    new BigDecimal("100.00"),  // NPR — NOT paisa!
+    uuid
+);
 
-    <span class="cm">// Generate unique UUID — save this to DB!</span>
-    <span class="cl">String</span> uuid = <span class="cl">EsewaClient</span>.generateTransactionUuid();
-    orderRepo.saveUuid(request.orderId(), uuid);
+// With tax and charges:
+EsewaFormPayload payload = esewaClient.buildFormPayload(
+    new BigDecimal("100.00"),  // amount
+    new BigDecimal("13.00"),   // tax
+    uuid,                      // transactionUuid
+    BigDecimal.ZERO,           // serviceCharge
+    BigDecimal.ZERO            // deliveryCharge
+    // total = 100 + 13 = 113.00
+);</code></pre>
 
-    <span class="cm">// ⚠️ eSewa uses NPR directly — NOT paisa like Khalti</span>
-    <span class="cl">EsewaFormPayload</span> payload = esewaClient.buildFormPayload(
-        request.amountNPR(),   <span class="cm">// BigDecimal — e.g. new BigDecimal("100.00")</span>
-        uuid
-    );
+            <div class="callout warning">
+                ⚠️ <strong>eSewa uses NPR directly — not paisa.</strong>
+                NPR 100 → send <code>new BigDecimal("100.00")</code>.
+                This is opposite to Khalti.
+            </div>
+        </section>
 
-    <span class="kw">return</span> <span class="cl">ResponseEntity</span>.ok(payload);
-    <span class="cm">// Frontend POSTs this form to payload.formActionUrl()</span>
-}</code></pre>
-
-            <h2>Step 2 — Frontend Form Submission</h2>
-            <pre><code><span class="cm">// Angular/TypeScript example</span>
-<span class="kw">function</span> <span class="nm">submitEsewaForm</span>(payload: <span class="cl">EsewaFormPayload</span>): <span class="kw">void</span> {
-    <span class="kw">const</span> form = document.createElement(<span class="st">'form'</span>);
-    form.method = <span class="st">'POST'</span>;
+        <section id="frontend">
+            <h2>Frontend Form Submission</h2>
+            <p>Your frontend must POST the payload fields to eSewa's URL.</p>
+            <pre><code>// Angular / TypeScript:
+initiateEsewa(payload: EsewaFormPayload): void {
+    const form = document.createElement('form');
+    form.method = 'POST';
     form.action = payload.form_action_url;
 
-    <span class="kw">const</span> fields = [
-        <span class="st">'amount'</span>, <span class="st">'tax_amount'</span>, <span class="st">'total_amount'</span>,
-        <span class="st">'transaction_uuid'</span>, <span class="st">'product_code'</span>,
-        <span class="st">'product_service_charge'</span>, <span class="st">'product_delivery_charge'</span>,
-        <span class="st">'success_url'</span>, <span class="st">'failure_url'</span>,
-        <span class="st">'signed_field_names'</span>, <span class="st">'signature'</span>
-    ];
+    const fields = ['amount', 'tax_amount', 'total_amount',
+        'transaction_uuid', 'product_code', 'product_service_charge',
+        'product_delivery_charge', 'success_url', 'failure_url',
+        'signed_field_names', 'signature'];
 
     fields.forEach(field => {
-        <span class="kw">const</span> input = document.createElement(<span class="st">'input'</span>);
-        input.type  = <span class="st">'hidden'</span>;
-        input.name  = field;
-        input.value = (payload <span class="kw">as any</span>)[field];
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = field;
+        input.value = (payload as any)[field];
         form.appendChild(input);
     });
 
     document.body.appendChild(form);
     form.submit();
 }</code></pre>
+        </section>
 
-            <h2>Step 3 — Verify Callback</h2>
-            <pre><code><span class="an">@GetMapping</span>(<span class="st">"/api/payment/esewa/callback"</span>)
-<span class="kw">public</span> <span class="cl">ResponseEntity</span>&lt;<span class="cl">String</span>&gt; handleCallback(
-        <span class="an">@RequestParam</span> <span class="cl">String</span> data) {
+        <section id="verify">
+            <h2>verifyCallback()</h2>
+            <pre><code>// eSewa redirects to: yourSuccessUrl?data=BASE64_JSON
+// Extract the "data" query parameter and pass it here
 
-    <span class="cm">// verifyCallback() does 3 things automatically:</span>
-    <span class="cm">// 1. Decode Base64 → EsewaCallbackData</span>
-    <span class="cm">// 2. Verify HMAC-SHA256 signature (tamper protection)</span>
-    <span class="cm">// 3. Call eSewa Status API for final confirmation</span>
-    <span class="cl">EsewaVerificationResult</span> result = esewaClient.verifyCallback(data);
+@GetMapping("/esewa/callback")
+public ResponseEntity&lt;String&gt; callback(@RequestParam String data) {
 
-    <span class="kw">if</span> (!result.isPaymentSuccessful()) {
-        <span class="kw">return</span> <span class="cl">ResponseEntity</span>.badRequest()
-            .body(<span class="st">"Not confirmed: "</span> + result.statusResponse().status());
+    // verifyCallback() does THREE things automatically:
+    // 1. Decodes Base64 → EsewaCallbackData
+    // 2. Verifies HMAC-SHA256 signature (tamper protection)
+    // 3. Calls eSewa status API for final confirmation
+
+    EsewaClient.EsewaVerificationResult result =
+        esewaClient.verifyCallback(data);
+
+    if (!result.isPaymentSuccessful()) {
+        return ResponseEntity.badRequest().body("Payment not confirmed");
     }
 
-    <span class="cl">String</span> uuid = result.callbackData().transactionUuid();
-    orderRepo.markAsPaid(uuid, result.statusResponse().refId());
-    <span class="kw">return</span> <span class="cl">ResponseEntity</span>.ok(<span class="st">"Payment successful!"</span>);
+    String uuid = result.callbackData().transactionUuid();
+    orderRepo.markPaid(uuid, result.statusResponse().refId());
+
+    return ResponseEntity.ok("Payment successful");
 }</code></pre>
+        </section>
 
-            <h2>Amount — Important Note</h2>
-            <div class="callout callout-info">
-                <strong>ℹ️ eSewa uses NPR directly (not paisa like Khalti)</strong>
-                NPR 100 → send <code>new BigDecimal("100.00")</code>. Always use 2 decimal places.
+        <section id="status">
+            <h2>checkStatus()</h2>
+            <pre><code>// Poll status directly without going through callback flow
+// Useful for cron jobs checking pending orders
+
+EsewaStatusResponse status = esewaClient.checkStatus(
+    "your-transaction-uuid",  // saved from buildFormPayload()
+    "100.00"                   // original total amount
+);
+
+if (status.isPaymentSuccessful()) {
+    orderRepo.markPaid(uuid);
+}</code></pre>
+        </section>
+
+        <section id="security">
+            <h2>Security Rules</h2>
+            <div class="callout danger">
+                🔴 <strong>Never</strong> trust redirect URL parameters alone.
+                Always call <code>verifyCallback(data)</code>.
             </div>
-
-            <div class="page-nav">
-                <a href="khalti.html">← Khalti</a>
-                <a href="configuration.html">Configuration →</a>
+            <div class="callout danger">
+                🔴 <strong>Never</strong> expose your secret key in frontend code.
+                The HMAC signing must happen on your backend only.
             </div>
+            <div class="callout success">
+                ✅ Store <code>transactionUuid</code> in your database
+                before returning the form payload to the frontend.
+            </div>
+            <div class="callout success">
+                ✅ <code>verifyCallback()</code> automatically validates the
+                HMAC signature — a mismatch throws <code>EsewaException</code>.
+            </div>
+        </section>
 
-            <footer>
-                Built by
-                <a href="https://sujanlamichhane.com.np">Sujan Lamichhane</a>
-                · MIT License ·
-                <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter">GitHub</a>
-            </footer>
-
-        </div>
-    </main>
+    </article>
 </div>
+
+<footer class="footer">
+    <p>
+        NepalPay · MIT License ·
+        <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+           target="_blank" rel="noopener">GitHub</a>
+    </p>
+</footer>
+
 </body>
 </html>

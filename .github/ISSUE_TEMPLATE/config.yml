@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 📖 Documentation
+    url: https://sujankim.github.io/nepal-pay-spring-boot-starter/
+    about: Read the NepalPay docs before opening an issue.
+
+  - name: 💬 Ask a question
+    url: https://github.com/sujankim/nepal-pay-spring-boot-starter/discussions
+    about: Use GitHub Discussions for questions — not Issues.
