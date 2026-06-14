@@ -172,15 +172,14 @@
     return-url:    ${FONEPAY_RETURN_URL}
     sandbox: true
 
-  # ConnectIPS — requires NCHL merchant registration
-  # connectips:
-  #   merchant-id:  ${CONNECTIPS_MERCHANT_ID}
-  #   app-id:       ${CONNECTIPS_APP_ID}
-  #   app-name:     ${CONNECTIPS_APP_NAME}
-  #   app-password: ${CONNECTIPS_APP_PASSWORD}
-  #   pfx-path:     ${CONNECTIPS_PFX_PATH}
-  #   pfx-password: ${CONNECTIPS_PFX_PASSWORD}
-  #   sandbox: true</code></pre>
+   connectips:
+     merchant-id:  ${CONNECTIPS_MERCHANT_ID}
+     app-id:       ${CONNECTIPS_APP_ID}
+     app-name:     ${CONNECTIPS_APP_NAME}
+     app-password: ${CONNECTIPS_APP_PASSWORD}
+     pfx-path:     ${CONNECTIPS_PFX_PATH}
+     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+     sandbox: true</code></pre>
             <p>
                 That is all. Spring Boot auto-configures the client beans
                 automatically when keys are present. No <code>@EnableNepalPay</code>,
