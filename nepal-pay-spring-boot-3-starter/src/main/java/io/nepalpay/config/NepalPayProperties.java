@@ -28,7 +28,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "nepalpay")
 public record NepalPayProperties(
         KhaltiProperties khalti,
-        EsewaProperties esewa
+        EsewaProperties esewa,
+        FonepayProperties   fonepay
 ) {
 
     /**
@@ -72,5 +73,20 @@ public record NepalPayProperties(
             String failureUrl,
             @DefaultValue("true") boolean sandbox,
             @DefaultValue("10") int timeoutSeconds
+    ) {}
+
+    /**
+     * Fonepay payment gateway configuration.
+     *
+     * @param merchantCode Your Fonepay merchant code (PID)
+     * @param secretKey    Your Fonepay HMAC secret key
+     * @param returnUrl    URL Fonepay redirects to after payment
+     * @param sandbox      true = dev.fonepay.com / false = fonepay.com
+     */
+    public record FonepayProperties(
+            String merchantCode,
+            String secretKey,
+            String returnUrl,
+            @DefaultValue("true") boolean sandbox
     ) {}
 }

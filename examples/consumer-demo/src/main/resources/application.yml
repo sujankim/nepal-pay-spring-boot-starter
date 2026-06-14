@@ -45,6 +45,17 @@ nepalpay:
      pfx-password: ${CONNECTIPS_PFX_PASSWORD}
      sandbox: true
 
+  # ── Fonepay ────────────────────────────────────────────────────────────────
+  # Contact Fonepay to get merchant credentials.
+  # Fonepay integrations happen through your bank.
+  # Uncomment when you have credentials:
+
+   fonepay:
+     merchant-code: ${FONEPAY_MERCHANT_CODE}
+     secret-key:    ${FONEPAY_SECRET_KEY}
+     return-url:    http://localhost:8080/api/demo/fonepay/callback
+  #   sandbox: true
+
 logging:
   level:
     io.nepalpay: DEBUG   # see all NepalPay internal logs while developing

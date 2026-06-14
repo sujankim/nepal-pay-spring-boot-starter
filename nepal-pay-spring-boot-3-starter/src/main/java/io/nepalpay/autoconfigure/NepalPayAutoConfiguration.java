@@ -2,6 +2,7 @@ package io.nepalpay.autoconfigure;
 
 import io.nepalpay.config.NepalPayProperties;
 import io.nepalpay.esewa.EsewaClient;
+import io.nepalpay.fonepay.FonepayClient;
 import io.nepalpay.khalti.KhaltiClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -84,5 +85,32 @@ public class NepalPayAutoConfiguration {
                 properties.esewa().productCode());
 
         return new EsewaClient(properties.esewa(), restClientBuilder);
+    }
+
+    // ── Fonepay ───────────────────────────────────────────────────────────────
+
+    /**
+     * Auto-configures {@link FonepayClient} when:
+     * <ol>
+     *   <li>{@code nepalpay.fonepay.secret-key} property is present</li>
+     *   <li>No {@link FonepayClient} bean already defined by developer</li>
+     * </ol>
+     *
+     * <p>Note: FonepayClient does NOT need RestClient.Builder —
+     * Fonepay uses URL redirect, not server-to-server API calls.
+     *
+     * @param properties bound from nepalpay.* in application.yml
+     * @return configured FonepayClient bean
+     */
+    @Bean
+    @ConditionalOnMissingBean(FonepayClient.class)
+    @ConditionalOnProperty(prefix = "nepalpay.fonepay", name = "secret-key")
+    public FonepayClient fonepayClient(NepalPayProperties properties) {
+
+        log.info("[NepalPay] Auto-configuring FonepayClient | sandbox={} | merchantCode={}",
+                properties.fonepay().sandbox(),
+                properties.fonepay().merchantCode());
+
+        return new FonepayClient(properties.fonepay());
     }
 }

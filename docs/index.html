@@ -6,19 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
           content="NepalPay is the first production-grade Spring Boot library
-                   for Nepal payment gateways — Khalti, eSewa, and more.">
-    <link rel="stylesheet" href="css/styles.css">
+                   for Nepal payment gateways — Khalti, eSewa, ConnectIPS, and Fonepay.
+                   Supports Spring Boot 3.2+ and 4.x.">
+    <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
 
+<!-- ── Hero ─────────────────────────────────────────────────────────── -->
 <header class="hero">
     <nav class="navbar">
-        <a class="brand" href="index.html">🇳🇵 NepalPay</a>
+        <span class="brand">🇳🇵 NepalPay</span>
         <div class="nav-links">
             <a href="getting-started.html">Getting Started</a>
             <a href="khalti.html">Khalti</a>
-            <a href="esewa.html" class="active">eSewa</a>
+            <a href="esewa.html">eSewa</a>
             <a href="connectips.html">ConnectIPS</a>
+            <a href="fonepay.html">Fonepay</a>
             <a href="configuration.html">Config</a>
             <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
@@ -27,266 +30,237 @@
     </nav>
 
     <div class="hero-content">
-        <p class="badge">Spring Boot 3.2+ / 4.x · Java 17+ · MIT License · v0.3.0</p>
+        <div class="badge">
+            Spring Boot 3.2+ / 4.x · Java 17+ · MIT License · v0.4.0
+        </div>
         <h1>NepalPay<br>Spring Boot Starter</h1>
-        <p class="subtitle">
+        <p class="hero-subtitle">
             The first production-grade Java library for Nepal payment gateways.
-            Integrate Khalti and eSewa in minutes — security baked in.
+            Integrate Khalti, eSewa, ConnectIPS, and Fonepay in minutes — security baked in.
         </p>
-        <div class="buttons">
-            <a class="btn primary" href="getting-started.html">Get Started →</a>
-            <a class="btn secondary"
+        <div class="hero-buttons">
+            <a class="btn btn-primary" href="getting-started.html">Get Started →</a>
+            <a class="btn btn-secondary"
                href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">View on GitHub</a>
         </div>
     </div>
 </header>
 
-<main>
+<!-- ── Install Strip ─────────────────────────────────────────────────── -->
+<section class="install-strip">
+    <div class="install-inner">
+        <div class="install-tabs">
+            <button class="install-tab-btn active"
+                    onclick="switchTab('maven', this)">Maven</button>
+            <button class="install-tab-btn"
+                    onclick="switchTab('gradle', this)">Gradle (Groovy)</button>
+            <button class="install-tab-btn"
+                    onclick="switchTab('gradle-kts', this)">Gradle (Kotlin)</button>
+        </div>
 
-    <!-- Install snippet -->
-    <section class="install-strip">
-        <div class="install-inner">
+        <div id="install-maven" class="install-tab active">
+            <div class="install-label">Spring Boot 3.2+ (Java 17+)</div>
+            <pre class="install-pre"><code>&lt;repositories&gt;
+    &lt;repository&gt;
+        &lt;id&gt;jitpack.io&lt;/id&gt;
+        &lt;url&gt;https://jitpack.io&lt;/url&gt;
+    &lt;/repository&gt;
+&lt;/repositories&gt;
 
-            <!-- Tab buttons -->
-            <div class="install-tabs">
-                <button class="install-tab-btn active"
-                        onclick="switchInstallTab('maven', this)">Maven</button>
-                <button class="install-tab-btn"
-                        onclick="switchInstallTab('gradle-groovy', this)">Gradle (Groovy)</button>
-                <button class="install-tab-btn"
-                        onclick="switchInstallTab('gradle-kotlin', this)">Gradle (Kotlin)</button>
-            </div>
-
-            <!-- Maven -->
-            <div id="install-maven" class="install-tab active">
-                <div class="install-label">Spring Boot 3.2+ (Java 17+)</div>
-                <pre class="install-pre"><code>&lt;dependency&gt;
+&lt;dependency&gt;
     &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.3.1&lt;/version&gt;
+    &lt;version&gt;v0.4.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
-                <div class="install-label" style="margin-top:1rem">Spring Boot 4.x (Java 21+)</div>
-                <pre class="install-pre"><code>&lt;dependency&gt;
+            <div class="install-label" style="margin-top:1rem">Spring Boot 4.x (Java 21+)</div>
+            <pre class="install-pre"><code>&lt;dependency&gt;
     &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-4-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.3.1&lt;/version&gt;
+    &lt;version&gt;v0.4.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
-            </div>
+        </div>
 
-            <!-- Gradle Groovy -->
-            <div id="install-gradle-groovy" class="install-tab">
-                <div class="install-label">
-                    settings.gradle — add JitPack repository
-                </div>
-                <pre class="install-pre"><code>dependencyResolutionManagement {
+        <div id="install-gradle" class="install-tab">
+            <div class="install-label">settings.gradle — add repository</div>
+            <pre class="install-pre"><code>dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
         maven { url 'https://jitpack.io' }
     }
 }</code></pre>
-                <div class="install-label" style="margin-top:1rem">
-                    build.gradle — Spring Boot 3.2+ (Java 17+)
-                </div>
-                <pre class="install-pre"><code>dependencies {
-    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.3.1'
+            <div class="install-label" style="margin-top:1rem">build.gradle — Spring Boot 3.2+</div>
+            <pre class="install-pre"><code>dependencies {
+    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.4.0'
 }</code></pre>
-                <div class="install-label" style="margin-top:1rem">
-                    build.gradle — Spring Boot 4.x (Java 21+)
-                </div>
-                <pre class="install-pre"><code>dependencies {
-    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.3.1'
+            <div class="install-label" style="margin-top:1rem">build.gradle — Spring Boot 4.x</div>
+            <pre class="install-pre"><code>dependencies {
+    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.0'
 }</code></pre>
-            </div>
+        </div>
 
-            <!-- Gradle Kotlin -->
-            <div id="install-gradle-kotlin" class="install-tab">
-                <div class="install-label">
-                    settings.gradle.kts — add JitPack repository
-                </div>
-                <pre class="install-pre"><code>dependencyResolutionManagement {
+        <div id="install-gradle-kts" class="install-tab">
+            <div class="install-label">settings.gradle.kts — add repository</div>
+            <pre class="install-pre"><code>dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
     }
 }</code></pre>
-                <div class="install-label" style="margin-top:1rem">
-                    build.gradle.kts — Spring Boot 3.2+ (Java 17+)
-                </div>
-                <pre class="install-pre"><code>dependencies {
-    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.3.1")
+            <div class="install-label" style="margin-top:1rem">build.gradle.kts — Spring Boot 3.2+</div>
+            <pre class="install-pre"><code>dependencies {
+    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.4.0")
 }</code></pre>
-                <div class="install-label" style="margin-top:1rem">
-                    build.gradle.kts — Spring Boot 4.x (Java 21+)
-                </div>
-                <pre class="install-pre"><code>dependencies {
-    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.3.1")
+            <div class="install-label" style="margin-top:1rem">build.gradle.kts — Spring Boot 4.x</div>
+            <pre class="install-pre"><code>dependencies {
+    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.0")
 }</code></pre>
-            </div>
-
-            <p class="install-note">
-                🇳🇵 The public API is identical in both starters.
-                <a href="getting-started.html">Full installation guide →</a>
-            </p>
-
         </div>
-    </section>
 
-    <script>
-        function switchInstallTab(name, btn) {
-            document.querySelectorAll('.install-tab').forEach(function(el) {
-                el.classList.remove('active');
-            });
-            document.querySelectorAll('.install-tab-btn').forEach(function(b) {
-                b.classList.remove('active');
-            });
-            document.getElementById('install-' + name).classList.add('active');
-            btn.classList.add('active');
-        }
-    </script>
+        <p class="install-note">
+            The public API is identical in both starters. Only the internal
+            Jackson version differs. ·
+            <a href="getting-started.html">Full install guide →</a>
+        </p>
+    </div>
+</section>
 
-    <!-- Features -->
-    <section class="section">
-        <div class="section-inner">
-            <h2>Why NepalPay?</h2>
-            <div class="cards">
-                <div class="card">
-                    <div class="card-icon">⚡</div>
-                    <h3>Fast Integration</h3>
-                    <p>Add one dependency, set two config keys,
-                        inject the client — done in under 5 minutes.</p>
-                </div>
-                <div class="card">
-                    <div class="card-icon">🔐</div>
-                    <h3>Secure by Default</h3>
-                    <p>Server-side verification, HMAC signature
-                        validation, and callback security are built in.</p>
-                </div>
-                <div class="card">
-                    <div class="card-icon">☕</div>
-                    <h3>Java Native</h3>
-                    <p>Built specifically for Java 21 and Spring Boot 4.
-                        No Node.js bridge. No copy-paste scripts.</p>
-                </div>
-                <div class="card">
-                    <div class="card-icon">🧪</div>
-                    <h3>Fully Tested</h3>
-                    <p>51 automated tests covering success paths,
-                        error paths, signatures, and auto-configuration.</p>
-                </div>
-                <div class="card">
-                    <div class="card-icon">📦</div>
-                    <h3>Zero Boilerplate</h3>
-                    <p>Spring Boot auto-configuration — no
-                        @EnableNepalPay, no @Bean, no config class needed.</p>
-                </div>
-                <div class="card">
-                    <div class="card-icon">🌍</div>
-                    <h3>Open Source</h3>
-                    <p>MIT licensed. Built for Nepal's developer
-                        community. Contributions welcome.</p>
-                </div>
+<!-- ── Why ──────────────────────────────────────────────────────────── -->
+<section class="section">
+    <div class="section-inner">
+        <h2 class="section-title">Why NepalPay?</h2>
+        <p class="section-desc">
+            Stop writing 500 lines of payment boilerplate every project.
+        </p>
+        <div class="cards-grid">
+            <div class="card">
+                <div class="card-icon">⚡</div>
+                <h3>5-Minute Integration</h3>
+                <p>Add dependency → configure keys → inject client.
+                    No @Bean, no config class, no boilerplate.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🔐</div>
+                <h3>Secure by Default</h3>
+                <p>Server-side verification, HMAC signature validation,
+                    RSA signing — all built in. Sandbox mode by default.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">☕</div>
+                <h3>Java Native</h3>
+                <p>Built for Java 17+ and Spring Boot. Type-safe records,
+                    auto-configuration, no Node.js bridge.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🧪</div>
+                <h3>Fully Tested</h3>
+                <p>MockWebServer HTTP tests, HMAC/RSA signature tests,
+                    auto-configuration wiring tests. 80+ tests total.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🔀</div>
+                <h3>Boot 3 and 4</h3>
+                <p>Separate modules for Spring Boot 3.2+ and 4.x.
+                    Identical public API — switch without code changes.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🌍</div>
+                <h3>Open Source</h3>
+                <p>MIT licensed. Built for Nepal's developer community.
+                    Contributions welcome.</p>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Code example -->
-    <section class="section alt">
-        <div class="section-inner">
-            <h2>This simple. This clean.</h2>
-            <div class="code-compare">
-                <div class="code-block">
-                    <div class="code-label bad">❌ Without NepalPay</div>
-                    <pre><code>// 80+ lines of boilerplate just for Khalti
+<!-- ── Gateways ──────────────────────────────────────────────────────── -->
+<section class="section" style="background:#f1f5f9; padding:5rem 0;">
+    <div class="section-inner">
+        <h2 class="section-title">Supported Gateways</h2>
+        <p class="section-desc">All major Nepal digital payment gateways in one library.</p>
+        <div class="gateways-grid">
+            <a class="gateway-card" href="khalti.html">
+                <div class="gateway-version done">✅ v0.1.0</div>
+                <h3>Khalti</h3>
+                <p>API-first initiation and server-side lookup verification.</p>
+                <span class="gateway-link">View docs →</span>
+            </a>
+            <a class="gateway-card" href="esewa.html">
+                <div class="gateway-version done">✅ v0.1.0</div>
+                <h3>eSewa</h3>
+                <p>HMAC-SHA256 signed form payload with callback verification.</p>
+                <span class="gateway-link">View docs →</span>
+            </a>
+            <a class="gateway-card" href="connectips.html">
+                <div class="gateway-version done">✅ v0.2.0</div>
+                <h3>ConnectIPS</h3>
+                <p>RSA-SHA256 signed form payload. Bank-to-bank via NCHL.</p>
+                <span class="gateway-link">View docs →</span>
+            </a>
+            <a class="gateway-card" href="fonepay.html">
+                <div class="gateway-version done">✅ v0.4.0</div>
+                <h3>Fonepay</h3>
+                <p>HMAC-SHA512 signed URL redirect. QR and bank transfer.</p>
+                <span class="gateway-link">View docs →</span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ── Code Comparison ───────────────────────────────────────────────── -->
+<section class="section">
+    <div class="section-inner">
+        <h2 class="section-title">This simple. This clean.</h2>
+        <p class="section-desc">Three lines instead of 80.</p>
+        <div class="code-compare">
+            <div class="code-block">
+                <div class="code-label bad">❌ Without NepalPay</div>
+                <pre><code>// 80+ lines for Khalti initiation alone
 HttpClient client = HttpClient.newHttpClient();
 String json = """
     {
       "return_url": "%s",
       "website_url": "%s",
       "amount": %d,
-      "purchase_order_id": "%s"
+      "purchase_order_id": "%s",
+      "purchase_order_name": "%s"
     }
-    """.formatted(returnUrl, url, amount, orderId);
+    """.formatted(returnUrl, url, amount, orderId, name);
 
 HttpRequest request = HttpRequest.newBuilder()
     .uri(URI.create("https://dev.khalti.com/..."))
     .header("Authorization", "Key " + secretKey)
     .POST(HttpRequest.BodyPublishers.ofString(json))
     .build();
-// ... then parse response manually
-// ... then write the same for eSewa with HMAC
-// ... then do ALL of this again next project</code></pre>
-                </div>
-                <div class="code-block">
-                    <div class="code-label good">✅ With NepalPay</div>
-                    <pre><code>// 3 lines. Type-safe. Tested. Secure.
+// parse response manually...
+// repeat for eSewa with HMAC-SHA256...
+// repeat again for your next project</code></pre>
+            </div>
+            <div class="code-block">
+                <div class="code-label good">✅ With NepalPay</div>
+                <pre><code>// 3 lines. Type-safe. Tested. Secure.
 var response = khaltiClient.initiatePayment(
     KhaltiInitiateRequest.builder()
         .amount(10000L)
         .purchaseOrderId("ORD-001")
-        .purchaseOrderName("Premium Plan")
+        .purchaseOrderName("Pro Plan")
         .build()
 );
 
 // Redirect user to payment page
 return response.paymentUrl();</code></pre>
-                </div>
             </div>
         </div>
-    </section>
-
-    <!-- Gateways -->
-    <section class="section">
-        <div class="section-inner">
-            <h2>Supported Gateways</h2>
-            <div class="gateways">
-                <a class="gateway" href="getting-started.html">
-                    <div class="gateway-status done">✅ v0.3.0</div>
-                    <h3>Spring Boot 3.2+</h3>
-                    <p>Now supports Spring Boot 3.2+ with Java 17.
-                        Same API as Boot 4 starter.</p>
-                    <span class="gateway-link">View install guide →</span>
-                </a>
-                <a class="gateway" href="khalti.html">
-                    <div class="gateway-status done">✅ v0.1.0</div>
-                    <h3>Khalti</h3>
-                    <p>Initiate + server-side lookup/verify.
-                        Sandbox and production mode.</p>
-                    <span class="gateway-link">View docs →</span>
-                </a>
-                <a class="gateway" href="esewa.html">
-                    <div class="gateway-status done">✅ v0.1.0</div>
-                    <h3>eSewa</h3>
-                    <p>HMAC-signed form payload + callback
-                        verification + status API.</p>
-                    <span class="gateway-link">View docs →</span>
-                </a>
-                <a class="gateway" href="connectips.html">
-                    <div class="gateway-status done">✅ v0.2.0</div>
-                    <h3>ConnectIPS</h3>
-                    <p>RSA-signed bank-to-bank payments
-                        via NCHL infrastructure.</p>
-                    <span class="gateway-link">View docs →</span>
-                </a>
-                <div class="gateway disabled">
-                    <div class="gateway-status planned">🔲 Planned</div>
-                    <h3>Fonepay</h3>
-                    <p>QR-based and interbank transfer
-                        payment gateway.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-</main>
+    </div>
+</section>
 
 <footer class="footer">
     <p>
         Built by
-        <a href="https://sujanlamichhane.com.np" target="_blank"
-           rel="noopener">Sujan Lamichhane</a>
+        <a href="https://sujanlamichhane.com.np" target="_blank" rel="noopener">
+            Sujan Lamichhane</a>
         for Nepal's developer community 🇳🇵
     </p>
     <p>
@@ -298,5 +272,13 @@ return response.paymentUrl();</code></pre>
     </p>
 </footer>
 
+<script>
+    function switchTab(name, btn) {
+        document.querySelectorAll('.install-tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.install-tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('install-' + name).classList.add('active');
+        btn.classList.add('active');
+    }
+</script>
 </body>
 </html>

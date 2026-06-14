@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fonepay Integration — NepalPay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+
+<header class="page-header">
+    <nav class="navbar">
+        <a class="brand" href="index.html">🇳🇵 NepalPay</a>
+        <div class="nav-links">
+            <a href="getting-started.html">Getting Started</a>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
+            <a href="connectips.html">ConnectIPS</a>
+            <a href="fonepay.html" class="active">Fonepay</a>
+            <a href="configuration.html">Config</a>
+            <a href="security.html">Security</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+    </nav>
+    <div class="page-title">
+        <div class="page-version">✅ v0.4.0</div>
+        <h1>Fonepay Integration</h1>
+        <p>HMAC-SHA512 signed URL redirect for QR and bank transfer payments.</p>
+    </div>
+</header>
+
+<div class="docs-layout">
+    <aside class="sidebar">
+        <nav>
+            <div class="sidebar-section">Guide</div>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#differences">Key Differences</a>
+            <a href="#configure">Configure</a>
+            <a href="#build-redirect">buildRedirectParams()</a>
+            <a href="#frontend">Frontend Redirect</a>
+            <a href="#verify">verifyCallback()</a>
+            <div class="sidebar-section">Reference</div>
+            <a href="#callback-params">Callback Params</a>
+            <a href="#security">Security Rules</a>
+        </nav>
+    </aside>
+
+    <article class="docs-content">
+
+        <section id="how-it-works">
+            <h2>How Fonepay Works</h2>
+            <div class="callout info">
+                ℹ️ Fonepay uses a <strong>URL redirect model</strong> — similar to eSewa
+                but instead of a form POST, the user is redirected directly via URL.
+                Your backend builds a signed redirect URL. The frontend navigates to it.
+            </div>
+            <pre class="flow">Your Backend
+    → buildRedirectParams() — generates HMAC-SHA512 signature
+    → returns redirectUrl to frontend
+          ↓
+Frontend: window.location.href = redirectUrl
+          ↓
+User pays on Fonepay (QR, bank, wallet)
+          ↓
+Fonepay redirects to your return URL with query params:
+?PRN=xxx&PID=xxx&PS=success&RC=200&UID=xxx&BC=xxx&INI=xxx&P_AMT=100&R_AMT=0&DV=HMAC_HEX
+          ↓
+⚠️  NEVER trust redirect params alone!
+          ↓
+Your Backend: verifyCallback() — re-computes HMAC-SHA512 and verifies DV
+          ↓
+✅ mark as paid when PS = "success" AND signature matches</pre>
+        </section>
+
+        <section id="differences">
+            <h2>Key Differences from Other Gateways</h2>
+            <table class="table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Khalti</th>
+                    <th>eSewa</th>
+                    <th>Fonepay</th>
+                </tr>
+                <tr>
+                    <td>Flow type</td>
+                    <td>API-first POST</td>
+                    <td>Form POST</td>
+                    <td>URL redirect (GET)</td>
+                </tr>
+                <tr>
+                    <td>Signature</td>
+                    <td>None (API key)</td>
+                    <td>HMAC-SHA256 Base64</td>
+                    <td>HMAC-SHA512 hex</td>
+                </tr>
+                <tr>
+                    <td>Amount unit</td>
+                    <td>Paisa (NPR × 100)</td>
+                    <td>NPR (BigDecimal)</td>
+                    <td>NPR (double)</td>
+                </tr>
+                <tr>
+                    <td>Callback format</td>
+                    <td>Query params</td>
+                    <td>Base64 JSON</td>
+                    <td>Query params</td>
+                </tr>
+                <tr>
+                    <td>Verify method</td>
+                    <td>Lookup API call</td>
+                    <td>HMAC + status API</td>
+                    <td>HMAC only (no API)</td>
+                </tr>
+                <tr>
+                    <td>RestClient needed</td>
+                    <td>✅ Yes</td>
+                    <td>✅ Yes</td>
+                    <td>❌ No</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="configure">
+            <h2>Configure</h2>
+            <pre><code>nepalpay:
+  fonepay:
+    merchant-code: ${FONEPAY_MERCHANT_CODE}   # your PID from Fonepay
+    secret-key:    ${FONEPAY_SECRET_KEY}       # HMAC secret from Fonepay
+    return-url:    ${FONEPAY_RETURN_URL}       # your callback URL
+    sandbox: true                              # false for production</code></pre>
+
+            <p>
+                <code>FonepayClient</code> is auto-configured when
+                <code>nepalpay.fonepay.secret-key</code> is present.
+                No additional setup required.
+            </p>
+
+            <h3>Sandbox vs Production</h3>
+            <table class="table">
+                <tr><th>Mode</th><th>Gateway URL</th></tr>
+                <tr>
+                    <td>Sandbox (<code>sandbox: true</code>)</td>
+                    <td><code>https://dev.fonepay.com/api/merchantRequest</code></td>
+                </tr>
+                <tr>
+                    <td>Production (<code>sandbox: false</code>)</td>
+                    <td><code>https://fonepay.com/api/merchantRequest</code></td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="build-redirect">
+            <h2>buildRedirectParams()</h2>
+            <p>
+                Builds signed redirect parameters and constructs the full redirect URL.
+                The HMAC-SHA512 signature is computed automatically from the correct field order.
+            </p>
+
+            <h3>Simple overload — just amount and PRN</h3>
+            <pre><code>@Service
+@RequiredArgsConstructor
+public class PaymentService {
+
+    private final FonepayClient fonepayClient;
+
+    public String startFonepayPayment(String orderId, double amountNPR) {
+        // PRN = Product Reference Number (3-25 chars, must be unique)
+        String prn = ("FP-" + orderId).substring(0, Math.min(25, orderId.length() + 3));
+
+        // IMPORTANT: save prn to your DB before returning redirect URL!
+        FonepayRedirectParams params = fonepayClient.buildRedirectParams(
+            FonepayPaymentRequest.builder()
+                .prn(prn)
+                .amount(amountNPR)           // NPR directly as double
+                .remarks1("Pro Plan")        // shown to user on Fonepay
+                .remarks2("NepalPay")        // optional
+                .build()
+        );
+
+        return params.redirectUrl(); // redirect user to this URL
+    }
+}</code></pre>
+
+            <div class="callout warning">
+                ⚠️ <strong>Amount is NPR as a double</strong> — not paisa like Khalti.
+                NPR 100 → send <code>100.0</code>.
+            </div>
+
+            <h3>PRN rules</h3>
+            <ul>
+                <li>Must be between 3 and 25 characters</li>
+                <li>Must be unique per transaction</li>
+                <li>Alphanumeric and hyphens recommended</li>
+                <li>Store in your database BEFORE returning the redirect URL</li>
+            </ul>
+
+            <h3>Signature message format (MANDATORY order)</h3>
+            <pre><code>// NepalPay builds this internally — you don't need to do it manually
+// Order is: PID,MD,PRN,AMT,CRN,DT,R1,R2,RU
+// Hash: HMAC-SHA512(secretKey, message, UTF-8)
+// Output: lowercase hexadecimal</code></pre>
+        </section>
+
+        <section id="frontend">
+            <h2>Frontend Redirect</h2>
+            <p>
+                Your backend returns the signed redirect URL.
+                The frontend navigates the user to it directly.
+            </p>
+
+            <h3>Angular / TypeScript</h3>
+            <pre><code>initiatePayment(orderId: string, amount: number): void {
+    this.paymentService.startFonepay(orderId, amount).subscribe(response => {
+        // Navigate user to Fonepay gateway
+        window.location.href = response.redirect_url;
+    });
+}</code></pre>
+
+            <h3>Plain JavaScript</h3>
+            <pre><code>fetch('/api/payment/fonepay/initiate', {
+    method: 'POST',
+    body: JSON.stringify({ orderId: 'ORD-001', amountNPR: 100 })
+})
+.then(res => res.json())
+.then(data => {
+    window.location.href = data.redirect_url;
+});</code></pre>
+        </section>
+
+        <section id="verify">
+            <h2>verifyCallback()</h2>
+            <p>
+                Fonepay redirects to your <code>return-url</code> with all
+                payment details as GET query parameters.
+                <strong>Always verify the HMAC-SHA512 signature</strong>
+                before trusting the payment status.
+            </p>
+
+            <pre><code>@GetMapping("/api/payment/fonepay/callback")
+public ResponseEntity&lt;String&gt; callback(
+        @RequestParam String PRN,
+        @RequestParam String PID,
+        @RequestParam String PS,
+        @RequestParam String RC,
+        @RequestParam String UID,
+        @RequestParam String BC,
+        @RequestParam String INI,
+        @RequestParam(name = "P_AMT") String pAmt,
+        @RequestParam(name = "R_AMT") String rAmt,
+        @RequestParam(name = "DV")    String dv) {
+
+    // Build the typed callback response
+    FonepayCallbackResponse callback =
+        FonepayCallbackResponse.of(PRN, PID, PS, RC, UID, BC, INI, pAmt, rAmt, dv);
+
+    // verifyCallback() does TWO things automatically:
+    // 1. Re-computes HMAC-SHA512 and verifies DV signature (tamper protection)
+    // 2. Checks PS = "success"
+    FonepayClient.FonepayVerificationResult result =
+        fonepayClient.verifyCallback(callback);
+
+    if (!result.isPaymentSuccessful()) {
+        return ResponseEntity.badRequest().body("Payment not confirmed");
+    }
+
+    // Safe to mark order as paid
+    orderService.markAsPaid(PRN);
+    return ResponseEntity.ok("Payment successful");
+}</code></pre>
+        </section>
+
+        <section id="callback-params">
+            <h2>Callback Parameters</h2>
+            <p>
+                Fonepay sends these as GET query parameters to your
+                <code>return-url</code>:
+            </p>
+            <table class="table">
+                <tr><th>Parameter</th><th>Description</th><th>Example</th></tr>
+                <tr>
+                    <td><code>PRN</code></td>
+                    <td>Your original Product Reference Number</td>
+                    <td><code>FP-ORD-001</code></td>
+                </tr>
+                <tr>
+                    <td><code>PID</code></td>
+                    <td>Fonepay merchant code</td>
+                    <td><code>MERCHANT_CODE</code></td>
+                </tr>
+                <tr>
+                    <td><code>PS</code></td>
+                    <td>Payment status</td>
+                    <td><code>success</code> or <code>failed</code></td>
+                </tr>
+                <tr>
+                    <td><code>RC</code></td>
+                    <td>Response code</td>
+                    <td><code>200</code></td>
+                </tr>
+                <tr>
+                    <td><code>UID</code></td>
+                    <td>Fonepay unique transaction ID</td>
+                    <td><code>fonepay-uid-001</code></td>
+                </tr>
+                <tr>
+                    <td><code>BC</code></td>
+                    <td>Bank code of the paying bank</td>
+                    <td><code>GBIME</code></td>
+                </tr>
+                <tr>
+                    <td><code>INI</code></td>
+                    <td>Transaction initiator</td>
+                    <td><code>9800000001</code></td>
+                </tr>
+                <tr>
+                    <td><code>P_AMT</code></td>
+                    <td>Paid amount in NPR</td>
+                    <td><code>100</code></td>
+                </tr>
+                <tr>
+                    <td><code>R_AMT</code></td>
+                    <td>Refund amount</td>
+                    <td><code>0</code></td>
+                </tr>
+                <tr>
+                    <td><code>DV</code></td>
+                    <td>HMAC-SHA512 signature (uppercase hex)</td>
+                    <td><code>A1B2C3...</code></td>
+                </tr>
+            </table>
+
+            <h3>Response signature field order (MANDATORY)</h3>
+            <pre><code>// NepalPay verifies this automatically
+// Order: PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT
+// Hash: HMAC-SHA512(secretKey, message, UTF-8)
+// Output: UPPERCASE hexadecimal
+// Compare to: DV parameter from Fonepay (converted to uppercase)</code></pre>
+        </section>
+
+        <section id="security">
+            <h2>Security Rules</h2>
+            <div class="callout danger">
+                🔴 <strong>Never trust the PS parameter alone.</strong>
+                Anyone can type <code>?PS=success</code> in the URL.
+                Always call <code>verifyCallback()</code> which checks the HMAC signature.
+            </div>
+            <div class="callout danger">
+                🔴 <strong>Never hardcode your Fonepay secret key.</strong>
+                Use environment variables.
+            </div>
+            <div class="callout success">
+                ✅ Store the PRN in your database before returning the redirect URL.
+            </div>
+            <div class="callout success">
+                ✅ <code>verifyCallback()</code> throws <code>FonepayException</code>
+                if the signature does not match — treat this as a potential fraud attempt.
+            </div>
+        </section>
+
+    </article>
+</div>
+
+<footer class="footer">
+    <p>
+        NepalPay Spring Boot Starter · MIT License ·
+        <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+           target="_blank" rel="noopener">GitHub</a>
+        ·
+        <a href="https://sujanlamichhane.com.np"
+           target="_blank" rel="noopener">Sujan Lamichhane</a>
+    </p>
+</footer>
+</body>
+</html>

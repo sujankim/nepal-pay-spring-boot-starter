@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Getting Started — NepalPay</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
 
@@ -12,10 +12,11 @@
     <nav class="navbar">
         <a class="brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="nav-links">
-            <a href="getting-started.html">Getting Started</a>
+            <a href="getting-started.html" class="active">Getting Started</a>
             <a href="khalti.html">Khalti</a>
-            <a href="esewa.html" class="active">eSewa</a>
+            <a href="esewa.html">eSewa</a>
             <a href="connectips.html">ConnectIPS</a>
+            <a href="fonepay.html">Fonepay</a>
             <a href="configuration.html">Config</a>
             <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
@@ -31,12 +32,18 @@
 <div class="docs-layout">
     <aside class="sidebar">
         <nav>
+            <div class="sidebar-section">Setup</div>
             <a href="#requirements">Requirements</a>
             <a href="#install">Install</a>
             <a href="#configure">Configure</a>
-            <a href="#khalti-quickstart">Khalti Quickstart</a>
-            <a href="#esewa-quickstart">eSewa Quickstart</a>
-            <a href="#sandbox">Sandbox Credentials</a>
+            <div class="sidebar-section">Quickstart</div>
+            <a href="#khalti-qs">Khalti</a>
+            <a href="#esewa-qs">eSewa</a>
+            <a href="#fonepay-qs">Fonepay</a>
+            <a href="#connectips-qs">ConnectIPS</a>
+            <div class="sidebar-section">Reference</div>
+            <a href="#sandbox-creds">Sandbox Credentials</a>
+            <a href="#amounts">Amount Units</a>
         </nav>
     </aside>
 
@@ -44,141 +51,144 @@
 
         <section id="requirements">
             <h2>Requirements</h2>
-            <ul>
-                <li>Java 21 or higher</li>
-                <li>Spring Boot 4.1.0 or higher</li>
-                <li>Maven or Gradle</li>
-                <li>A Khalti or eSewa merchant account</li>
-            </ul>
+            <table class="table">
+                <tr><th>Starter</th><th>Spring Boot</th><th>Java</th></tr>
+                <tr>
+                    <td><code>nepal-pay-spring-boot-3-starter</code></td>
+                    <td>3.2.x or higher</td>
+                    <td>17 or higher</td>
+                </tr>
+                <tr>
+                    <td><code>nepal-pay-spring-boot-4-starter</code></td>
+                    <td>4.0.x or higher</td>
+                    <td>21 or higher</td>
+                </tr>
+            </table>
         </section>
 
-        <section class="install-strip">
-            <div class="install-inner">
+        <section id="install">
+            <h2>Install</h2>
 
-                <!-- Tab buttons -->
-                <div class="install-tabs">
-                    <button class="install-tab-btn active"
-                            onclick="switchInstallTab('maven', this)">Maven</button>
-                    <button class="install-tab-btn"
-                            onclick="switchInstallTab('gradle-groovy', this)">Gradle (Groovy)</button>
-                    <button class="install-tab-btn"
-                            onclick="switchInstallTab('gradle-kotlin', this)">Gradle (Kotlin)</button>
-                </div>
+            <div class="tab-group">
+                <button class="tab-btn active" onclick="showTab('maven', this)">Maven</button>
+                <button class="tab-btn" onclick="showTab('gradle', this)">Gradle (Groovy)</button>
+                <button class="tab-btn" onclick="showTab('kts', this)">Gradle (Kotlin)</button>
+            </div>
 
-                <!-- Maven -->
-                <div id="install-maven" class="install-tab active">
-                    <div class="install-label">Spring Boot 3.2+ (Java 17+)</div>
-                    <pre class="install-pre"><code>&lt;dependency&gt;
+            <div id="tab-maven" class="tab-pane active">
+                <p>Step 1 — Add JitPack repository to <code>pom.xml</code>:</p>
+                <pre><code>&lt;repositories&gt;
+    &lt;repository&gt;
+        &lt;id&gt;jitpack.io&lt;/id&gt;
+        &lt;url&gt;https://jitpack.io&lt;/url&gt;
+    &lt;/repository&gt;
+&lt;/repositories&gt;</code></pre>
+
+                <p>Step 2 — Add dependency for your Spring Boot version:</p>
+                <p><strong>Spring Boot 3.2+ (Java 17+):</strong></p>
+                <pre><code>&lt;dependency&gt;
     &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.3.1&lt;/version&gt;
+    &lt;version&gt;v0.4.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
-                    <div class="install-label" style="margin-top:1rem">Spring Boot 4.x (Java 21+)</div>
-                    <pre class="install-pre"><code>&lt;dependency&gt;
+
+                <p><strong>Spring Boot 4.x (Java 21+):</strong></p>
+                <pre><code>&lt;dependency&gt;
     &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-4-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.3.1&lt;/version&gt;
+    &lt;version&gt;v0.4.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
-                </div>
+            </div>
 
-                <!-- Gradle Groovy -->
-                <div id="install-gradle-groovy" class="install-tab">
-                    <div class="install-label">
-                        settings.gradle — add JitPack repository
-                    </div>
-                    <pre class="install-pre"><code>dependencyResolutionManagement {
+            <div id="tab-gradle" class="tab-pane">
+                <p>Step 1 — Add JitPack to <code>settings.gradle</code>:</p>
+                <pre><code>dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
         maven { url 'https://jitpack.io' }
     }
 }</code></pre>
-                    <div class="install-label" style="margin-top:1rem">
-                        build.gradle — Spring Boot 3.2+ (Java 17+)
-                    </div>
-                    <pre class="install-pre"><code>dependencies {
-    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.3.1'
-}</code></pre>
-                    <div class="install-label" style="margin-top:1rem">
-                        build.gradle — Spring Boot 4.x (Java 21+)
-                    </div>
-                    <pre class="install-pre"><code>dependencies {
-    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.3.1'
-}</code></pre>
-                </div>
 
-                <!-- Gradle Kotlin -->
-                <div id="install-gradle-kotlin" class="install-tab">
-                    <div class="install-label">
-                        settings.gradle.kts — add JitPack repository
-                    </div>
-                    <pre class="install-pre"><code>dependencyResolutionManagement {
+                <p>Step 2 — Add to <code>build.gradle</code>:</p>
+                <p><strong>Spring Boot 3.2+:</strong></p>
+                <pre><code>dependencies {
+    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.4.0'
+}</code></pre>
+                <p><strong>Spring Boot 4.x:</strong></p>
+                <pre><code>dependencies {
+    implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.0'
+}</code></pre>
+            </div>
+
+            <div id="tab-kts" class="tab-pane">
+                <p>Step 1 — Add JitPack to <code>settings.gradle.kts</code>:</p>
+                <pre><code>dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
     }
 }</code></pre>
-                    <div class="install-label" style="margin-top:1rem">
-                        build.gradle.kts — Spring Boot 3.2+ (Java 17+)
-                    </div>
-                    <pre class="install-pre"><code>dependencies {
-    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.3.1")
-}</code></pre>
-                    <div class="install-label" style="margin-top:1rem">
-                        build.gradle.kts — Spring Boot 4.x (Java 21+)
-                    </div>
-                    <pre class="install-pre"><code>dependencies {
-    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.3.1")
-}</code></pre>
-                </div>
 
-                <p class="install-note">
-                    🇳🇵 The public API is identical in both starters.
-                    <a href="getting-started.html">Full install guide →</a>
-                </p>
+                <p>Step 2 — Add to <code>build.gradle.kts</code>:</p>
+                <p><strong>Spring Boot 3.2+:</strong></p>
+                <pre><code>dependencies {
+    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.4.0")
+}</code></pre>
+                <p><strong>Spring Boot 4.x:</strong></p>
+                <pre><code>dependencies {
+    implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.0")
+}</code></pre>
+            </div>
 
+            <div class="callout info">
+                ℹ️ The public API is <strong>identical</strong> in both starters.
+                Only the internal Jackson version differs.
+                You can switch starters without changing any application code.
             </div>
         </section>
 
-        <script>
-            function switchInstallTab(name, btn) {
-                document.querySelectorAll('.install-tab').forEach(function(el) {
-                    el.classList.remove('active');
-                });
-                document.querySelectorAll('.install-tab-btn').forEach(function(b) {
-                    b.classList.remove('active');
-                });
-                document.getElementById('install-' + name).classList.add('active');
-                btn.classList.add('active');
-            }
-        </script>
-
         <section id="configure">
             <h2>Configure</h2>
-            <p>Add to your <code>application.yml</code>:</p>
+            <p>Add to <code>application.yml</code>:</p>
             <pre><code>nepalpay:
   khalti:
     secret-key: ${KHALTI_SECRET_KEY}
     return-url:  ${KHALTI_RETURN_URL}
     website-url: ${YOUR_WEBSITE_URL}
-    sandbox: true          # false for production
+    sandbox: true
 
   esewa:
     secret-key:   ${ESEWA_SECRET_KEY}
     product-code: ${ESEWA_PRODUCT_CODE}
     success-url:  ${ESEWA_SUCCESS_URL}
     failure-url:  ${ESEWA_FAILURE_URL}
-    sandbox: true          # false for production</code></pre>
+    sandbox: true
 
+  fonepay:
+    merchant-code: ${FONEPAY_MERCHANT_CODE}
+    secret-key:    ${FONEPAY_SECRET_KEY}
+    return-url:    ${FONEPAY_RETURN_URL}
+    sandbox: true
+
+  # ConnectIPS — requires NCHL merchant registration
+  # connectips:
+  #   merchant-id:  ${CONNECTIPS_MERCHANT_ID}
+  #   app-id:       ${CONNECTIPS_APP_ID}
+  #   app-name:     ${CONNECTIPS_APP_NAME}
+  #   app-password: ${CONNECTIPS_APP_PASSWORD}
+  #   pfx-path:     ${CONNECTIPS_PFX_PATH}
+  #   pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+  #   sandbox: true</code></pre>
             <p>
-                That is all. Spring Boot auto-configures
-                <code>KhaltiClient</code> and <code>EsewaClient</code>
-                beans automatically when the keys are present.
+                That is all. Spring Boot auto-configures the client beans
+                automatically when keys are present. No <code>@EnableNepalPay</code>,
+                no <code>@Bean</code> method, no config class.
             </p>
         </section>
 
-        <section id="khalti-quickstart">
+        <section id="khalti-qs">
             <h2>Khalti Quickstart</h2>
             <pre><code>@Service
 @RequiredArgsConstructor
@@ -186,32 +196,28 @@ public class PaymentService {
 
     private final KhaltiClient khaltiClient; // ← auto-injected
 
-    // Step 1: Initiate payment
-    public String startKhaltiPayment(String orderId, long amountNPR) {
-        var response = khaltiClient.initiatePayment(
+    // Step 1: Initiate
+    public String startKhalti(String orderId, long amountNPR) {
+        var res = khaltiClient.initiatePayment(
             KhaltiInitiateRequest.builder()
-                .amount(amountNPR * 100L) // NPR → paisa
+                .amount(amountNPR * 100L)        // NPR → paisa
                 .purchaseOrderId(orderId)
                 .purchaseOrderName("Your Product")
                 .build()
         );
-        // Store response.pidx() in your database!
-        return response.paymentUrl(); // redirect user here
+        // IMPORTANT: save res.pidx() to DB before returning!
+        return res.paymentUrl();                  // redirect user here
     }
 
     // Step 2: Verify after callback
     public boolean verifyKhalti(String pidx) {
-        return khaltiClient
-            .lookupPayment(pidx)
-            .isPaymentSuccessful();
+        return khaltiClient.lookupPayment(pidx).isPaymentSuccessful();
     }
 }</code></pre>
-            <p>
-                See the full <a href="khalti.html">Khalti guide →</a>
-            </p>
+            <p>See the full <a href="khalti.html">Khalti guide →</a></p>
         </section>
 
-        <section id="esewa-quickstart">
+        <section id="esewa-qs">
             <h2>eSewa Quickstart</h2>
             <pre><code>@Service
 @RequiredArgsConstructor
@@ -220,44 +226,127 @@ public class PaymentService {
     private final EsewaClient esewaClient; // ← auto-injected
 
     // Step 1: Build signed form payload
-    public EsewaFormPayload startEsewaPayment(BigDecimal amountNPR) {
+    public EsewaFormPayload startEsewa(BigDecimal amountNPR) {
         String uuid = EsewaClient.generateTransactionUuid();
-        // Store uuid in your database!
+        // IMPORTANT: save uuid to DB before returning!
         return esewaClient.buildFormPayload(amountNPR, uuid);
-        // Frontend POSTs this to payload.formActionUrl()
+        // Frontend POSTs form fields to payload.formActionUrl()
     }
 
-    // Step 2: Verify callback
+    // Step 2: Verify after callback
     public boolean verifyEsewa(String encodedData) {
-        return esewaClient
-            .verifyCallback(encodedData)
-            .isPaymentSuccessful();
+        return esewaClient.verifyCallback(encodedData).isPaymentSuccessful();
     }
 }</code></pre>
+            <p>See the full <a href="esewa.html">eSewa guide →</a></p>
+        </section>
+
+        <section id="fonepay-qs">
+            <h2>Fonepay Quickstart</h2>
+            <pre><code>@Service
+@RequiredArgsConstructor
+public class PaymentService {
+
+    private final FonepayClient fonepayClient; // ← auto-injected
+
+    // Step 1: Build signed redirect URL
+    public String startFonepay(String orderId, double amountNPR) {
+        String prn = "FP-" + orderId;
+        // IMPORTANT: save prn to DB before returning!
+        FonepayRedirectParams params = fonepayClient.buildRedirectParams(
+            FonepayPaymentRequest.builder()
+                .prn(prn)
+                .amount(amountNPR)              // NPR directly — not paisa!
+                .remarks1("Your Product")
+                .build()
+        );
+        return params.redirectUrl();            // redirect user here
+    }
+
+    // Step 2: Verify after callback
+    public boolean verifyFonepay(FonepayCallbackResponse callback) {
+        return fonepayClient.verifyCallback(callback).isPaymentSuccessful();
+    }
+}</code></pre>
+            <p>See the full <a href="fonepay.html">Fonepay guide →</a></p>
+        </section>
+
+        <section id="connectips-qs">
+            <h2>ConnectIPS Quickstart</h2>
+            <div class="callout warning">
+                ⚠️ Requires NCHL merchant registration.
+                Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.
+            </div>
+            <pre><code>// Step 1: Build RSA-signed form payload
+ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
+    ConnectIpsPaymentRequest.builder()
+        .txnId("TXN-" + orderId)
+        .amountNPR(100L)          // auto-converts to paisa
+        .referenceId(orderId)
+        .build()
+);
+// Frontend POSTs form to payload.formActionUrl()
+
+// Step 2: Validate after callback
+ConnectIpsValidateResponse res =
+    connectIpsClient.validateTransaction(txnId, referenceId, txnAmtPaisa);
+if (res.isPaymentSuccessful()) { /* mark as paid */ }</code></pre>
+            <p>See the full <a href="connectips.html">ConnectIPS guide →</a></p>
+        </section>
+
+        <section id="sandbox-creds">
+            <h2>Sandbox Credentials</h2>
+
+            <h3>eSewa Sandbox</h3>
+            <table class="table">
+                <tr><th>Field</th><th>Value</th></tr>
+                <tr><td>eSewa ID</td><td><code>9806800001</code></td></tr>
+                <tr><td>Password</td><td><code>Nepal@123</code></td></tr>
+                <tr><td>MPIN</td><td><code>1122</code></td></tr>
+                <tr><td>Token</td><td><code>123456</code></td></tr>
+                <tr><td>Secret Key</td><td><code>8gBm/:&amp;EnhH.1/q</code></td></tr>
+                <tr><td>Product Code</td><td><code>EPAYTEST</code></td></tr>
+            </table>
+
+            <h3>Khalti Sandbox</h3>
             <p>
-                See the full <a href="esewa.html">eSewa guide →</a>
+                Get your test secret key from
+                <a href="https://test-admin.khalti.com" target="_blank" rel="noopener">
+                    test-admin.khalti.com</a>.
+            </p>
+
+            <h3>Fonepay Sandbox</h3>
+            <p>
+                Sandbox URL: <code>https://dev.fonepay.com/api/merchantRequest</code><br>
+                Merchant code and secret key are provided after registration with Fonepay.
             </p>
         </section>
 
-        <section id="sandbox">
-            <h2>Sandbox Credentials</h2>
-
-            <h3>Khalti</h3>
-            <pre><code>nepalpay:
-  khalti:
-    secret-key: test_secret_key_xxxx   # from test-admin.khalti.com
-    sandbox: true</code></pre>
-
-            <h3>eSewa</h3>
-            <table class="table">
-                <tr><th>Credential</th><th>Value</th></tr>
-                <tr><td>eSewa ID</td><td>9806800001</td></tr>
-                <tr><td>Password</td><td>Nepal@123</td></tr>
-                <tr><td>MPIN</td><td>1122</td></tr>
-                <tr><td>Token</td><td>123456</td></tr>
-                <tr><td>Secret Key</td><td>8gBm/:&amp;EnhH.1/q</td></tr>
-                <tr><td>Product Code</td><td>EPAYTEST</td></tr>
-            </table>
+        <section id="amounts">
+            <h2>Amount Units Per Gateway</h2>
+            <p>This is the most common source of confusion. Each gateway uses different units.</p>
+            <div class="amount-grid">
+                <div class="amount-card">
+                    <div class="gateway-name">Khalti</div>
+                    <div class="unit">Paisa</div>
+                    <div class="example">NPR 100 → 10000L</div>
+                </div>
+                <div class="amount-card">
+                    <div class="gateway-name">eSewa</div>
+                    <div class="unit">NPR</div>
+                    <div class="example">NPR 100 → "100.00"</div>
+                </div>
+                <div class="amount-card">
+                    <div class="gateway-name">Fonepay</div>
+                    <div class="unit">NPR</div>
+                    <div class="example">NPR 100 → 100.0</div>
+                </div>
+                <div class="amount-card">
+                    <div class="gateway-name">ConnectIPS</div>
+                    <div class="unit">Paisa</div>
+                    <div class="example">NPR 100 → 10000L</div>
+                </div>
+            </div>
         </section>
 
     </article>
@@ -265,11 +354,22 @@ public class PaymentService {
 
 <footer class="footer">
     <p>
-        NepalPay · MIT License ·
+        NepalPay Spring Boot Starter · MIT License ·
         <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
            target="_blank" rel="noopener">GitHub</a>
+        ·
+        <a href="https://sujanlamichhane.com.np"
+           target="_blank" rel="noopener">Sujan Lamichhane</a>
     </p>
 </footer>
 
+<script>
+    function showTab(name, btn) {
+        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        btn.classList.add('active');
+    }
+</script>
 </body>
 </html>

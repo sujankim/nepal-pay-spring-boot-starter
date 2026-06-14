@@ -1,108 +1,91 @@
 # Changelog
 
-All notable changes to **NepalPay Spring Boot Starter** will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to NepalPay Spring Boot Starter.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [0.3.0] - 2026-06-14
+## [0.4.0] — 2026-06-14 🔵 Fonepay Integration
 
 ### Added
 
-#### Multi-Module Architecture
+#### Fonepay Payment Gateway
+- `FonepayClient.buildRedirectParams(FonepayPaymentRequest)` — typed overload
+- `FonepayClient.buildRedirectParams(prn, amount, r1, r2)` — direct overload
+- `FonepayClient.verifyCallback(FonepayCallbackResponse)` — HMAC-SHA512 verify
+- `FonepayPaymentRequest` — record with builder (prn, amount, remarks)
+- `FonepayRedirectParams` — signed params record with full `redirectUrl()`
+- `FonepayCallbackResponse` — typed callback record with `of()` factory
+- `FonepayPaymentStatus` enum — SUCCESS, FAILED, UNKNOWN
+- `FonepayVerificationResult` — inner record with `isPaymentSuccessful()`
+- `FonepayException` — typed exception extending `NepalPayException`
 
-* `nepal-pay-core` — pure Java 17 module with zero Spring dependencies
+#### Key Technical Details
+- Signature: HMAC-SHA512 output as **lowercase hex** (not Base64 like eSewa)
+- Response verification: HMAC-SHA512 output as **UPPERCASE hex**
+- Amount: NPR as `double` (not paisa, not BigDecimal)
+- Flow: URL redirect GET (not form POST like eSewa, not API-first like Khalti)
+- `FonepayClient` does NOT use `RestClient` — no server-to-server calls
+- `FonepayClient.java` is **identical** in Boot 3 and Boot 4 starters
 
-    * All models (records), exceptions, and status enums live here
-    * Compatible with Spring Boot 3.x, Spring Boot 4.x, and plain Java 17+
-    * Package: `io.nepalpay.core.*`
-
-* `nepal-pay-spring-boot-3-starter` — Spring Boot 3.2+ support
-
-    * Uses Jackson 2 (`com.fasterxml.jackson.databind.ObjectMapper`)
-    * Java 17 minimum
-
-* `nepal-pay-spring-boot-4-starter` — Spring Boot 4.x support
-
-    * Uses Jackson 3 (`tools.jackson.databind.json.JsonMapper`)
-    * Java 21 minimum
+#### Tests
+- `FonepayPaymentStatusTest` — pure enum unit tests (in core)
+- `FonepayClientTest` — HMAC-SHA512 correctness, redirect URL, callback verify
+- `NepalPayAutoConfigurationTest` — Fonepay bean wiring tests in both starters
 
 #### Consumer Demo
+- `FonepayDemoController` — initiate and callback endpoints with full comments
+- `application.yml` — Fonepay configuration section (commented out)
 
-* `examples/consumer-demo/` — complete working Spring Boot 4 demo application
+#### Docs
+- `docs/fonepay.html` — complete Fonepay integration guide
+- All docs pages — Fonepay added to navigation
+- `docs/index.html` — Fonepay in gateway grid (v0.4.0)
+- `docs/getting-started.html` — Fonepay quickstart + amount units comparison
 
-    * `HealthController` — confirms auto-configuration
-    * `KhaltiDemoController` — initiate + callback with full comments
-    * `EsewaDemoController` — initiate + callback + failure handler
-    * `ConnectIpsDemoController` — initiate + callback
-    * `examples/consumer-demo/README.md` — usage guide with `curl` examples
+### Fixed
+- `UriComponentsBuilder.fromHttpUrl()` removed in Spring Framework 7
+  → replaced with `UriComponentsBuilder.fromUriString()` in `FonepayClient`
+  → works in both Spring Framework 6 (Boot 3) and 7 (Boot 4)
+
+---
+
+## [0.3.1] — 2026-06-14
+
+### Fixed
+- Added `jitpack.yml` with `jdk: [openjdk21]`
+- JitPack was defaulting to Java 8 which cannot compile Java 17 source
+- All 4 modules now build on JitPack: core, Boot 3, Boot 4, parent
+
+---
+
+## [0.3.0] — 2026-06-14
+
+### Added
+- Multi-module architecture: `nepal-pay-core`, `nepal-pay-spring-boot-3-starter`, `nepal-pay-spring-boot-4-starter`
+- Spring Boot 3.2+ support with Jackson 2 (`com.fasterxml.jackson`)
+- `examples/consumer-demo/` — complete working demo app
+- `docs/` website rebuilt with all gateway pages
 
 ### Changed
-
-* All model packages moved from `io.nepalpay.*` to `io.nepalpay.core.*`
-* All exception packages moved from `io.nepalpay.exception` to `io.nepalpay.core.exception`
-* Parent `pom.xml` changed from a Spring Boot parent to a plain Maven parent
-* CI workflow updated to build modules in the correct dependency order
-
-### Migration from v0.2.0
-
-Change your dependency:
-
-#### Spring Boot 3.2+
-
-```xml
-<dependency>
-    <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
-    <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>v0.3.0</version>
-</dependency>
-```
-
-#### Spring Boot 4.x
-
-```xml
-<dependency>
-    <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
-    <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>v0.3.0</version>
-</dependency>
-```
-
-Update your imports:
-
-**Before (v0.2.0)**
-
-```java
-import io.nepalpay.khalti.model.KhaltiInitiateRequest;
-import io.nepalpay.exception.KhaltiException;
-```
-
-**After (v0.3.0)**
-
-```java
-import io.nepalpay.core.khalti.model.KhaltiInitiateRequest;
-import io.nepalpay.core.exception.KhaltiException;
-```
+- All model packages: `io.nepalpay.*` → `io.nepalpay.core.*`
+- All exception packages: `io.nepalpay.exception` → `io.nepalpay.core.exception`
 
 ---
 
-## [0.2.0] - 2026-06-13
+## [0.2.0] — 2026-06-13
 
 ### Added
-
-* ConnectIPS payment gateway (RSA-SHA256 signed)
-* `ConnectIpsClient` — `buildFormPayload()` and `validateTransaction()`
-* `ConnectIpsPaymentRequest` — builder with `amountNPR()` auto-conversion
-* Full ConnectIPS documentation page
+- ConnectIPS payment gateway — RSA-SHA256 signed form payload
+- `ConnectIpsClient` — buildFormPayload + validateTransaction
+- `ConnectIpsPaymentRequest` — builder with `amountNPR()` auto-conversion
 
 ---
 
-## [0.1.0] - 2026-06-13
+## [0.1.0] — 2026-06-13 🎉 First Release
 
 ### Added
-
-* Khalti payment gateway — initiate + lookup
-* eSewa payment gateway — form payload + verify + status API
-* Spring Boot 4.1.0 auto-configuration
-* 51 tests with MockWebServer
+- Khalti — initiate + server-side lookup/verify
+- eSewa — HMAC-SHA256 form payload + Base64 callback verify + status API
+- Spring Boot 4.1.0 auto-configuration
+- 51 tests with MockWebServer
