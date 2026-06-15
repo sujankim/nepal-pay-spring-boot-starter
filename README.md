@@ -73,7 +73,7 @@ dependencyResolutionManagement {
 <dependency>
     <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>v0.4.0</version>
+    <version>v0.4.1</version>
 </dependency>
 ```
 
@@ -82,23 +82,23 @@ dependencyResolutionManagement {
 <dependency>
     <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
     <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>v0.4.0</version>
+    <version>v0.4.1</version>
 </dependency>
 ```
 
 **Gradle Groovy — Spring Boot 3.2+:**
 ```groovy
-implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.4.0'
+implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.4.1'
 ```
 
 **Gradle Groovy — Spring Boot 4.x:**
 ```groovy
-implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.0'
+implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.1'
 ```
 
 **Gradle Kotlin — Spring Boot 4.x:**
 ```kotlin
-implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.0")
+implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.4.1")
 ```
 
 > The public API is **identical** in both starters.
