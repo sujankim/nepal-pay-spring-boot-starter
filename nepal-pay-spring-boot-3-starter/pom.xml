@@ -6,16 +6,6 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!--
-        Inherits from Spring Boot 3.5 (latest Spring Boot 3.x).
-        This is intentional — we want Spring Boot's BOM to manage
-        all library versions automatically for us.
-
-        WHY NOT inherit from nepal-pay-parent?
-        Maven only allows ONE parent. We need Spring Boot's dependency
-        management, so Spring Boot parent wins. The parent pom.xml
-        lists this as a <module> which is enough for the build to work.
-    -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -25,15 +15,15 @@
 
     <groupId>io.nepalpay</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.4.1</version>
     <packaging>jar</packaging>
 
     <name>NepalPay Spring Boot 3 Starter</name>
     <description>
         Spring Boot 3.2+ compatible starter for Nepal payment gateways.
-        Supports Khalti, eSewa, and ConnectIPS.
+        Supports Khalti, eSewa, ConnectIPS, and Fonepay.
         Uses Jackson 2 (com.fasterxml.jackson.databind.ObjectMapper).
-        Minimum requirements: Spring Boot 3.2, Java 17.
+        Minimum: Spring Boot 3.2, Java 17.
     </description>
 
     <properties>
@@ -45,14 +35,11 @@
 
     <dependencies>
 
-        <!--
-            nepal-pay-core — our shared models and exceptions.
-            This brings in all model records, status enums, and exceptions.
-        -->
+        <!-- NepalPay Core — shared models, exceptions, enums -->
         <dependency>
             <groupId>io.nepalpay</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>0.3.0-SNAPSHOT</version>
+            <version>0.4.1</version>
         </dependency>
 
         <!-- Spring Boot Autoconfigure — core of how starters work -->
@@ -62,7 +49,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Configuration Processor — IDE YAML autocomplete -->
+        <!-- Configuration Processor — generates IDE YAML autocomplete -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
@@ -85,7 +72,7 @@
 
         <!--
             Jackson 2 databind — Spring Boot 3 uses com.fasterxml.jackson.
-            Version is managed by Spring Boot 3.5 BOM — no version tag needed.
+            Version managed by Spring Boot 3.5.0 BOM.
         -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -96,6 +83,16 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            Spring Context — provides ResourceLoader for loading .pfx files.
+            Used by ConnectIPS auto-configuration to read certificate bytes.
+        -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
             <optional>true</optional>
         </dependency>
 

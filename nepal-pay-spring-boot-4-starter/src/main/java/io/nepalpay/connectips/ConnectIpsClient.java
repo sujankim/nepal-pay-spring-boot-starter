@@ -98,7 +98,7 @@ public final class ConnectIpsClient {
      * @param appId       Application ID from NCHL
      * @param appName     Application name from NCHL
      * @param appPassword Application password (for Basic Auth on validate API)
-     * @param pfxBytes    Contents of CREDITOR.pfx file as byte array
+     * @param pfxPath    Contents of Cfile:/app/CREDITOR.pfx as String path
      * @param pfxPassword Password for the .pfx file
      * @param sandbox     true = UAT, false = production
      * @param builder     Spring Boot RestClient builder
@@ -108,14 +108,14 @@ public final class ConnectIpsClient {
             String appId,
             String appName,
             String appPassword,
-            byte[] pfxBytes,
+            byte[] pfxPath,
             String pfxPassword,
             boolean sandbox,
             RestClient.Builder builder) {
 
         this(
                 merchantId, appId, appName, appPassword,
-                pfxBytes, pfxPassword, sandbox, builder,
+                pfxPath, pfxPassword, sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE
         );
     }

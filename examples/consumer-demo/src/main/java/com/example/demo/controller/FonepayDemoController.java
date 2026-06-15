@@ -67,10 +67,11 @@ public class FonepayDemoController {
         double amountNPR  = Double.parseDouble(request.get("amountNPR").toString());
         String productName = (String) request.getOrDefault("productName", "Payment");
 
-        // PRN must be 3-25 characters — truncate if needed
-        String prn = ("FP-" + orderId).substring(0, Math.min(25, "FP-" + orderId + "-" + System.currentTimeMillis()).length());
+        // ✅ FIXED: Clean PRN truncation logic (max 25 characters)
+        String rawPrn = "FP-" + orderId;
+        String prn = rawPrn.length() <= 25 ? rawPrn : rawPrn.substring(0, 25);
 
-        log.info("[DEMO] Fonepay initiate | orderId={} | amountNPR={}", orderId, amountNPR);
+        log.info("[DEMO] Fonepay initiate | orderId={} | amountNPR={} | prn={}", orderId, amountNPR, prn);
 
         try {
             // In a real app: save prn to your DB before returning!

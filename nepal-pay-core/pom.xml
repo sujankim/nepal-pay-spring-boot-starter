@@ -9,7 +9,7 @@
     <parent>
         <groupId>io.nepalpay</groupId>
         <artifactId>nepal-pay-parent</artifactId>
-        <version>0.3.0-SNAPSHOT</version>
+        <version>0.4.1</version>
     </parent>
 
     <artifactId>nepal-pay-core</artifactId>
@@ -23,11 +23,6 @@
     </description>
 
     <properties>
-        <!--
-            Java 17 — minimum supported by Spring Boot 3.x.
-            This module must compile on Java 17 so Spring Boot 3 projects
-            can use it. Java 21 features (like virtual threads) are NOT used here.
-        -->
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -37,34 +32,17 @@
     <dependencies>
 
         <!--
-            jackson-annotations — for @JsonProperty, @JsonIgnoreProperties, etc.
-            on model records.
-
-            CRITICAL: We use com.fasterxml.jackson.core:jackson-annotations
-            NOT tools.jackson — because this same artifact is used by BOTH
-            Jackson 2 (Spring Boot 3) and Jackson 3 (Spring Boot 4).
-
-            Official confirmation:
-            "jackson-annotations continues to use the com.fasterxml.jackson.core
-            group ID for backward compatibility between Jackson 2 and 3."
-            This is the permanent solution, not a transitional state.
+            jackson-annotations — for @JsonProperty, @JsonIgnoreProperties on model records.
+            Stays under com.fasterxml.jackson in BOTH Jackson 2 and 3.
+            This is intentional by the Jackson team for backward compatibility.
         -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <!--
-                Explicit version — this module has NO Spring Boot parent
-                so version is NOT managed automatically.
-                2.20 = latest stable that works with both Jackson 2 and 3.
-            -->
             <version>2.20</version>
-            <scope>compile</scope>
         </dependency>
 
-        <!--
-            Lombok — optional compile-time only.
-            Not needed at runtime — just reduces boilerplate in models.
-        -->
+        <!-- Lombok — compile-time only, reduces boilerplate -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -82,23 +60,17 @@
         </dependency>
 
         <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <version>3.27.7</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>7.0.8</version>
-            <scope>compile</scope>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.27.3</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>

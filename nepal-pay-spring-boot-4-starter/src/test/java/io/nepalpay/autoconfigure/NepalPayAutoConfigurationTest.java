@@ -304,6 +304,21 @@ class NepalPayAutoConfigurationTest {
             assertThat(client.formActionUrl())
                     .isEqualTo("https://connectips.com/connectipswebgw/loginpage");
         }
+
+        @Test
+        @DisplayName("ConnectIpsClient: throws when pfx-path is invalid")
+        void connectIpsClient_invalidPfxPath_throwsOnBeanCreation() {
+            contextRunner
+                    .withPropertyValues(
+                            "nepalpay.connectips.merchant-id=123",
+                            "nepalpay.connectips.app-id=APP-001",
+                            "nepalpay.connectips.app-name=TestApp",
+                            "nepalpay.connectips.app-password=password",
+                            "nepalpay.connectips.pfx-path=file:/nonexistent/path.pfx",
+                            "nepalpay.connectips.pfx-password=pfxpass"
+                    )
+                    .run(context -> assertThat(context).hasFailed());
+        }
     }
 
     // ── FonepayClient ─────────────────────────────────────────────────────────
