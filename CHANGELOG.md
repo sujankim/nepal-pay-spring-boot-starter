@@ -5,6 +5,47 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.0] — 2026-06-15 💳 Khalti Refund API
+
+### Added
+
+#### Khalti Refund Support
+- `KhaltiClient.refundPayment(String transactionId)` — full refund
+- `KhaltiClient.refundPayment(String transactionId, Long amountPaisa)` — partial refund
+- `KhaltiRefundResponse` — typed refund response record
+- `KhaltiPaymentStatus.REFUNDED` — new payment status enum value
+- `KhaltiLookupResponse.isRefunded()` — helper for refunded lookup responses
+
+#### Key Technical Details
+- Refund API uses `transaction_id`, **not** `pidx`
+- `transaction_id` is obtained from `lookupPayment(pidx).transactionId()`
+- Full refund sends an empty JSON body: `{}`
+- Partial refund sends amount in paisa: `{ "amount": 5000 }`
+- Refund endpoint uses Khalti's merchant transaction API path:
+  `/api/merchant-transaction/{transaction_id}/refund/`
+- This path does **not** include `/api/v2`
+
+#### Tests
+- Added full refund tests
+- Added partial refund tests
+- Added refund request body assertions
+- Added refund URL path assertions
+- Added 4xx/5xx refund error handling tests
+- Added validation tests for null/blank `transactionId`
+- Added validation tests for invalid partial refund amounts
+- Added `KhaltiPaymentStatus.REFUNDED` tests
+
+#### Consumer Demo
+- Added `POST /api/demo/khalti/refund`
+- Supports both full and partial refund examples
+- Clearly documents that refund requires `transactionId`, not `pidx`
+
+#### Docs
+- Updated `docs/khalti.html` with a new `refundPayment()` section
+- Updated README with Khalti refund usage example
+- Updated supported gateway table for Khalti refund support
+---
+
 ## [0.4.0] — 2026-06-14 🔵 Fonepay Integration
 
 ### Added

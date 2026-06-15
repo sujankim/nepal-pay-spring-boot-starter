@@ -3,7 +3,7 @@
 <img src="https://img.shields.io/badge/Java-17%2B-orange?style=for-the-badge&logo=openjdk"/>
 <img src="https://img.shields.io/badge/Spring%20Boot-3.2%2B%20%7C%204.x-6DB33F?style=for-the-badge&logo=springboot"/>
 <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/JitPack-v0.4.0-brightgreen?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/JitPack-v0.5.0-brightgreen?style=for-the-badge"/>
 <img src="https://img.shields.io/badge/Tests-80%2B%20passing-success?style=for-the-badge"/>
 
 # 🇳🇵 NepalPay Spring Boot Starter
@@ -145,7 +145,6 @@ public class PaymentService {
 Zero `@Bean`. Zero `@EnableNepalPay`. Zero config class.
 
 ---
-
 ## 💳 Khalti
 
 ```java
@@ -163,7 +162,21 @@ KhaltiInitiateResponse res = khaltiClient.initiatePayment(
 KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
 if (lookup.isPaymentSuccessful()) { /* mark as paid */ }
 if (!lookup.isAmountValid(expectedPaisa)) { /* tampered! */ }
+
+// 3. Refund — use transactionId from lookup, NOT pidx
+String transactionId = lookup.transactionId();
+
+// Full refund
+KhaltiRefundResponse fullRefund =
+    khaltiClient.refundPayment(transactionId);
+
+// Partial refund — amount in PAISA
+KhaltiRefundResponse partialRefund =
+    khaltiClient.refundPayment(transactionId, 5000L); // NPR 50
+
+if (fullRefund.isRefundSuccessful()) { /* mark as refunded */ }
 ```
+⚠️ Refund uses transactionId, not pidx. Get it from lookupPayment(pidx).transactionId().
 
 ---
 
@@ -317,9 +330,9 @@ orderRepo.saveTxnId(orderId, txnId);             // ConnectIPS
 
 ## 🗺️ Supported Gateways
 
-| Gateway | Status | Notes |
-|---------|:---:|---|
-| Khalti | ✅ v0.1.0 | Self-service sandbox |
+| Gateway |  Status  | Notes |
+|---------|:--------:|---|
+| Khalti | ✅ v0.5.0 | Self-service sandbox |
 | eSewa | ✅ v0.1.0 | Self-service sandbox |
 | ConnectIPS | ✅ v0.2.0 | NCHL merchant registration required |
 | Fonepay | ✅ v0.4.0 | Integration via bank/Fonepay |

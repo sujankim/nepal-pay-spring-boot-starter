@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import io.nepalpay.core.khalti.model.KhaltiRefundResponse;
 
 import java.util.Map;
 
@@ -181,6 +182,111 @@ public class KhaltiDemoController {
             log.error("[DEMO] Khalti callback error | pidx={}", pidx, e);
             return ResponseEntity.internalServerError().body(Map.of(
                     "error", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Refund a completed Khalti payment.
+     *
+     * <p>IMPORTANT:
+     * This endpoint expects Khalti's {@code transactionId}, NOT {@code pidx}.
+     *
+     * <p>How to get {@code transactionId}:
+     * <ol>
+     *   <li>Call {@code khaltiClient.lookupPayment(pidx)}</li>
+     *   <li>Read {@code lookup.transactionId()}</li>
+     *   <li>Pass that transactionId to this refund endpoint</li>
+     * </ol>
+     *
+     * <p>Example full refund request:
+     * <pre>
+     * POST /api/demo/khalti/refund
+     * Content-Type: application/json
+     *
+     * {
+     *   "transactionId": "GFq9DrfGSZQKjsj"
+     * }
+     * </pre>
+     *
+     * <p>Example partial refund request:
+     * <pre>
+     * POST /api/demo/khalti/refund
+     * Content-Type: application/json
+     *
+     * {
+     *   "transactionId": "GFq9DrfGSZQKjsj",
+     *   "amountPaisa": 5000
+     * }
+     * </pre>
+     *
+     * <p>Amount is in PAISA. NPR 50 = 5000 paisa.
+     *
+     * @param request refund request map containing transactionId and optional amountPaisa
+     * @return refund result
+     */
+    @PostMapping("/refund")
+    public ResponseEntity<Map<String, Object>> refundPayment(
+            @RequestBody Map<String, Object> request) {
+
+        String transactionId = (String) request.get("transactionId");
+
+        Object amountValue = request.get("amountPaisa");
+        Long amountPaisa = amountValue != null
+                ? Long.parseLong(amountValue.toString())
+                : null;
+
+        log.info("[DEMO] Khalti refund request | transactionId={} | type={}",
+                transactionId,
+                amountPaisa != null ? "PARTIAL " + amountPaisa + " paisa" : "FULL");
+
+        try {
+            KhaltiRefundResponse refundResponse = amountPaisa != null
+                    ? khaltiClient.refundPayment(transactionId, amountPaisa)
+                    : khaltiClient.refundPayment(transactionId);
+
+            if (!refundResponse.isRefundSuccessful()) {
+                log.warn("[DEMO] Khalti refund not confirmed | transactionId={} | status={}",
+                        transactionId, refundResponse.status());
+
+                return ResponseEntity.ok(Map.of(
+                        "refunded",       false,
+                        "pidx",           refundResponse.pidx() != null ? refundResponse.pidx() : "",
+                        "transaction_id", refundResponse.transactionId() != null
+                                ? refundResponse.transactionId() : "",
+                        "status",         refundResponse.status() != null ? refundResponse.status() : "",
+                        "message",        "Refund not confirmed by Khalti"
+                ));
+            }
+
+            // In a real app:
+            // 1. Load order/payment record by transactionId
+            // 2. Update order status to REFUNDED or PARTIALLY_REFUNDED
+            // 3. Store refund metadata/audit log
+            // 4. Notify user by email/SMS if needed
+
+            log.info("[DEMO] Khalti refund successful | transactionId={} | pidx={}",
+                    refundResponse.transactionId(), refundResponse.pidx());
+
+            return ResponseEntity.ok(Map.of(
+                    "refunded",       true,
+                    "pidx",           refundResponse.pidx() != null ? refundResponse.pidx() : "",
+                    "transaction_id", refundResponse.transactionId() != null
+                            ? refundResponse.transactionId() : "",
+                    "status",         refundResponse.status() != null ? refundResponse.status() : "",
+                    "message",        amountPaisa != null
+                            ? "Partial refund successful"
+                            : "Full refund successful"
+            ));
+
+        } catch (KhaltiException e) {
+            log.error("[DEMO] Khalti refund failed | transactionId={} | status={} | body={}",
+                    transactionId, e.httpStatus(), e.responseBody());
+
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error",       e.getMessage(),
+                    "http_status", e.httpStatus(),
+                    "body",        e.responseBody() != null ? e.responseBody() : ""
             ));
         }
     }

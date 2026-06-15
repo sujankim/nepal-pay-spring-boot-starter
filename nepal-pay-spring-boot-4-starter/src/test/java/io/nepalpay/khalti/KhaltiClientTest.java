@@ -2,10 +2,7 @@ package io.nepalpay.khalti;
 
 import io.nepalpay.config.NepalPayProperties;
 import io.nepalpay.core.exception.KhaltiException;
-import io.nepalpay.core.khalti.model.KhaltiInitiateRequest;
-import io.nepalpay.core.khalti.model.KhaltiInitiateResponse;
-import io.nepalpay.core.khalti.model.KhaltiLookupResponse;
-import io.nepalpay.core.khalti.model.KhaltiPaymentStatus;
+import io.nepalpay.core.khalti.model.*;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -395,6 +392,315 @@ class KhaltiClientTest {
                     .extracting("httpStatus")
                     .isEqualTo(400);
         }
+
+        // ── refundPayment() ───────────────────────────────────────────────────────
+
+        @Nested
+        @DisplayName("refundPayment()")
+        class RefundPayment {
+
+            // ── Full refund ───────────────────────────────────────────────────────
+
+            @Test
+            @DisplayName("full refund: success → isRefundSuccessful() = true")
+            void refundPayment_fullRefund_success() throws InterruptedException {
+                // Arrange — mock Khalti refund API response
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "pidx":           "bZQLD9wRVWo4CdESSfuSsB",
+                                "transaction_id": "GFq9DrfGSZQKjsj",
+                                "refunded":       true,
+                                "status":         "Refunded"
+                            }
+                            """));
+
+                // Act
+                KhaltiRefundResponse response =
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj");
+
+                // Assert — response parsed correctly
+                assertThat(response).isNotNull();
+                assertThat(response.transactionId()).isEqualTo("GFq9DrfGSZQKjsj");
+                assertThat(response.pidx()).isEqualTo("bZQLD9wRVWo4CdESSfuSsB");
+                assertThat(response.refunded()).isTrue();
+                assertThat(response.status()).isEqualTo("Refunded");
+
+                // Assert — convenience methods
+                assertThat(response.isRefundSuccessful()).isTrue();
+                assertThat(response.paymentStatus())
+                        .isEqualTo(KhaltiPaymentStatus.REFUNDED);
+
+                // Assert — correct HTTP request was sent
+                // Refund path: /api/merchant-transaction/{id}/refund/
+                // NOT /epayment/initiate/ or /epayment/lookup/
+                RecordedRequest request = mockWebServer.takeRequest();
+                assertThat(request.getMethod()).isEqualTo("POST");
+                assertThat(request.getPath())
+                        .isEqualTo("/api/merchant-transaction/GFq9DrfGSZQKjsj/refund/");
+
+                // Assert — Authorization header is present
+                assertThat(request.getHeader("Authorization"))
+                        .isEqualTo("Key " + FAKE_SECRET_KEY);
+            }
+
+            @Test
+            @DisplayName("full refund: request body is empty — {}")
+            void refundPayment_fullRefund_requestBodyIsEmpty()
+                    throws InterruptedException {
+                // Arrange
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "pidx":           "bZQLD9wRVWo4CdESSfuSsB",
+                                "transaction_id": "GFq9DrfGSZQKjsj",
+                                "refunded":       true,
+                                "status":         "Refunded"
+                            }
+                            """));
+
+                // Act
+                khaltiClient.refundPayment("GFq9DrfGSZQKjsj");
+
+                // Assert — full refund sends empty body {}
+                // NOT {"amount": xxx} — that is only for partial refund
+                RecordedRequest request = mockWebServer.takeRequest();
+                String requestBody = request.getBody().readUtf8();
+                assertThat(requestBody).isEqualTo("{}");
+            }
+
+            // ── Partial refund ────────────────────────────────────────────────────
+
+            @Test
+            @DisplayName("partial refund: success → sends amount in paisa in body")
+            void refundPayment_partialRefund_sendsAmountInBody()
+                    throws InterruptedException {
+                // Arrange
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "pidx":           "bZQLD9wRVWo4CdESSfuSsB",
+                                "transaction_id": "GFq9DrfGSZQKjsj",
+                                "refunded":       true,
+                                "status":         "Refunded"
+                            }
+                            """));
+
+                // Act — refund NPR 50 = 5000 paisa (from a NPR 100 transaction)
+                KhaltiRefundResponse response =
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj", 5000L);
+
+                // Assert — response is successful
+                assertThat(response.isRefundSuccessful()).isTrue();
+
+                // Assert — request body contains amount in paisa
+                // {"amount": 5000}  NOT {"amount": 50} or {"amount": 100}
+                RecordedRequest request = mockWebServer.takeRequest();
+                String requestBody = request.getBody().readUtf8();
+                assertThat(requestBody).contains("\"amount\"");
+                assertThat(requestBody).contains("5000");
+                assertThat(requestBody).doesNotContain("pidx");
+            }
+
+            @Test
+            @DisplayName("partial refund: correct path — same as full refund")
+            void refundPayment_partialRefund_usesCorrectPath()
+                    throws InterruptedException {
+                // Arrange
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "pidx":           "bZQLD9wRVWo4CdESSfuSsB",
+                                "transaction_id": "TXN-PARTIAL-001",
+                                "refunded":       true,
+                                "status":         "Refunded"
+                            }
+                            """));
+
+                // Act
+                khaltiClient.refundPayment("TXN-PARTIAL-001", 5000L);
+
+                // Assert — path uses the transactionId, not pidx
+                RecordedRequest request = mockWebServer.takeRequest();
+                assertThat(request.getPath())
+                        .isEqualTo("/api/merchant-transaction/TXN-PARTIAL-001/refund/");
+            }
+
+            // ── HTTP error handling ───────────────────────────────────────────────
+
+            @Test
+            @DisplayName("throws KhaltiException on 400 — payment not refundable")
+            void refundPayment_badRequest_throwsKhaltiException() {
+                // Arrange — Khalti returns 400 when payment is not Completed
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(400)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "detail": "Cannot refund this transaction"
+                            }
+                            """));
+
+                // Act + Assert
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj"))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("Khalti refund failed")
+                        .hasMessageContaining("Only Completed payments can be refunded")
+                        .extracting("httpStatus")
+                        .isEqualTo(400);
+            }
+
+            @Test
+            @DisplayName("throws KhaltiException on 401 — invalid secret key")
+            void refundPayment_unauthorized_throwsKhaltiException() {
+                // Arrange
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(401)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "detail": "Authentication credentials were not provided."
+                            }
+                            """));
+
+                // Act + Assert
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj"))
+                        .isInstanceOf(KhaltiException.class)
+                        .extracting("httpStatus")
+                        .isEqualTo(401);
+            }
+
+            @Test
+            @DisplayName("throws KhaltiException on 500 server error")
+            void refundPayment_serverError_throwsKhaltiException() {
+                // Arrange
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(500));
+
+                // Act + Assert
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj"))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("Khalti server error during refund");
+            }
+
+            // ── Input validation ──────────────────────────────────────────────────
+
+            @Test
+            @DisplayName("throws KhaltiException when transactionId is null")
+            void refundPayment_nullTransactionId_throwsKhaltiException() {
+                // transactionId null means:
+                // either payment was never completed (Pending/Expired/Canceled)
+                // or developer passed pidx instead of transactionId by mistake
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment(null))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("transactionId cannot be null or blank")
+                        .hasMessageContaining("lookupPayment()");
+            }
+
+            @Test
+            @DisplayName("throws KhaltiException when transactionId is blank")
+            void refundPayment_blankTransactionId_throwsKhaltiException() {
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment("   "))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("transactionId cannot be null or blank");
+            }
+
+            @Test
+            @DisplayName("throws KhaltiException when transactionId is null — partial overload")
+            void refundPayment_partial_nullTransactionId_throwsKhaltiException() {
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment(null, 5000L))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("transactionId cannot be null or blank");
+            }
+
+            @Test
+            @DisplayName("throws KhaltiException when amountPaisa is zero")
+            void refundPayment_zeroAmountPaisa_throwsKhaltiException() {
+                // Zero paisa partial refund makes no sense
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj", 0L))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("amountPaisa must be greater than 0")
+                        .hasMessageContaining("full refund");
+            }
+
+            @Test
+            @DisplayName("throws KhaltiException when amountPaisa is negative")
+            void refundPayment_negativeAmountPaisa_throwsKhaltiException() {
+                assertThatThrownBy(() ->
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj", -100L))
+                        .isInstanceOf(KhaltiException.class)
+                        .hasMessageContaining("amountPaisa must be greater than 0");
+            }
+
+            // ── KhaltiRefundResponse helpers ──────────────────────────────────────
+
+            @Test
+            @DisplayName("isRefundSuccessful() = false when refunded=false in response")
+            void refundPayment_refundedFalseInResponse_isRefundSuccessfulFalse() {
+                // Arrange — unusual but possible: API returns 200 but refunded=false
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "pidx":           "bZQLD9wRVWo4CdESSfuSsB",
+                                "transaction_id": "GFq9DrfGSZQKjsj",
+                                "refunded":       false,
+                                "status":         "Pending"
+                            }
+                            """));
+
+                // Act
+                KhaltiRefundResponse response =
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj");
+
+                // Assert — both conditions must be true for isRefundSuccessful()
+                // refunded=false AND status≠Refunded → isRefundSuccessful()=false
+                assertThat(response.isRefundSuccessful()).isFalse();
+                assertThat(response.paymentStatus())
+                        .isEqualTo(KhaltiPaymentStatus.PENDING);
+            }
+
+            @Test
+            @DisplayName("paymentStatus() returns REFUNDED for successful refund response")
+            void refundPayment_paymentStatus_returnsRefunded() {
+                // Arrange
+                mockWebServer.enqueue(new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""
+                            {
+                                "pidx":           "bZQLD9wRVWo4CdESSfuSsB",
+                                "transaction_id": "GFq9DrfGSZQKjsj",
+                                "refunded":       true,
+                                "status":         "Refunded"
+                            }
+                            """));
+
+                // Act
+                KhaltiRefundResponse response =
+                        khaltiClient.refundPayment("GFq9DrfGSZQKjsj");
+
+                // Assert
+                assertThat(response.paymentStatus())
+                        .isEqualTo(KhaltiPaymentStatus.REFUNDED);
+            }
+        }
     }
 
     // ── utility methods ───────────────────────────────────────────────────────
@@ -409,6 +715,22 @@ class KhaltiClientTest {
     @DisplayName("baseUrl() returns the configured URL")
     void baseUrl_returnsConfiguredUrl() {
         assertThat(khaltiClient.baseUrl()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("baseDomain() returns non-blank value")
+    void baseDomain_returnsNonBlankValue() {
+        // baseDomain is used to build the refund URL
+        // It must never be null or blank
+        assertThat(khaltiClient.baseDomain()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("baseDomain() does not end with slash")
+    void baseDomain_doesNotEndWithSlash() {
+        // Trailing slash would produce double-slash in refund URL:
+        // "http://localhost:PORT//api/merchant-transaction/..."
+        assertThat(khaltiClient.baseDomain()).doesNotEndWith("/");
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

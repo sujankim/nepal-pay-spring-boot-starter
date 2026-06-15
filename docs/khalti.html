@@ -35,6 +35,7 @@
             <a href="#how-it-works">How It Works</a>
             <a href="#initiate">initiatePayment()</a>
             <a href="#lookup">lookupPayment()</a>
+            <a href="#refund">refundPayment()</a>
             <a href="#statuses">Payment Statuses</a>
             <a href="#security">Security Rules</a>
         </nav>
@@ -113,6 +114,105 @@ if (!lookup.isAmountValid(expectedPaisa)) {
 orderRepo.markPaid(orderId, lookup.transactionId());</code></pre>
         </section>
 
+        <section id="refund">
+            <h2>refundPayment()</h2>
+
+            <div class="callout warning">
+                ⚠️ <strong>Refund uses transaction_id, not pidx.</strong>
+                First call <code>lookupPayment(pidx)</code>, then use
+                <code>lookup.transactionId()</code> for the refund.
+            </div>
+
+            <p>
+                Khalti refunds are available for completed payments.
+                NepalPay supports both full and partial refunds.
+            </p>
+
+            <h3>Full refund</h3>
+            <pre><code>// Step 1: Lookup payment using pidx
+KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
+
+if (!lookup.isPaymentSuccessful()) {
+    throw new IllegalStateException("Only completed payments can be refunded");
+}
+
+// Step 2: Get transactionId from lookup response
+String transactionId = lookup.transactionId();
+
+// Step 3: Refund full amount
+KhaltiRefundResponse refund =
+    khaltiClient.refundPayment(transactionId);
+
+if (refund.isRefundSuccessful()) {
+    orderRepo.markRefunded(orderId);
+}</code></pre>
+
+            <h3>Partial refund</h3>
+            <pre><code>// Refund NPR 50 from a completed transaction
+// Amount is in PAISA: NPR 50 = 5000 paisa
+
+KhaltiRefundResponse refund =
+    khaltiClient.refundPayment(transactionId, 5000L);
+
+if (refund.isRefundSuccessful()) {
+    orderRepo.markPartiallyRefunded(orderId);
+}</code></pre>
+
+            <h3>Important refund rules</h3>
+            <table class="table">
+                <tr>
+                    <th>Rule</th>
+                    <th>Explanation</th>
+                </tr>
+                <tr>
+                    <td>Use <code>transactionId</code></td>
+                    <td>
+                        Refund API uses Khalti's internal transaction ID,
+                        not the <code>pidx</code> from payment initiation.
+                    </td>
+                </tr>
+                <tr>
+                    <td>Get ID from lookup</td>
+                    <td>
+                        Call <code>lookupPayment(pidx)</code> and read
+                        <code>lookup.transactionId()</code>.
+                    </td>
+                </tr>
+                <tr>
+                    <td>Only completed payments</td>
+                    <td>
+                        Pending, expired, canceled, or failed payments
+                        cannot be refunded.
+                    </td>
+                </tr>
+                <tr>
+                    <td>Amount is paisa</td>
+                    <td>
+                        Partial refund amount is in paisa.
+                        NPR 50 → <code>5000L</code>.
+                    </td>
+                </tr>
+                <tr>
+                    <td>Full refund</td>
+                    <td>
+                        Use <code>refundPayment(transactionId)</code>
+                        with no amount.
+                    </td>
+                </tr>
+            </table>
+
+            <div class="callout danger">
+                🔴 <strong>Do not pass pidx into refundPayment().</strong>
+                It expects <code>transactionId</code>. Passing pidx will fail.
+            </div>
+
+            <div class="callout success">
+                ✅ After refund succeeds, update your order/payment status
+                in your own database to <code>REFUNDED</code> or
+                <code>PARTIALLY_REFUNDED</code>.
+            </div>
+        </section>
+
         <section id="statuses">
             <h2>Payment Statuses</h2>
             <table class="table">
@@ -127,6 +227,12 @@ orderRepo.markPaid(orderId, lookup.transactionId());</code></pre>
                     <td>✅ true</td>
                     <td>false</td>
                     <td>Mark order as paid</td>
+                </tr>
+                <tr>
+                    <td><code>REFUNDED</code></td>
+                    <td>false</td>
+                    <td>false</td>
+                    <td>Order was paid, then refunded. Mark as refunded.</td>
                 </tr>
                 <tr>
                     <td><code>PENDING</code></td>

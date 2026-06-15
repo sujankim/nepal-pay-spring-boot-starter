@@ -74,4 +74,28 @@ public record KhaltiLookupResponse(
     public boolean isAmountValid(long expectedAmountPaisa) {
         return totalAmount != null && totalAmount.equals(expectedAmountPaisa);
     }
+
+    /**
+     * Returns true if this completed payment has been refunded.
+     *
+     * <p>When {@code true}:
+     * <ul>
+     *   <li>The payment was once COMPLETED</li>
+     *   <li>It has since been reversed (fully or partially)</li>
+     *   <li>You should update your order status accordingly</li>
+     * </ul>
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
+     * if (lookup.isRefunded()) {
+     *     orderService.markRefunded(orderId);
+     * }
+     * }</pre>
+     *
+     * @return true if the payment has been refunded
+     */
+    public boolean isRefunded() {
+        return Boolean.TRUE.equals(refunded);
+    }
 }

@@ -96,4 +96,56 @@ class KhaltiPaymentStatusTest {
         assertThat(KhaltiPaymentStatus.UNKNOWN.isTerminalFailure()).isFalse();
         assertThat(KhaltiPaymentStatus.COMPLETED.isTerminalFailure()).isFalse();
     }
+
+    // ── REFUNDED ──────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("fromString: Refunded → REFUNDED")
+    void fromString_refunded() {
+        assertThat(KhaltiPaymentStatus.fromString("Refunded"))
+                .isEqualTo(KhaltiPaymentStatus.REFUNDED);
+    }
+
+    @Test
+    @DisplayName("fromString: REFUNDED is case-insensitive")
+    void fromString_refunded_caseInsensitive() {
+        assertThat(KhaltiPaymentStatus.fromString("refunded"))
+                .isEqualTo(KhaltiPaymentStatus.REFUNDED);
+        assertThat(KhaltiPaymentStatus.fromString("REFUNDED"))
+                .isEqualTo(KhaltiPaymentStatus.REFUNDED);
+    }
+
+    // ── isRefunded() ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("isRefunded: only REFUNDED returns true")
+    void isRefunded_onlyRefundedIsTrue() {
+        assertThat(KhaltiPaymentStatus.REFUNDED.isRefunded()).isTrue();
+
+        assertThat(KhaltiPaymentStatus.COMPLETED.isRefunded()).isFalse();
+        assertThat(KhaltiPaymentStatus.PENDING.isRefunded()).isFalse();
+        assertThat(KhaltiPaymentStatus.CANCELED.isRefunded()).isFalse();
+        assertThat(KhaltiPaymentStatus.FAILED.isRefunded()).isFalse();
+        assertThat(KhaltiPaymentStatus.UNKNOWN.isRefunded()).isFalse();
+    }
+
+    // ── isSuccess() update ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("isSuccess: REFUNDED returns false (was paid but reversed)")
+    void isSuccess_refunded_returnsFalse() {
+        // A refunded payment was once successful but is now reversed.
+        // isSuccess() must return false — you cannot fulfil a refunded order.
+        assertThat(KhaltiPaymentStatus.REFUNDED.isSuccess()).isFalse();
+    }
+
+    // ── isTerminalFailure() update ────────────────────────────────────────────
+
+    @Test
+    @DisplayName("isTerminalFailure: REFUNDED is NOT a terminal failure")
+    void isTerminalFailure_refunded_isFalse() {
+        // REFUNDED is a special state — not a failure, not a success.
+        // It is handled via isRefunded() separately.
+        assertThat(KhaltiPaymentStatus.REFUNDED.isTerminalFailure()).isFalse();
+    }
 }
