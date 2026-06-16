@@ -3,6 +3,7 @@ package io.nepalpay.connectips;
 import io.nepalpay.core.connectips.model.ConnectIpsPaymentRequest;
 import io.nepalpay.core.connectips.model.ConnectIpsValidateResponse;
 import io.nepalpay.core.exception.ConnectIpsException;
+import io.nepalpay.core.retry.RetryProperties;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -15,73 +16,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for ConnectIpsClient.
- *
- * <p>Tests cover:
- * <ul>
- *   <li>Missing config validation (empty .pfx bytes / blank password)</li>
- *   <li>Token message correctness (no real .pfx needed)</li>
- *   <li>validateTransactionWithToken() HTTP call via MockWebServer</li>
- *   <li>Success and failure response parsing</li>
- *   <li>HTTP error handling (4xx, 5xx)</li>
- *   <li>isSandbox() and formActionUrl() utility methods</li>
- * </ul>
- *
- * <p>NOTE: Full RSA token generation ({@code buildFormPayload} and
- * {@code validateTransaction}) requires a real NCHL .pfx certificate.
- * Those paths are covered by config-guard tests here.
- * End-to-end RSA signing must be tested with a real UAT certificate.
+ * Unit tests for ConnectIpsClient — Spring Boot 3.
  */
 @DisplayName("ConnectIpsClient")
 class ConnectIpsClientTest {
 
-    // ── Constants ─────────────────────────────────────────────────────────────
-
-    private static final int    MERCHANT_ID  = 123;
-    private static final String APP_ID       = "TEST-APP-001";
-    private static final String APP_NAME     = "TestApp";
-    private static final String APP_PASSWORD = "testAppPassword";
-    private static final String REFERENCE_ID = "REF-ORDER-001";
+    private static final int    MERCHANT_ID   = 123;
+    private static final String APP_ID        = "TEST-APP-001";
+    private static final String APP_NAME      = "TestApp";
+    private static final String APP_PASSWORD  = "testAppPassword";
+    private static final String REFERENCE_ID  = "REF-ORDER-001";
     private static final long   TXN_AMT_PAISA = 10000L;
-    private static final String MOCK_TOKEN   = "MOCK_RSA_TOKEN_FOR_TESTING";
-
-    // ── Test clients ──────────────────────────────────────────────────────────
+    private static final String MOCK_TOKEN    = "MOCK_RSA_TOKEN_FOR_TESTING";
 
     private MockWebServer    mockWebServer;
-    private ConnectIpsClient clientNoPfx;      // config guard tests
-    private ConnectIpsClient clientMockServer; // HTTP tests via MockWebServer
+    private ConnectIpsClient clientNoPfx;
+    private ConnectIpsClient clientMockServer;
+    private ConnectIpsClient retryConnectIpsClient;
 
     @BeforeEach
     void setUp() throws IOException {
         mockWebServer = new MockWebServer();
         mockWebServer.start();
 
-        // Client with empty pfx — used to test config validation guards
-        // Uses 8-arg production constructor
         clientNoPfx = new ConnectIpsClient(
-                MERCHANT_ID,
-                APP_ID,
-                APP_NAME,
-                APP_PASSWORD,
-                new byte[0],     // ← empty pfx — triggers validation error
-                "somePassword",
-                true,
-                RestClient.builder()
-        );
+                MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                new byte[0], "somePassword", true, RestClient.builder());
 
-        // Client with MockWebServer — used to test HTTP calls
-        // Uses 9-arg test constructor so validate API hits MockWebServer
         clientMockServer = new ConnectIpsClient(
-                MERCHANT_ID,
-                APP_ID,
-                APP_NAME,
-                APP_PASSWORD,
-                new byte[0],     // pfx not needed — we use validateTransactionWithToken
-                "somePassword",
-                true,
-                RestClient.builder(),
-                mockWebServer.url("/").toString()  // ← MockWebServer URL
-        );
+                MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                new byte[0], "somePassword", true, RestClient.builder(),
+                mockWebServer.url("/").toString());
+
+        RetryProperties fastRetry = new RetryProperties(true, 2, 0L, 1.0, 0L);
+        retryConnectIpsClient = new ConnectIpsClient(
+                MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                new byte[0], "somePassword", true, RestClient.builder(),
+                mockWebServer.url("/").toString(), fastRetry);
     }
 
     @AfterEach
@@ -99,12 +70,8 @@ class ConnectIpsClientTest {
         @DisplayName("buildFormPayload: throws when pfx bytes are empty")
         void buildFormPayload_emptyPfx_throwsConnectIpsException() {
             assertThatThrownBy(() ->
-                    clientNoPfx.buildFormPayload(
-                            "TXN-001",
-                            TXN_AMT_PAISA,
-                            REFERENCE_ID,
-                            "Test remarks",
-                            "Test particulars"))
+                    clientNoPfx.buildFormPayload("TXN-001", TXN_AMT_PAISA,
+                            REFERENCE_ID, "Test remarks", "Test particulars"))
                     .isInstanceOf(ConnectIpsException.class)
                     .hasMessageContaining(".pfx certificate bytes are empty");
         }
@@ -113,12 +80,8 @@ class ConnectIpsClientTest {
         @DisplayName("buildFormPayload (request overload): throws when pfx bytes are empty")
         void buildFormPayload_requestOverload_emptyPfx_throwsConnectIpsException() {
             ConnectIpsPaymentRequest request = ConnectIpsPaymentRequest.builder()
-                    .txnId("TXN-001")
-                    .txnAmtPaisa(TXN_AMT_PAISA)
-                    .referenceId(REFERENCE_ID)
-                    .remarks("Test remarks")
-                    .particulars("Test particulars")
-                    .build();
+                    .txnId("TXN-001").txnAmtPaisa(TXN_AMT_PAISA)
+                    .referenceId(REFERENCE_ID).build();
 
             assertThatThrownBy(() -> clientNoPfx.buildFormPayload(request))
                     .isInstanceOf(ConnectIpsException.class)
@@ -129,8 +92,7 @@ class ConnectIpsClientTest {
         @DisplayName("validateTransaction: throws when pfx bytes are empty")
         void validateTransaction_emptyPfx_throwsConnectIpsException() {
             assertThatThrownBy(() ->
-                    clientNoPfx.validateTransaction(
-                            "TXN-001", REFERENCE_ID, TXN_AMT_PAISA))
+                    clientNoPfx.validateTransaction("TXN-001", REFERENCE_ID, TXN_AMT_PAISA))
                     .isInstanceOf(ConnectIpsException.class)
                     .hasMessageContaining(".pfx certificate bytes are empty");
         }
@@ -140,15 +102,10 @@ class ConnectIpsClientTest {
         void buildFormPayload_blankPfxPassword_throwsConnectIpsException() {
             ConnectIpsClient clientBlankPassword = new ConnectIpsClient(
                     MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
-                    new byte[]{1, 2, 3},  // non-empty pfx bytes
-                    "",                   // ← blank pfx password
-                    true,
-                    RestClient.builder()
-            );
+                    new byte[]{1, 2, 3}, "", true, RestClient.builder());
 
             assertThatThrownBy(() ->
-                    clientBlankPassword.buildFormPayload(
-                            "TXN-001", TXN_AMT_PAISA, REFERENCE_ID, "", ""))
+                    clientBlankPassword.buildFormPayload("TXN-001", TXN_AMT_PAISA, REFERENCE_ID, "", ""))
                     .isInstanceOf(ConnectIpsException.class)
                     .hasMessageContaining("pfx password not configured");
         }
@@ -164,12 +121,8 @@ class ConnectIpsClientTest {
         @DisplayName("builder: sets all fields correctly")
         void builder_setsAllFields() {
             ConnectIpsPaymentRequest request = ConnectIpsPaymentRequest.builder()
-                    .txnId("TXN-001")
-                    .txnAmtPaisa(10000L)
-                    .referenceId("ORD-001")
-                    .remarks("Test payment")
-                    .particulars("NepalPay")
-                    .build();
+                    .txnId("TXN-001").txnAmtPaisa(10000L)
+                    .referenceId("ORD-001").remarks("Test payment").particulars("NepalPay").build();
 
             assertThat(request.txnId()).isEqualTo("TXN-001");
             assertThat(request.txnAmtPaisa()).isEqualTo(10000L);
@@ -182,11 +135,7 @@ class ConnectIpsClientTest {
         @DisplayName("amountNPR() converts NPR to paisa correctly")
         void amountNPR_convertsToPaisa() {
             ConnectIpsPaymentRequest request = ConnectIpsPaymentRequest.builder()
-                    .txnId("TXN-001")
-                    .amountNPR(100L)      // NPR 100 → 10000 paisa
-                    .referenceId("ORD-001")
-                    .build();
-
+                    .txnId("TXN-001").amountNPR(100L).referenceId("ORD-001").build();
             assertThat(request.txnAmtPaisa()).isEqualTo(10000L);
         }
 
@@ -194,17 +143,13 @@ class ConnectIpsClientTest {
         @DisplayName("remarks and particulars default to empty string")
         void remarksAndParticulars_defaultToEmpty() {
             ConnectIpsPaymentRequest request = ConnectIpsPaymentRequest.builder()
-                    .txnId("TXN-001")
-                    .txnAmtPaisa(5000L)
-                    .referenceId("ORD-001")
-                    .build();
-
+                    .txnId("TXN-001").txnAmtPaisa(5000L).referenceId("ORD-001").build();
             assertThat(request.remarks()).isEmpty();
             assertThat(request.particulars()).isEmpty();
         }
     }
 
-    // ── validateTransactionWithToken() via MockWebServer ──────────────────────
+    // ── validateTransactionWithToken() ────────────────────────────────────────
 
     @Nested
     @DisplayName("validateTransactionWithToken()")
@@ -213,7 +158,6 @@ class ConnectIpsClientTest {
         @Test
         @DisplayName("SUCCESS status → isPaymentSuccessful() = true")
         void success_statusIsSuccessful() throws InterruptedException {
-            // Arrange
             mockWebServer.enqueue(new MockResponse()
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
@@ -228,12 +172,10 @@ class ConnectIpsClientTest {
                             }
                             """));
 
-            // Act
             ConnectIpsValidateResponse response =
                     clientMockServer.validateTransactionWithToken(
                             REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN);
 
-            // Assert — response parsed correctly
             assertThat(response).isNotNull();
             assertThat(response.status()).isEqualTo("SUCCESS");
             assertThat(response.referenceId()).isEqualTo(REFERENCE_ID);
@@ -241,13 +183,11 @@ class ConnectIpsClientTest {
             assertThat(response.statusDesc()).isEqualTo("TRANSACTION SUCCESSFUL");
             assertThat(response.isPaymentSuccessful()).isTrue();
 
-            // Assert — correct HTTP request sent to ConnectIPS
             RecordedRequest request = mockWebServer.takeRequest();
             assertThat(request.getMethod()).isEqualTo("POST");
             assertThat(request.getPath())
                     .isEqualTo("/connectipswebws/api/creditor/validatetxn");
-            assertThat(request.getHeader("Authorization"))
-                    .startsWith("Basic ");
+            assertThat(request.getHeader("Authorization")).startsWith("Basic ");
             assertThat(request.getBody().readUtf8())
                     .contains(REFERENCE_ID)
                     .contains(String.valueOf(TXN_AMT_PAISA))
@@ -257,27 +197,17 @@ class ConnectIpsClientTest {
         @Test
         @DisplayName("FAILED status → isPaymentSuccessful() = false")
         void failed_isNotSuccessful() {
-            // Arrange
             mockWebServer.enqueue(new MockResponse()
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {
-                                "merchantId": 123,
-                                "appId": "TEST-APP-001",
-                                "referenceId": "REF-ORDER-001",
-                                "txnAmt": "10000",
-                                "status": "FAILED",
-                                "statusDesc": "TRANSACTION FAILED"
-                            }
+                            {"merchantId":123,"appId":"TEST-APP-001","referenceId":"REF-ORDER-001","txnAmt":"10000","status":"FAILED","statusDesc":"TRANSACTION FAILED"}
                             """));
 
-            // Act
             ConnectIpsValidateResponse response =
                     clientMockServer.validateTransactionWithToken(
                             REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN);
 
-            // Assert
             assertThat(response.isPaymentSuccessful()).isFalse();
             assertThat(response.status()).isEqualTo("FAILED");
             assertThat(response.paymentStatus())
@@ -287,7 +217,6 @@ class ConnectIpsClientTest {
         @Test
         @DisplayName("throws ConnectIpsException on 400 bad request")
         void badRequest_throwsConnectIpsException() {
-            // Arrange
             mockWebServer.enqueue(new MockResponse()
                     .setResponseCode(400)
                     .setHeader("Content-Type", "application/json")
@@ -295,24 +224,19 @@ class ConnectIpsClientTest {
                             {"error": "Invalid merchantId"}
                             """));
 
-            // Act + Assert
             assertThatThrownBy(() ->
                     clientMockServer.validateTransactionWithToken(
                             REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
                     .isInstanceOf(ConnectIpsException.class)
                     .hasMessageContaining("ConnectIPS validation failed")
-                    .extracting("httpStatus")
-                    .isEqualTo(400);
+                    .extracting("httpStatus").isEqualTo(400);
         }
 
         @Test
         @DisplayName("throws ConnectIpsException on 500 server error")
         void serverError_throwsConnectIpsException() {
-            // Arrange
-            mockWebServer.enqueue(new MockResponse()
-                    .setResponseCode(500));
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
 
-            // Act + Assert
             assertThatThrownBy(() ->
                     clientMockServer.validateTransactionWithToken(
                             REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
@@ -323,30 +247,125 @@ class ConnectIpsClientTest {
         @Test
         @DisplayName("Basic Auth header is correctly encoded appId:appPassword")
         void basicAuth_isCorrectlyEncoded() throws InterruptedException {
-            // Arrange
             mockWebServer.enqueue(new MockResponse()
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {
-                                "referenceId": "REF-ORDER-001",
-                                "status": "SUCCESS",
-                                "statusDesc": "OK"
-                            }
+                            {"referenceId":"REF-ORDER-001","status":"SUCCESS","statusDesc":"OK"}
                             """));
 
-            // Act
             clientMockServer.validateTransactionWithToken(
                     REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN);
 
-            // Assert — Basic auth is Base64(appId:appPassword)
             RecordedRequest request = mockWebServer.takeRequest();
             String expectedCredentials = java.util.Base64.getEncoder()
                     .encodeToString((APP_ID + ":" + APP_PASSWORD)
                             .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-
             assertThat(request.getHeader("Authorization"))
                     .isEqualTo("Basic " + expectedCredentials);
+        }
+    }
+
+    // ── Retry behavior ────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Retry behavior")
+    class RetryBehavior {
+
+        @Test
+        @DisplayName("validateTransactionWithToken: retries on 5xx and succeeds")
+        void validateTransactionWithToken_retryOnce_succeeds() throws InterruptedException {
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+            mockWebServer.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("""
+                            {"merchantId":123,"appId":"TEST-APP-001","referenceId":"REF-ORDER-001","txnAmt":"10000","status":"SUCCESS","statusDesc":"TRANSACTION SUCCESSFUL"}
+                            """));
+
+            ConnectIpsValidateResponse response =
+                    retryConnectIpsClient.validateTransactionWithToken(
+                            REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN);
+
+            assertThat(response.isPaymentSuccessful()).isTrue();
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
+
+            mockWebServer.takeRequest();
+            RecordedRequest successReq = mockWebServer.takeRequest();
+            assertThat(successReq.getPath())
+                    .isEqualTo("/connectipswebws/api/creditor/validatetxn");
+        }
+
+        @Test
+        @DisplayName("validateTransactionWithToken: retries twice and succeeds")
+        void validateTransactionWithToken_retryTwice_succeeds() {
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+            mockWebServer.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("""
+                            {"referenceId":"REF-ORDER-001","status":"SUCCESS","statusDesc":"TRANSACTION SUCCESSFUL"}
+                            """));
+
+            ConnectIpsValidateResponse response =
+                    retryConnectIpsClient.validateTransactionWithToken(
+                            REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN);
+
+            assertThat(response.isPaymentSuccessful()).isTrue();
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("validateTransactionWithToken: exhausts retries and throws")
+        void validateTransactionWithToken_exhaustsRetries_throws() {
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+
+            assertThatThrownBy(() ->
+                    retryConnectIpsClient.validateTransactionWithToken(
+                            REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
+                    .isInstanceOf(ConnectIpsException.class);
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("validateTransactionWithToken: does NOT retry on 400")
+        void validateTransactionWithToken_doesNotRetry_on400() {
+            mockWebServer.enqueue(new MockResponse()
+                    .setResponseCode(400).setBody("{\"error\": \"Invalid merchantId\"}"));
+
+            assertThatThrownBy(() ->
+                    retryConnectIpsClient.validateTransactionWithToken(
+                            REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
+                    .isInstanceOf(ConnectIpsException.class);
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("validateTransactionWithToken: does NOT retry on 401")
+        void validateTransactionWithToken_doesNotRetry_on401() {
+            mockWebServer.enqueue(new MockResponse()
+                    .setResponseCode(401).setBody("{\"error\": \"Unauthorized\"}"));
+
+            assertThatThrownBy(() ->
+                    retryConnectIpsClient.validateTransactionWithToken(
+                            REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
+                    .isInstanceOf(ConnectIpsException.class);
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("retry disabled by default — only 1 request on 5xx")
+        void retryDisabledByDefault_onlyOneRequest() {
+            mockWebServer.enqueue(new MockResponse().setResponseCode(500));
+
+            assertThatThrownBy(() ->
+                    clientMockServer.validateTransactionWithToken(
+                            REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
+                    .isInstanceOf(ConnectIpsException.class);
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
         }
     }
 
@@ -363,10 +382,7 @@ class ConnectIpsClientTest {
     void isSandbox_returnsFalse_whenProductionMode() {
         ConnectIpsClient prodClient = new ConnectIpsClient(
                 MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
-                new byte[0], "somePassword",
-                false,
-                RestClient.builder()
-        );
+                new byte[0], "somePassword", false, RestClient.builder());
         assertThat(prodClient.isSandbox()).isFalse();
     }
 
@@ -378,14 +394,11 @@ class ConnectIpsClientTest {
     }
 
     @Test
-    @DisplayName("formActionUrl() returns production gateway URL when sandbox=false")
+    @DisplayName("formActionUrl() returns production URL when sandbox=false")
     void formActionUrl_returnsProductionUrl_whenSandboxFalse() {
         ConnectIpsClient prodClient = new ConnectIpsClient(
                 MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
-                new byte[0], "somePassword",
-                false,
-                RestClient.builder()
-        );
+                new byte[0], "somePassword", false, RestClient.builder());
         assertThat(prodClient.formActionUrl())
                 .isEqualTo("https://connectips.com/connectipswebgw/loginpage");
     }

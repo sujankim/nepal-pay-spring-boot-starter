@@ -20,7 +20,7 @@ package io.nepalpay.core.fonepay.model;
  * </pre>
  *
  * <p>ALWAYS verify the {@code DV} signature before trusting {@code PS}.
- * Use {@link io.nepalpay.fonepay.FonepayClient#verifyCallback} which
+ * Use {@code FonepayClient.verifyCallback()} which
  * does signature verification automatically.
  *
  * @param prn   Your original Product Reference Number

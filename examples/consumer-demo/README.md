@@ -1,6 +1,8 @@
 # NepalPay Consumer Demo
 
-A minimal Spring Boot 4 application demonstrating **NepalPay Spring Boot Starter** integration for **Khalti**, **eSewa**, and **ConnectIPS** payments.
+A minimal Spring Boot 4 application demonstrating **NepalPay v0.6.0** —
+
+**Khalti, eSewa, ConnectIPS, and Fonepay payments with refund and retry support.**
 
 ---
 
@@ -8,21 +10,23 @@ A minimal Spring Boot 4 application demonstrating **NepalPay Spring Boot Starter
 
 * Java 21+
 * Maven 3.x
-* A Khalti or eSewa sandbox account
+* A Khalti sandbox secret key (`test-admin.khalti.com`)
 
 ---
 
 ## Run
 
-### 1. Set Your Khalti Sandbox Secret Key
+### 1. Set Khalti Sandbox Key
+
+#### Linux/macOS
 
 ```bash
-# Linux/macOS
 export KHALTI_SECRET_KEY=test_secret_key_your_key_here
 ```
 
+#### Windows PowerShell
+
 ```powershell
-# Windows PowerShell
 $env:KHALTI_SECRET_KEY="test_secret_key_your_key_here"
 ```
 
@@ -32,7 +36,7 @@ $env:KHALTI_SECRET_KEY="test_secret_key_your_key_here"
 mvn spring-boot:run
 ```
 
-The application will start at:
+Application starts at:
 
 ```text
 http://localhost:8080
@@ -42,178 +46,199 @@ http://localhost:8080
 
 # API Endpoints
 
-## Health Check
-
-Confirms that NepalPay beans are auto-configured correctly.
+## Health
 
 ```http
-GET http://localhost:8080/api/demo/health
+GET /api/demo/health
 ```
+
+Confirms NepalPay beans are auto-configured and shows the current mode:
+
+* `SANDBOX`
+* `PRODUCTION`
 
 ---
 
-# Khalti
+# 💳 Khalti
 
 ## Initiate Payment
 
 ```bash
 curl -X POST http://localhost:8080/api/demo/khalti/initiate \
   -H "Content-Type: application/json" \
-  -d '{
-        "orderId": "ORD-001",
-        "amountNPR": 100,
-        "productName": "Pro Plan"
-      }'
+  -d '{"orderId":"ORD-001","amountNPR":100,"productName":"Pro Plan"}'
 ```
-
-### Response
 
 Returns:
 
 * `pidx`
 * `payment_url`
 
-Redirect the customer to `payment_url` to complete the payment.
+Redirect the user to `payment_url`.
 
-After payment, Khalti redirects back to:
+---
 
-```text
-/api/demo/khalti/callback?pidx=xxx
+## Callback (Khalti Redirects Here)
+
+```http
+GET /api/demo/khalti/callback?pidx=xxx
 ```
 
-You can then verify the payment using:
+Calls `lookupPayment(pidx)` server-side.
 
-```java
-khaltiClient.lookupPayment(pidx);
+> Never trust redirect parameters alone.
+
+---
+
+## Full Refund
+
+```bash
+curl -X POST http://localhost:8080/api/demo/khalti/refund \
+  -H "Content-Type: application/json" \
+  -d '{"transactionId":"GFq9DrfGSZQKjsj"}'
 ```
 
 ---
 
-# eSewa
+## Partial Refund
+
+```bash
+curl -X POST http://localhost:8080/api/demo/khalti/refund \
+  -H "Content-Type: application/json" \
+  -d '{"transactionId":"GFq9DrfGSZQKjsj","amountPaisa":5000}'
+```
+
+> ⚠️ Refund uses `transactionId` from `lookupPayment()` — not `pidx`.
+
+---
+
+# 💸 eSewa
 
 ## Initiate Payment
 
 ```bash
 curl -X POST http://localhost:8080/api/demo/esewa/initiate \
   -H "Content-Type: application/json" \
-  -d '{
-        "orderId": "ORD-001",
-        "amountNPR": 100,
-        "productName": "Pro Plan"
-      }'
+  -d '{"orderId":"ORD-001","amountNPR":100,"productName":"Pro Plan"}'
 ```
 
-### Response
+Returns a signed form payload.
 
-Returns a signed payload object.
+The frontend should POST all fields to `form_action_url`.
 
-Your frontend must submit all returned fields as an HTML form to:
+---
 
-```text
-payload.form_action_url
+## Callback (eSewa Redirects Here)
+
+```http
+GET /api/demo/esewa/callback?data=BASE64
 ```
 
-After payment, eSewa redirects back to:
-
-```text
-/api/demo/esewa/callback?data=BASE64
-```
-
-You can then verify the callback using:
+Calls:
 
 ```java
-esewaClient.verifyCallback(data);
-```
-
----
-
-# ConnectIPS
-
-ConnectIPS requires merchant registration with NCHL.
-
-Uncomment the `connectips` section inside:
-
-```text
-src/main/resources/application.yml
-```
-
-Then provide your merchant credentials.
-
-After payment, ConnectIPS redirects back to:
-
-```text
-/api/demo/connectips/callback?txnId=xxx
-```
-
-You can verify the transaction using:
-
-```java
-connectIpsClient.validateTransaction();
-```
-
----
-
-# Payment Gateway Differences
-
-| Feature             | Khalti                | eSewa                  | ConnectIPS              |
-| ------------------- | --------------------- | ---------------------- | ----------------------- |
-| Amount Unit         | Paisa (`NPR × 100`)   | NPR directly           | Paisa (`NPR × 100`)     |
-| Payment Flow        | API-first             | HTML Form Submit       | HTML Form Submit        |
-| Callback            | `?pidx=xxx`           | `?data=BASE64`         | `?txnId=xxx`            |
-| Verification Method | `lookupPayment(pidx)` | `verifyCallback(data)` | `validateTransaction()` |
-
----
-
-## Example Flow
-
-### Khalti
-
-```text
-Frontend
-    ↓
-Initiate Payment
-    ↓
-Receive payment_url
-    ↓
-Redirect User
-    ↓
-Khalti Payment Page
-    ↓
-Callback (?pidx=xxx)
-    ↓
-lookupPayment(pidx)
-```
-
-### eSewa
-
-```text
-Frontend
-    ↓
-Initiate Payment
-    ↓
-Receive Signed Payload
-    ↓
-HTML Form Submit
-    ↓
-eSewa Payment Page
-    ↓
-Callback (?data=BASE64)
-    ↓
 verifyCallback(data)
 ```
 
-### ConnectIPS
+which performs:
+
+1. Base64 decode
+2. HMAC verification
+3. Status API verification
+
+---
+
+## Failure (eSewa Redirects Here on Cancel)
+
+```http
+GET /api/demo/esewa/failed
+```
+
+---
+
+# 🔵 Fonepay
+
+## Initiate Payment
+
+```bash
+curl -X POST http://localhost:8080/api/demo/fonepay/initiate \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"ORD-001","amountNPR":100,"productName":"Pro Plan"}'
+```
+
+Returns:
 
 ```text
-Frontend
-    ↓
-Initiate Payment
-    ↓
-HTML Form Submit
-    ↓
-ConnectIPS Payment Page
-    ↓
-Callback (?txnId=xxx)
-    ↓
-validateTransaction()
+redirect_url
 ```
+
+Frontend:
+
+```javascript
+window.location.href = redirect_url;
+```
+
+---
+
+## Callback (Fonepay Redirects Here)
+
+```http
+GET /api/demo/fonepay/callback?PRN=xxx&PID=xxx&PS=success&DV=xxx...
+```
+
+Calls:
+
+```java
+verifyCallback()
+```
+
+which:
+
+* Re-computes HMAC-SHA512
+* Verifies the DV signature
+
+---
+
+# 🏦 ConnectIPS
+
+Enable ConnectIPS by uncommenting the `connectips:` block in `application.yml`.
+
+## Initiate Payment
+
+```bash
+curl -X POST http://localhost:8080/api/demo/connectips/initiate \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"ORD-001","amountNPR":100}'
+```
+
+---
+
+# Gateway Differences
+
+| Feature   | Khalti            | eSewa              | Fonepay            | ConnectIPS              |
+| --------- | ----------------- | ------------------ | ------------------ | ----------------------- |
+| Amount    | Paisa (×100)      | NPR (BigDecimal)   | NPR (double)       | Paisa (×100)            |
+| Flow      | API POST          | Form POST          | URL Redirect       | Form POST               |
+| Signature | API Key Header    | HMAC-SHA256 Base64 | HMAC-SHA512 Hex    | RSA-SHA256 (.pfx)       |
+| Verify    | `lookupPayment()` | `verifyCallback()` | `verifyCallback()` | `validateTransaction()` |
+| Retry     | ✅                 | ✅                  | ❌ N/A              | ✅                       |
+| Refund    | ✅                 | ❌                  | ❌                  | ❌                       |
+
+---
+
+# 🔁 Enabling Retry
+
+Uncomment the `retry:` block in `application.yml`:
+
+```yaml
+nepalpay:
+  khalti:
+    retry:
+      enabled: true
+      max-attempts: 3
+      initial-delay-ms: 500
+      multiplier: 2.0
+      max-delay-ms: 5000
+```
+
+> Retry is disabled by default — opt-in only.

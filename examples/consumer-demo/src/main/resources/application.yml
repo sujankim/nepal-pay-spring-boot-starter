@@ -5,57 +5,83 @@ spring:
 server:
   port: 8080
 
-# ══════════════════════════════════════════════════════════════════
-# NepalPay Configuration
+# ══════════════════════════════════════════════════════════════
+# NepalPay Configuration — v0.6.0
 #
-# These are SANDBOX credentials safe to use in local development.
-# NEVER use production keys in this file — always use env variables.
-# ══════════════════════════════════════════════════════════════════
+# Includes: Khalti refund + Retry with exponential backoff
+#
+# SANDBOX CREDENTIALS (safe to use locally, never in production):
+#   eSewa: ID=9806800001  Password=Nepal@123  MPIN=1122  Token=123456
+#   Khalti: get test key from https://test-admin.khalti.com
+#
+# NEVER hardcode production keys here.
+# Use environment variables for all real credentials.
+# ══════════════════════════════════════════════════════════════
 nepalpay:
 
-  # ── Khalti Sandbox ────────────────────────────────────────────────
-  # Get your test key from: https://test-admin.khalti.com
+  # ── Khalti Sandbox ──────────────────────────────────────────
   khalti:
     secret-key:  ${KHALTI_SECRET_KEY:test_secret_key_placeholder}
     return-url:  http://localhost:8080/api/demo/khalti/callback
     website-url: http://localhost:8080
     sandbox: true
+    # ── Retry (opt-in) ────────────────────────────────────────
+    # Uncomment to enable retry with exponential backoff:
+    # retry:
+    #   enabled: true
+    #   max-attempts: 3          # retries after first failure
+    #   initial-delay-ms: 500    # wait 500ms before first retry
+    #   multiplier: 2.0          # 500 → 1000 → 2000ms
+    #   max-delay-ms: 5000       # never wait more than 5s
 
-  # ── eSewa Sandbox ─────────────────────────────────────────────────
-  # Official sandbox credentials from: https://developer.esewa.com.np
-  # eSewa ID: 9806800001  Password: Nepal@123  MPIN: 1122  Token: 123456
+  # ── eSewa Sandbox ────────────────────────────────────────────
+  # Official eSewa sandbox credentials from developer.esewa.com.np
   esewa:
     secret-key:   ${ESEWA_SECRET_KEY:8gBm/:&EnhH.1/q}
     product-code: ${ESEWA_PRODUCT_CODE:EPAYTEST}
     success-url:  http://localhost:8080/api/demo/esewa/callback
     failure-url:  http://localhost:8080/api/demo/esewa/failed
     sandbox: true
+    # retry:
+    #   enabled: true
+    #   max-attempts: 3
+    #   initial-delay-ms: 500
+    #   multiplier: 2.0
+    #   max-delay-ms: 5000
 
-  # ── ConnectIPS ────────────────────────────────────────────────────
+  # ── ConnectIPS ───────────────────────────────────────────────
   # Requires NCHL merchant registration before use.
-  # Contact: connectips@nchl.com.np or your bank to register.
-  # Uncomment and fill in once you have NCHL credentials:
+  # Contact: connectips@nchl.com.np
+  # Uncomment and fill in when you have NCHL credentials:
   #
-   connectips:
-     merchant-id:  ${CONNECTIPS_MERCHANT_ID}
-     app-id:       ${CONNECTIPS_APP_ID}
-     app-name:     ${CONNECTIPS_APP_NAME}
-     app-password: ${CONNECTIPS_APP_PASSWORD}
-     pfx-path:     ${CONNECTIPS_PFX_PATH}       # e.g. file:/app/CREDITOR.pfx
-     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
-     sandbox: true
+  # connectips:
+  #   merchant-id:  ${CONNECTIPS_MERCHANT_ID}
+  #   app-id:       ${CONNECTIPS_APP_ID}
+  #   app-name:     ${CONNECTIPS_APP_NAME}
+  #   app-password: ${CONNECTIPS_APP_PASSWORD}
+  #   pfx-path:     ${CONNECTIPS_PFX_PATH}   # file:/app/CREDITOR.pfx
+  #   pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+  #   sandbox: true
+  #   retry:
+  #     enabled: true
+  #     max-attempts: 3
+  #     initial-delay-ms: 500
+  #     multiplier: 2.0
+  #     max-delay-ms: 5000
 
-  # ── Fonepay ────────────────────────────────────────────────────────────────
-  # Contact Fonepay to get merchant credentials.
-  # Fonepay integrations happen through your bank.
-  # Uncomment when you have credentials:
-
-   fonepay:
-     merchant-code: ${FONEPAY_MERCHANT_CODE}
-     secret-key:    ${FONEPAY_SECRET_KEY}
-     return-url:    http://localhost:8080/api/demo/fonepay/callback
+  # ── Fonepay ──────────────────────────────────────────────────
+  # Contact Fonepay or your bank for merchant credentials.
+  # Note: No retry config — Fonepay makes no HTTP calls (URL redirect only).
+  # Uncomment when you have Fonepay credentials:
+  #
+  # fonepay:
+  #   merchant-code: ${FONEPAY_MERCHANT_CODE}
+  #   secret-key:    ${FONEPAY_SECRET_KEY}
+  #   return-url:    http://localhost:8080/api/demo/fonepay/callback
   #   sandbox: true
 
+# ── Logging ──────────────────────────────────────────────────
 logging:
   level:
-    io.nepalpay: DEBUG   # see all NepalPay internal logs while developing
+    io.nepalpay: DEBUG     # see all NepalPay internal logs while developing
+    com.example: INFO

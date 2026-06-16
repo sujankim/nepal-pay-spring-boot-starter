@@ -39,7 +39,7 @@
         <dependency>
             <groupId>io.nepalpay</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>0.4.1</version>
+            <version>0.5.0</version>
         </dependency>
 
         <!-- Spring Boot Autoconfigure — core of how starters work -->
@@ -109,12 +109,6 @@
             <artifactId>mockwebserver</artifactId>
             <version>4.12.0</version>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.nepalpay</groupId>
-            <artifactId>nepal-pay-core</artifactId>
-            <version>0.5.0</version>
-            <scope>compile</scope>
         </dependency>
 
     </dependencies>

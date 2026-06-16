@@ -5,45 +5,93 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [0.5.0] — 2026-06-15 💳 Khalti Refund API
+## [0.6.0] — 2026-06-16 🔁 Retry with Exponential Backoff
+
+### Added
+
+#### `RetryProperties` in `nepal-pay-core`
+- New `io.nepalpay.core.retry.RetryProperties` Java record — zero Spring dependency
+- `RetryProperties.DEFAULT` constant — retry disabled (safe default)
+- `RetryProperties.DISABLED` constant — internal use
+- `RetryProperties.isActive()` — guards against `enabled=true, max-attempts=0`
+- `RetryProperties.nextDelay(currentDelayMs)` — exponential backoff calculation
+- `RetryProperties.jitter(delayMs)` — ±10% random offset (thundering herd prevention)
+- `RetryProperties.summary()` — human-readable log string
+- 21 new tests in `RetryPropertiesTest`
+
+#### New `retry:` config block (Khalti, eSewa, ConnectIPS)
+- `nepalpay.khalti.retry.*` — applies to `initiatePayment()`, `lookupPayment()`, `refundPayment()`
+- `nepalpay.esewa.retry.*` — applies to `checkStatus()` (inside `verifyCallback()`)
+- `nepalpay.connectips.retry.*` — applies to `validateTransaction()`
+- `FonepayProperties` unchanged — Fonepay makes no HTTP calls, retry N/A
+- `retryOrDefault()` helper on each properties record — never returns null
+
+#### Client retry integration
+- `KhaltiClient` — `executeWithRetry()` wraps all three HTTP methods
+- `EsewaClient` — `executeWithRetry()` wraps `checkStatus()`
+- `ConnectIpsClient` — `executeWithRetry()` wraps `executeValidateRequest()`
+- Two new `ConnectIpsClient` constructors accepting `RetryProperties`
+
+#### Technical details
+- Retry **disabled by default** — must explicitly set `enabled: true`
+- Retries: `httpStatus=0` (network error) + `httpStatus >= 500` (server error)
+- Never retries: `httpStatus 400-499` (client errors won't fix themselves)
+- Exponential backoff: `delay × multiplier`, capped at `max-delay-ms`
+- Jitter: ±10% random offset on every sleep to prevent thundering herd
+- `Thread.sleep()` is interruptible — restores interrupt flag correctly
+
+#### Tests (50 new across Boot 3 + Boot 4)
+- `KhaltiClientTest` — 12 retry tests: success after retry, exhausted retries, 4xx not retried
+- `EsewaClientTest` — 7 retry tests: includes `verifyCallback` benefits via `checkStatus`
+- `ConnectIpsClientTest` — 6 retry tests
+- All retry tests use `0ms` delay for instant execution
+- `getRequestCount()` assertions verify retry actually occurred
+
+#### Docs + Demo
+- `docs/` — complete redesign with new CSS design system
+- `docs/configuration.html` — new Retry Configuration section
+- `README.md` — retry config example + gateway retry table
+- `examples/consumer-demo/application.yml` — retry config comments added
+
+---
+
+## [0.5.0] — 2026-06-16 💳 Khalti Refund API
 
 ### Added
 
 #### Khalti Refund Support
 - `KhaltiClient.refundPayment(String transactionId)` — full refund
 - `KhaltiClient.refundPayment(String transactionId, Long amountPaisa)` — partial refund
-- `KhaltiRefundResponse` — typed refund response record
-- `KhaltiPaymentStatus.REFUNDED` — new payment status enum value
+- `KhaltiRefundResponse` — typed refund response record in `nepal-pay-core`
+- `KhaltiPaymentStatus.REFUNDED` — new enum value (8 total now)
+- `KhaltiPaymentStatus.isRefunded()` — dedicated helper method
 - `KhaltiLookupResponse.isRefunded()` — helper for refunded lookup responses
 
-#### Key Technical Details
-- Refund API uses `transaction_id`, **not** `pidx`
-- `transaction_id` is obtained from `lookupPayment(pidx).transactionId()`
-- Full refund sends an empty JSON body: `{}`
-- Partial refund sends amount in paisa: `{ "amount": 5000 }`
-- Refund endpoint uses Khalti's merchant transaction API path:
-  `/api/merchant-transaction/{transaction_id}/refund/`
-- This path does **not** include `/api/v2`
+#### Technical details
+- Refund uses `transaction_id` from `lookupPayment()` — **not** `pidx`
+- Full refund request body: `{}`
+- Partial refund request body: `{"amount": 5000}` (amount in paisa)
+- Refund endpoint: `/api/merchant-transaction/{transaction_id}/refund/`
+- This path has **no `/api/v2`** — handled via separate `baseDomain` field
+- `KhaltiClient` now stores `baseDomain` alongside `baseUrl`
+- Three constructor chain: `public prod → public test → private core`
+- `baseDomain()` utility method exposed for testing
 
-#### Tests
-- Added full refund tests
-- Added partial refund tests
-- Added refund request body assertions
-- Added refund URL path assertions
-- Added 4xx/5xx refund error handling tests
-- Added validation tests for null/blank `transactionId`
-- Added validation tests for invalid partial refund amounts
-- Added `KhaltiPaymentStatus.REFUNDED` tests
+#### Tests (12 new per starter)
+- Full refund success — asserts `isRefundSuccessful()` = true
+- Full refund body is `{}` — not partial body
+- Partial refund body contains `amount` in paisa
+- Correct path: `/api/merchant-transaction/{id}/refund/`
+- 400/401/500 error handling
+- Null/blank `transactionId` validation
+- Zero/negative `amountPaisa` validation
+- `KhaltiPaymentStatus.REFUNDED` enum tests (5 new in core)
 
-#### Consumer Demo
-- Added `POST /api/demo/khalti/refund`
-- Supports both full and partial refund examples
-- Clearly documents that refund requires `transactionId`, not `pidx`
+#### Consumer Demo + Docs
+- `POST /api/demo/khalti/refund` endpoint added
+- `docs/khalti.html` — Refund section added
+- `README.md` — Refund example added
 
-#### Docs
-- Updated `docs/khalti.html` with a new `refundPayment()` section
-- Updated README with Khalti refund usage example
-- Updated supported gateway table for Khalti refund support
 ---
 
 ## [0.4.0] — 2026-06-14 🔵 Fonepay Integration
@@ -54,40 +102,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - `FonepayClient.buildRedirectParams(FonepayPaymentRequest)` — typed overload
 - `FonepayClient.buildRedirectParams(prn, amount, r1, r2)` — direct overload
 - `FonepayClient.verifyCallback(FonepayCallbackResponse)` — HMAC-SHA512 verify
-- `FonepayPaymentRequest` — record with builder (prn, amount, remarks)
+- `FonepayPaymentRequest` — record with builder
 - `FonepayRedirectParams` — signed params record with full `redirectUrl()`
 - `FonepayCallbackResponse` — typed callback record with `of()` factory
 - `FonepayPaymentStatus` enum — SUCCESS, FAILED, UNKNOWN
 - `FonepayVerificationResult` — inner record with `isPaymentSuccessful()`
-- `FonepayException` — typed exception extending `NepalPayException`
+- `FonepayException` — typed exception
 
-#### Key Technical Details
-- Signature: HMAC-SHA512 output as **lowercase hex** (not Base64 like eSewa)
-- Response verification: HMAC-SHA512 output as **UPPERCASE hex**
+#### Technical details
+- Signature: HMAC-SHA512 output as **lowercase hex**
+- Response verification: HMAC-SHA512 output as **UPPERCASE hex** (DV comparison)
 - Amount: NPR as `double` (not paisa, not BigDecimal)
-- Flow: URL redirect GET (not form POST like eSewa, not API-first like Khalti)
-- `FonepayClient` does NOT use `RestClient` — no server-to-server calls
-- `FonepayClient.java` is **identical** in Boot 3 and Boot 4 starters
-
-#### Tests
-- `FonepayPaymentStatusTest` — pure enum unit tests (in core)
-- `FonepayClientTest` — HMAC-SHA512 correctness, redirect URL, callback verify
-- `NepalPayAutoConfigurationTest` — Fonepay bean wiring tests in both starters
-
-#### Consumer Demo
-- `FonepayDemoController` — initiate and callback endpoints with full comments
-- `application.yml` — Fonepay configuration section (commented out)
-
-#### Docs
-- `docs/fonepay.html` — complete Fonepay integration guide
-- All docs pages — Fonepay added to navigation
-- `docs/index.html` — Fonepay in gateway grid (v0.4.0)
-- `docs/getting-started.html` — Fonepay quickstart + amount units comparison
+- Flow: URL redirect GET (no form POST, no API-first)
+- `FonepayClient` does **NOT** use `RestClient` — no server-to-server calls
+- `UriComponentsBuilder.fromUriString()` used (not `fromHttpUrl()` — removed in Spring 7)
 
 ### Fixed
-- `UriComponentsBuilder.fromHttpUrl()` removed in Spring Framework 7
-  → replaced with `UriComponentsBuilder.fromUriString()` in `FonepayClient`
-  → works in both Spring Framework 6 (Boot 3) and 7 (Boot 4)
+- `UriComponentsBuilder.fromHttpUrl()` replaced with `fromUriString()` for Spring Boot 4 compatibility
 
 ---
 
@@ -95,8 +126,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 - Added `jitpack.yml` with `jdk: [openjdk21]`
-- JitPack was defaulting to Java 8 which cannot compile Java 17 source
-- All 4 modules now build on JitPack: core, Boot 3, Boot 4, parent
+- JitPack defaulted to Java 8 which cannot compile Java 17+ source
+- All 4 modules now build successfully on JitPack
 
 ---
 
@@ -105,12 +136,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 - Multi-module architecture: `nepal-pay-core`, `nepal-pay-spring-boot-3-starter`, `nepal-pay-spring-boot-4-starter`
 - Spring Boot 3.2+ support with Jackson 2 (`com.fasterxml.jackson`)
-- `examples/consumer-demo/` — complete working demo app
-- `docs/` website rebuilt with all gateway pages
+- `examples/consumer-demo/` — complete working demo application
+- `docs/` — full documentation website
 
 ### Changed
-- All model packages: `io.nepalpay.*` → `io.nepalpay.core.*`
-- All exception packages: `io.nepalpay.exception` → `io.nepalpay.core.exception`
+- Model packages: `io.nepalpay.*` → `io.nepalpay.core.*`
+- Exception packages: `io.nepalpay.exception` → `io.nepalpay.core.exception`
 
 ---
 
@@ -118,15 +149,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Added
 - ConnectIPS payment gateway — RSA-SHA256 signed form payload
-- `ConnectIpsClient` — buildFormPayload + validateTransaction
+- `ConnectIpsClient` — `buildFormPayload()` + `validateTransaction()`
 - `ConnectIpsPaymentRequest` — builder with `amountNPR()` auto-conversion
+- `ConnectIpsValidateResponse` — typed response
+- `ConnectIpsException` — typed exception
 
 ---
 
 ## [0.1.0] — 2026-06-13 🎉 First Release
 
 ### Added
-- Khalti — initiate + server-side lookup/verify
+- Khalti — API-first initiate + server-side lookup/verify
 - eSewa — HMAC-SHA256 form payload + Base64 callback verify + status API
 - Spring Boot 4.1.0 auto-configuration
+- `@ConditionalOnMissingBean` on all beans
 - 51 tests with MockWebServer

@@ -33,6 +33,14 @@ import org.springframework.web.client.RestClient;
  * <p>Every bean uses {@code @ConditionalOnMissingBean} — define your own bean
  * and NepalPay steps aside automatically.
  *
+ * <p>Retry is disabled by default for all clients.
+ * Enable per gateway via {@code nepalpay.khalti.retry.enabled=true} etc.
+ *
+ * <p><strong>Boot 4 note:</strong>
+ * EsewaClient uses {@code tools.jackson.databind.json.JsonMapper} (Jackson 3)
+ * instead of Boot 3's {@code com.fasterxml.jackson.databind.ObjectMapper}.
+ * All other behavior is identical to the Boot 3 auto-configuration.
+ *
  * @author Sujan Lamichhane
  */
 @Slf4j
@@ -46,6 +54,9 @@ public class NepalPayAutoConfiguration {
      * Auto-configures {@link KhaltiClient} when
      * {@code nepalpay.khalti.secret-key} is present.
      *
+     * <p>Retry config is read from {@code nepalpay.khalti.retry.*}.
+     * Defaults to disabled if not configured.
+     *
      * @param properties        bound from nepalpay.* in application.yml
      * @param restClientBuilder Spring Boot RestClient builder
      * @return configured KhaltiClient bean
@@ -57,8 +68,9 @@ public class NepalPayAutoConfiguration {
             NepalPayProperties properties,
             RestClient.Builder restClientBuilder) {
 
-        log.info("[NepalPay] Auto-configuring KhaltiClient | sandbox={}",
-                properties.khalti().sandbox());
+        log.info("[NepalPay] Auto-configuring KhaltiClient | sandbox={} | retry={}",
+                properties.khalti().sandbox(),
+                properties.khalti().retryOrDefault().summary());
 
         return new KhaltiClient(properties.khalti(), restClientBuilder);
     }
@@ -68,6 +80,9 @@ public class NepalPayAutoConfiguration {
     /**
      * Auto-configures {@link EsewaClient} when
      * {@code nepalpay.esewa.secret-key} is present.
+     *
+     * <p>Retry config is read from {@code nepalpay.esewa.retry.*}.
+     * Defaults to disabled if not configured.
      *
      * <p>Note: EsewaClient creates its own {@code JsonMapper} (Boot 4)
      * locally — no JsonMapper injection required here.
@@ -83,8 +98,9 @@ public class NepalPayAutoConfiguration {
             NepalPayProperties properties,
             RestClient.Builder restClientBuilder) {
 
-        log.info("[NepalPay] Auto-configuring EsewaClient | sandbox={}",
-                properties.esewa().sandbox());
+        log.info("[NepalPay] Auto-configuring EsewaClient | sandbox={} | retry={}",
+                properties.esewa().sandbox(),
+                properties.esewa().retryOrDefault().summary());
 
         return new EsewaClient(properties.esewa(), restClientBuilder);
     }
@@ -107,6 +123,9 @@ public class NepalPayAutoConfiguration {
      * cannot be found or read — this is intentional so misconfiguration
      * is detected immediately rather than at first payment attempt.
      *
+     * <p>Retry config is read from {@code nepalpay.connectips.retry.*}.
+     * Defaults to disabled if not configured.
+     *
      * @param properties        bound from nepalpay.* in application.yml
      * @param restClientBuilder Spring Boot RestClient builder
      * @param resourceLoader    Spring ResourceLoader for reading .pfx file
@@ -125,9 +144,11 @@ public class NepalPayAutoConfiguration {
 
         byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
 
-        log.info("[NepalPay] Auto-configuring ConnectIpsClient | mode={} | merchantId={}",
+        log.info("[NepalPay] Auto-configuring ConnectIpsClient | mode={} " +
+                        "| merchantId={} | retry={}",
                 props.sandbox() ? "UAT" : "PRODUCTION",
-                props.merchantId());
+                props.merchantId(),
+                props.retryOrDefault().summary());
 
         return new ConnectIpsClient(
                 props.merchantId(),
@@ -137,7 +158,8 @@ public class NepalPayAutoConfiguration {
                 pfxBytes,
                 props.pfxPassword(),
                 props.sandbox(),
-                restClientBuilder
+                restClientBuilder,
+                props.retryOrDefault()
         );
     }
 
@@ -149,6 +171,7 @@ public class NepalPayAutoConfiguration {
      *
      * <p>Note: FonepayClient does NOT need RestClient.Builder —
      * Fonepay uses URL redirect, not server-to-server API calls.
+     * Retry does not apply to Fonepay.
      *
      * @param properties bound from nepalpay.* in application.yml
      * @return configured FonepayClient bean

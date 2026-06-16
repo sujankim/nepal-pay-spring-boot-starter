@@ -2,6 +2,7 @@ package io.nepalpay.autoconfigure;
 
 import io.nepalpay.config.NepalPayProperties;
 import io.nepalpay.connectips.ConnectIpsClient;
+import io.nepalpay.core.retry.RetryProperties;
 import io.nepalpay.esewa.EsewaClient;
 import io.nepalpay.fonepay.FonepayClient;
 import io.nepalpay.khalti.KhaltiClient;
@@ -132,7 +133,8 @@ class NepalPayAutoConfigurationTest {
                             "https://custom.com/callback",
                             "https://custom.com",
                             true,
-                            10
+                            10,
+                            null
                     );
 
             KhaltiClient customBean = new KhaltiClient(
@@ -155,6 +157,54 @@ class NepalPayAutoConfigurationTest {
                         KhaltiClient beanInContext = context.getBean(KhaltiClient.class);
                         assertThat(beanInContext.baseUrl())
                                 .isEqualTo("https://custom-mock.com");
+                    });
+        }
+        @Test
+        @DisplayName("retry defaults to disabled when not configured")
+        void retryDefaultsToDisabledWhenNotConfigured() {
+            contextRunner
+                    .withPropertyValues(
+                            "nepalpay.khalti.secret-key=test_key",
+                            "nepalpay.khalti.return-url=https://example.com/cb"
+                            // ← no retry: block
+                    )
+                    .run(context -> {
+                        // Properties bound correctly
+                        NepalPayProperties props =
+                                context.getBean(NepalPayProperties.class);
+
+                        // retryOrDefault() never returns null
+                        assertThat(props.khalti().retryOrDefault()).isNotNull();
+
+                        // retry is disabled by default
+                        assertThat(props.khalti().retryOrDefault().isActive())
+                                .isFalse();
+                    });
+        }
+
+        @Test
+        @DisplayName("retry can be enabled via properties")
+        void retryCanBeEnabledViaProperties() {
+            contextRunner
+                    .withPropertyValues(
+                            "nepalpay.khalti.secret-key=test_key",
+                            "nepalpay.khalti.return-url=https://example.com/cb",
+                            "nepalpay.khalti.retry.enabled=true",
+                            "nepalpay.khalti.retry.max-attempts=3",
+                            "nepalpay.khalti.retry.initial-delay-ms=500",
+                            "nepalpay.khalti.retry.multiplier=2.0",
+                            "nepalpay.khalti.retry.max-delay-ms=5000"
+                    )
+                    .run(context -> {
+                        NepalPayProperties props =
+                                context.getBean(NepalPayProperties.class);
+
+                        RetryProperties retry = props.khalti().retryOrDefault();
+                        assertThat(retry.isActive()).isTrue();
+                        assertThat(retry.maxAttempts()).isEqualTo(3);
+                        assertThat(retry.initialDelayMs()).isEqualTo(500L);
+                        assertThat(retry.multiplier()).isEqualTo(2.0);
+                        assertThat(retry.maxDelayMs()).isEqualTo(5000L);
                     });
         }
     }
@@ -237,7 +287,8 @@ class NepalPayAutoConfigurationTest {
                             "https://custom.com/success",
                             "https://custom.com/failure",
                             true,
-                            10
+                            10,
+                            null
                     );
 
             EsewaClient customBean = new EsewaClient(

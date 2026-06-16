@@ -2,290 +2,232 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Configuration — NepalPay</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description"
-          content="Complete configuration reference for NepalPay Spring Boot Starter — Khalti, eSewa, and ConnectIPS properties.">
+    <title>Configuration — NepalPay</title>
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
 
-<header class="page-header">
-    <nav class="navbar">
-        <a class="brand" href="index.html">🇳🇵 NepalPay</a>
-        <div class="nav-links">
-            <a href="getting-started.html">Getting Started</a>
-            <a href="khalti.html">Khalti</a>
-            <a href="esewa.html">eSewa</a>
-            <a href="connectips.html">ConnectIPS</a>
-            <a href="fonepay.html">Fonepay</a>
-            <a href="configuration.html" class="active">Config</a>
-            <a href="security.html">Security</a>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
-               target="_blank" rel="noopener">GitHub ↗</a>
+<div class="page-hero">
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a class="nav-brand" href="index.html"><span class="nav-brand-flag">🇳🇵</span> NepalPay</a>
+            <div class="nav-links">
+                <a href="getting-started.html">Getting Started</a>
+                <a href="khalti.html">Khalti</a>
+                <a href="esewa.html">eSewa</a>
+                <a href="connectips.html">ConnectIPS</a>
+                <a href="fonepay.html">Fonepay</a>
+                <a href="configuration.html" class="active">Config</a>
+                <a href="security.html">Security</a>
+            </div>
+            <a class="nav-github" href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
         </div>
     </nav>
-    <div class="page-title">
-        <h1>Configuration</h1>
-        <p>All nepalpay.* properties, environment variable recommendations,
-            and sandbox vs production setup.</p>
+    <div class="page-header-body">
+        <div class="page-header-left">
+            <h1>Configuration</h1>
+            <p>Complete property reference, environment variables, retry config, and sandbox setup.</p>
+        </div>
     </div>
-</header>
+</div>
 
-<div class="docs-layout">
+<div class="docs-wrapper">
     <aside class="sidebar">
-        <nav>
-            <a href="#khalti-props">Khalti Properties</a>
-            <a href="#esewa-props">eSewa Properties</a>
-            <a href="#connectips-props">ConnectIPS Properties</a>
-            <a href="#sandbox-config">Sandbox Config</a>
-            <a href="#production-config">Production Config</a>
-            <a href="#env-vars">Environment Variables</a>
+        <nav class="sidebar-nav">
+            <div class="sidebar-group-label">Properties</div>
+            <a href="#khalti-props">Khalti</a>
+            <a href="#esewa-props">eSewa</a>
+            <a href="#connectips-props">ConnectIPS</a>
+            <a href="#fonepay-props">Fonepay</a>
+            <div class="sidebar-group-label">Retry</div>
+            <a href="#retry">Retry Config</a>
+            <a href="#retry-ref">Retry Reference</a>
+            <div class="sidebar-group-label">Setup</div>
+            <a href="#sandbox">Sandbox Setup</a>
+            <a href="#production">Production Setup</a>
+            <a href="#env-vars">Environment Vars</a>
             <a href="#override">Override Beans</a>
         </nav>
     </aside>
 
     <article class="docs-content">
 
-        <!-- ── Khalti Properties ──────────────────────────────────────── -->
         <section id="khalti-props">
             <h2>Khalti Properties</h2>
-
-            <p>
-                The <code>KhaltiClient</code> bean is created automatically
-                when <code>nepalpay.khalti.secret-key</code> is present in your configuration.
-            </p>
-
-            <table class="table">
-                <tr>
-                    <th>Property</th>
-                    <th>Required</th>
-                    <th>Default</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.khalti.secret-key</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Your Khalti secret key from the merchant dashboard.
-                        Creates <code>KhaltiClient</code> bean when present.
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.khalti.return-url</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        URL Khalti redirects to after payment.
-                        Example: <code>https://yourapp.com/api/payment/khalti/callback</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.khalti.website-url</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Your merchant website URL.
-                        Example: <code>https://yourapp.com</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.khalti.sandbox</code></td>
-                    <td>No</td>
-                    <td><code>true</code></td>
-                    <td>
-                        <code>true</code> → dev.khalti.com (sandbox)<br>
-                        <code>false</code> → khalti.com (production)
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.khalti.timeout-seconds</code></td>
-                    <td>No</td>
-                    <td><code>10</code></td>
-                    <td>HTTP timeout in seconds for Khalti API calls.</td>
-                </tr>
-            </table>
+            <p><code>KhaltiClient</code> is created when <code>nepalpay.khalti.secret-key</code> is present.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Property</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>secret-key</code></td><td>✅</td><td>—</td><td>Khalti secret key. Creates bean when present.</td></tr>
+                    <tr><td><code>return-url</code></td><td>✅</td><td>—</td><td>URL Khalti redirects to after payment.</td></tr>
+                    <tr><td><code>website-url</code></td><td>✅</td><td>—</td><td>Your merchant website URL.</td></tr>
+                    <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = dev.khalti.com · <code>false</code> = khalti.com</td></tr>
+                    <tr><td><code>timeout-seconds</code></td><td>—</td><td><code>10</code></td><td>HTTP timeout in seconds.</td></tr>
+                    <tr><td><code>retry.*</code></td><td>—</td><td>disabled</td><td>See <a href="#retry">Retry Config →</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
-        <!-- ── eSewa Properties ───────────────────────────────────────── -->
         <section id="esewa-props">
             <h2>eSewa Properties</h2>
-
-            <p>
-                The <code>EsewaClient</code> bean is created automatically
-                when <code>nepalpay.esewa.secret-key</code> is present.
-            </p>
-
-            <table class="table">
-                <tr>
-                    <th>Property</th>
-                    <th>Required</th>
-                    <th>Default</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.esewa.secret-key</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        eSewa HMAC-SHA256 secret key.
-                        Creates <code>EsewaClient</code> bean when present.
-                        Sandbox value: <code>8gBm/:&amp;EnhH.1/q</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.esewa.product-code</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        eSewa merchant/product code.<br>
-                        Sandbox: <code>EPAYTEST</code><br>
-                        Production: your real merchant code.<br>
-                        <strong>⚠️ Most common cause of sandbox-to-production breakage.</strong>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.esewa.success-url</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        URL eSewa redirects to on successful payment.
-                        Example: <code>https://yourapp.com/api/payment/esewa/callback</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.esewa.failure-url</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        URL eSewa redirects to on failed or canceled payment.
-                        Example: <code>https://yourapp.com/payment/failed</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.esewa.sandbox</code></td>
-                    <td>No</td>
-                    <td><code>true</code></td>
-                    <td>
-                        <code>true</code> → rc-epay.esewa.com.np (sandbox)<br>
-                        <code>false</code> → epay.esewa.com.np (production)
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.esewa.timeout-seconds</code></td>
-                    <td>No</td>
-                    <td><code>10</code></td>
-                    <td>HTTP timeout in seconds for eSewa status API calls.</td>
-                </tr>
-            </table>
+            <p><code>EsewaClient</code> is created when <code>nepalpay.esewa.secret-key</code> is present.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Property</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>secret-key</code></td><td>✅</td><td>—</td><td>HMAC-SHA256 secret key. Sandbox: <code>8gBm/:&amp;EnhH.1/q</code></td></tr>
+                    <tr><td><code>product-code</code></td><td>✅</td><td>—</td><td>Sandbox: <code>EPAYTEST</code> · Production: your merchant code</td></tr>
+                    <tr><td><code>success-url</code></td><td>✅</td><td>—</td><td>Redirect on successful payment.</td></tr>
+                    <tr><td><code>failure-url</code></td><td>✅</td><td>—</td><td>Redirect on failed payment.</td></tr>
+                    <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = sandbox · <code>false</code> = production</td></tr>
+                    <tr><td><code>retry.*</code></td><td>—</td><td>disabled</td><td>Applies to <code>checkStatus()</code>.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
-        <!-- ── ConnectIPS Properties ──────────────────────────────────── -->
         <section id="connectips-props">
             <h2>ConnectIPS Properties</h2>
-
-            <div class="callout warning">
-                ⚠️ <strong>Merchant registration required.</strong>
-                ConnectIPS requires registration with NCHL before use.
-                Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>
-                or your bank to register. You will receive a merchant ID,
-                app credentials, and a CREDITOR.pfx certificate file.
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>Requires NCHL merchant registration. Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.</p>
             </div>
-
-            <table class="table">
-                <tr>
-                    <th>Property</th>
-                    <th>Required</th>
-                    <th>Default</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.merchant-id</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Integer merchant ID assigned by NCHL.
-                        Example: <code>550</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.app-id</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Application ID from NCHL.
-                        Example: <code>MER-550-APP-1</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.app-name</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Application name from NCHL.
-                        Example: <code>MyStore</code>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.app-password</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Application password used for HTTP Basic Auth
-                        on the validation API.
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.pfx-path</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>
-                        Path to your CREDITOR.pfx certificate file.<br>
-                        Example: <code>file:/app/CREDITOR.pfx</code><br>
-                        <strong>⚠️ Never commit this file to Git.</strong>
-                    </td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.pfx-password</code></td>
-                    <td>✅</td>
-                    <td>—</td>
-                    <td>Password for the CREDITOR.pfx file.</td>
-                </tr>
-                <tr>
-                    <td><code>nepalpay.connectips.sandbox</code></td>
-                    <td>No</td>
-                    <td><code>true</code></td>
-                    <td>
-                        <code>true</code> → uat.connectips.com (UAT)<br>
-                        <code>false</code> → connectips.com (production)
-                    </td>
-                </tr>
-            </table>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Property</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>merchant-id</code></td><td>✅</td><td>—</td><td>NCHL integer merchant ID. Creates bean when present.</td></tr>
+                    <tr><td><code>app-id</code></td><td>✅</td><td>—</td><td>Application ID from NCHL.</td></tr>
+                    <tr><td><code>app-name</code></td><td>✅</td><td>—</td><td>Application name from NCHL.</td></tr>
+                    <tr><td><code>app-password</code></td><td>✅</td><td>—</td><td>Used for HTTP Basic Auth on validate API.</td></tr>
+                    <tr><td><code>pfx-path</code></td><td>✅</td><td>—</td><td>Path to CREDITOR.pfx. Example: <code>file:/app/CREDITOR.pfx</code></td></tr>
+                    <tr><td><code>pfx-password</code></td><td>✅</td><td>—</td><td>Password for CREDITOR.pfx file.</td></tr>
+                    <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = uat.connectips.com · <code>false</code> = production</td></tr>
+                    <tr><td><code>retry.*</code></td><td>—</td><td>disabled</td><td>Applies to <code>validateTransaction()</code>.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
-        <!-- ── Sandbox Config ─────────────────────────────────────────── -->
-        <section id="sandbox-config">
+        <section id="fonepay-props">
+            <h2>Fonepay Properties</h2>
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p><strong>No retry configuration for Fonepay.</strong> Fonepay uses URL redirect and makes zero server-to-server HTTP calls.</p>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Property</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>merchant-code</code></td><td>✅</td><td>—</td><td>Your Fonepay PID (merchant code).</td></tr>
+                    <tr><td><code>secret-key</code></td><td>✅</td><td>—</td><td>HMAC-SHA512 secret key. Creates bean when present.</td></tr>
+                    <tr><td><code>return-url</code></td><td>✅</td><td>—</td><td>URL Fonepay redirects to after payment.</td></tr>
+                    <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = dev.fonepay.com · <code>false</code> = fonepay.com</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="retry">
+            <h2>Retry Configuration</h2>
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>Retry is <strong>disabled by default</strong>. You must explicitly set <code>enabled: true</code> to activate it per gateway.</p>
+            </div>
+
+            <h3>Example</h3>
+            <pre><code>nepalpay:
+  khalti:
+    secret-key: ${KHALTI_SECRET_KEY}
+    return-url:  ${KHALTI_RETURN_URL}
+    sandbox: true
+    retry:
+      enabled: true           # opt-in — false by default
+      max-attempts: 3         # retries after first failure (4 total calls max)
+      initial-delay-ms: 500   # wait 500ms before first retry
+      multiplier: 2.0         # double delay each retry: 500 → 1000 → 2000
+      max-delay-ms: 5000      # never wait more than 5 seconds</code></pre>
+
+            <h3>What gets retried</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Scenario</th><th>Retried?</th><th>Reason</th></tr></thead>
+                    <tbody>
+                    <tr><td>5xx server errors</td><td><span class="pill pill-green">✅ Yes</span></td><td>Gateway temporarily down — may recover</td></tr>
+                    <tr><td>Network timeout / connection reset</td><td><span class="pill pill-green">✅ Yes</span></td><td>Transient network issue</td></tr>
+                    <tr><td>400 Bad Request</td><td><span class="pill pill-red">❌ No</span></td><td>Invalid request — retrying won't help</td></tr>
+                    <tr><td>401 Unauthorized</td><td><span class="pill pill-red">❌ No</span></td><td>Wrong key — retrying won't help</td></tr>
+                    <tr><td>Signature failure</td><td><span class="pill pill-red">❌ No</span></td><td>Security alert — must not retry</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Which gateways support retry</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Gateway</th><th>Methods</th><th>Retry?</th></tr></thead>
+                    <tbody>
+                    <tr><td>Khalti</td><td><code>initiatePayment()</code>, <code>lookupPayment()</code>, <code>refundPayment()</code></td><td><span class="pill pill-green">✅ Yes</span></td></tr>
+                    <tr><td>eSewa</td><td><code>checkStatus()</code> (inside <code>verifyCallback()</code>)</td><td><span class="pill pill-green">✅ Yes</span></td></tr>
+                    <tr><td>ConnectIPS</td><td><code>validateTransaction()</code></td><td><span class="pill pill-green">✅ Yes</span></td></tr>
+                    <tr><td>Fonepay</td><td>All methods</td><td><span class="pill pill-gray">❌ N/A</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="retry-ref">
+            <h2>Retry Properties Reference</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Property</th><th>Default</th><th>Description</th></tr></thead>
+                    <tbody>
+                    <tr><td><code>retry.enabled</code></td><td><code>false</code></td><td>Must be <code>true</code> to activate. Disabled by default.</td></tr>
+                    <tr><td><code>retry.max-attempts</code></td><td><code>3</code></td><td>Retries after first failure. Total calls = max-attempts + 1.</td></tr>
+                    <tr><td><code>retry.initial-delay-ms</code></td><td><code>500</code></td><td>Milliseconds before first retry.</td></tr>
+                    <tr><td><code>retry.multiplier</code></td><td><code>2.0</code></td><td>Delay multiplier per retry. Use <code>1.0</code> for constant delay. Must be >= 1.0.</td></tr>
+                    <tr><td><code>retry.max-delay-ms</code></td><td><code>5000</code></td><td>Maximum wait between retries in milliseconds.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>How exponential backoff works</h3>
+            <pre><code># initial-delay-ms=500, multiplier=2.0, max-delay-ms=5000, max-attempts=3
+
+First call  → fails with 500 → wait 500ms (±jitter)
+Retry 1     → fails with 500 → wait 1000ms (500 × 2.0)
+Retry 2     → fails with 500 → wait 2000ms (1000 × 2.0)
+Retry 3     → fails with 500 → no more retries → throw exception
+
+# Jitter: ±10% random offset added to every wait
+# Prevents all users retrying at the exact same millisecond</code></pre>
+        </section>
+
+        <section id="sandbox">
             <h2>Sandbox Configuration</h2>
-
-            <p>Use this for local development. Safe to commit (no production keys).</p>
-
             <pre><code>nepalpay:
 
   khalti:
-    # Get test key from: https://test-admin.khalti.com
-    secret-key:  ${KHALTI_SECRET_KEY:test_secret_key_placeholder}
-    return-url:  http://localhost:8080/api/payment/khalti/callback
+    secret-key:  ${KHALTI_SECRET_KEY:test_key_placeholder}
+    return-url:  http://localhost:8080/api/khalti/callback
     website-url: http://localhost:8080
     sandbox: true
 
   esewa:
-    # Official eSewa sandbox credentials
-    # ID: 9806800001  Password: Nepal@123  MPIN: 1122  Token: 123456
+    # Official sandbox: ID=9806800001 Password=Nepal@123 MPIN=1122 Token=123456
     secret-key:   ${ESEWA_SECRET_KEY:8gBm/:&EnhH.1/q}
     product-code: EPAYTEST
-    success-url:  http://localhost:8080/api/payment/esewa/callback
-    failure-url:  http://localhost:4200/payment/failed
+    success-url:  http://localhost:8080/api/esewa/callback
+    failure-url:  http://localhost:8080/api/esewa/failed
+    sandbox: true
+
+  fonepay:
+    merchant-code: ${FONEPAY_MERCHANT_CODE}
+    secret-key:    ${FONEPAY_SECRET_KEY}
+    return-url:    http://localhost:8080/api/fonepay/callback
     sandbox: true
 
   # ConnectIPS — uncomment when you have NCHL credentials
@@ -299,145 +241,106 @@
   #   sandbox: true</code></pre>
         </section>
 
-        <!-- ── Production Config ──────────────────────────────────────── -->
-        <section id="production-config">
+        <section id="production">
             <h2>Production Configuration</h2>
-
-            <div class="callout danger">
-                🔴 <strong>Never hardcode production keys.</strong>
-                Always use environment variables.
-                Never commit real credentials to Git.
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p><strong>Never hardcode production keys.</strong> Always use environment variables. Never commit real credentials to Git.</p>
             </div>
-
             <pre><code>nepalpay:
 
   khalti:
     secret-key:  ${KHALTI_SECRET_KEY}
-    return-url:  https://yourapp.com/api/payment/khalti/callback
+    return-url:  https://yourapp.com/api/khalti/callback
     website-url: https://yourapp.com
-    sandbox: false                          # ← production!
+    sandbox: false                    # ← production
 
   esewa:
     secret-key:   ${ESEWA_SECRET_KEY}
-    product-code: ${ESEWA_PRODUCT_CODE}     # ⚠️ must be your real merchant code!
-    success-url:  https://yourapp.com/api/payment/esewa/callback
+    product-code: ${ESEWA_PRODUCT_CODE} # ⚠️ must be your real merchant code!
+    success-url:  https://yourapp.com/api/esewa/callback
     failure-url:  https://yourapp.com/payment/failed
-    sandbox: false                          # ← production!
+    sandbox: false                    # ← production
 
   connectips:
     merchant-id:  ${CONNECTIPS_MERCHANT_ID}
     app-id:       ${CONNECTIPS_APP_ID}
     app-name:     ${CONNECTIPS_APP_NAME}
     app-password: ${CONNECTIPS_APP_PASSWORD}
-    pfx-path:     ${CONNECTIPS_PFX_PATH}    # e.g. file:/app/CREDITOR.pfx
+    pfx-path:     ${CONNECTIPS_PFX_PATH}
     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
-    sandbox: false                          # ← production!</code></pre>
+    sandbox: false                    # ← production</code></pre>
         </section>
 
-        <!-- ── Environment Variables ──────────────────────────────────── -->
         <section id="env-vars">
             <h2>Environment Variables</h2>
-
-            <p>
-                Set these in your deployment environment.
-                Never put real values in <code>application.yml</code>
-                or commit them to version control.
-            </p>
-
-            <pre><code># ── Khalti ─────────────────────────────────────────────
-KHALTI_SECRET_KEY=live_secret_key_your_key_here
-KHALTI_RETURN_URL=https://yourapp.com/api/payment/khalti/callback
+            <pre><code># Khalti
+KHALTI_SECRET_KEY=live_secret_key_here
+KHALTI_RETURN_URL=https://yourapp.com/api/khalti/callback
 YOUR_WEBSITE_URL=https://yourapp.com
 
-# ── eSewa ───────────────────────────────────────────────
+# eSewa
 ESEWA_SECRET_KEY=your_esewa_secret_key
 ESEWA_PRODUCT_CODE=your_merchant_code
-ESEWA_SUCCESS_URL=https://yourapp.com/api/payment/esewa/callback
+ESEWA_SUCCESS_URL=https://yourapp.com/api/esewa/callback
 ESEWA_FAILURE_URL=https://yourapp.com/payment/failed
 
-# ── ConnectIPS ──────────────────────────────────────────
+# ConnectIPS
 CONNECTIPS_MERCHANT_ID=550
 CONNECTIPS_APP_ID=MER-550-APP-1
-CONNECTIPS_APP_NAME=YourAppName
+CONNECTIPS_APP_NAME=YourApp
 CONNECTIPS_APP_PASSWORD=your_app_password
 CONNECTIPS_PFX_PATH=file:/app/CREDITOR.pfx
-CONNECTIPS_PFX_PASSWORD=your_pfx_password</code></pre>
+CONNECTIPS_PFX_PASSWORD=your_pfx_password
 
-            <h3>Platform-specific setup</h3>
+# Fonepay
+FONEPAY_MERCHANT_CODE=your_merchant_pid
+FONEPAY_SECRET_KEY=your_fonepay_key
+FONEPAY_RETURN_URL=https://yourapp.com/api/fonepay/callback</code></pre>
 
-            <table class="table">
-                <tr>
-                    <th>Platform</th>
-                    <th>How to set environment variables</th>
-                </tr>
-                <tr>
-                    <td>Render</td>
-                    <td>Dashboard → Your Service → Environment → Add variables</td>
-                </tr>
-                <tr>
-                    <td>Railway</td>
-                    <td>Project → Variables → Add variable</td>
-                </tr>
-                <tr>
-                    <td>Heroku</td>
-                    <td><code>heroku config:set KHALTI_SECRET_KEY=xxx</code></td>
-                </tr>
-                <tr>
-                    <td>Docker</td>
-                    <td><code>docker run -e KHALTI_SECRET_KEY=xxx yourimage</code></td>
-                </tr>
-                <tr>
-                    <td>Local dev</td>
-                    <td>
-                        <code>.env</code> file (add to <code>.gitignore</code>!)
-                        or IntelliJ → Run Configuration → Environment variables
-                    </td>
-                </tr>
-            </table>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Platform</th><th>How to set</th></tr></thead>
+                    <tbody>
+                    <tr><td>Render</td><td>Dashboard → Service → Environment → Add variables</td></tr>
+                    <tr><td>Railway</td><td>Project → Variables → Add variable</td></tr>
+                    <tr><td>Heroku</td><td><code>heroku config:set KHALTI_SECRET_KEY=xxx</code></td></tr>
+                    <tr><td>Docker</td><td><code>docker run -e KHALTI_SECRET_KEY=xxx yourimage</code></td></tr>
+                    <tr><td>Local</td><td><code>.env</code> file (add to <code>.gitignore</code>!)</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
-        <!-- ── Override Beans ─────────────────────────────────────────── -->
         <section id="override">
             <h2>Override Beans</h2>
-
-            <p>
-                Every NepalPay bean uses <code>@ConditionalOnMissingBean</code>.
-                If you define your own bean of the same type, NepalPay's
-                auto-configured bean is skipped entirely.
-            </p>
-
+            <p>Every NepalPay bean uses <code>@ConditionalOnMissingBean</code>. Define your own bean and NepalPay steps aside automatically.</p>
             <pre><code>@Configuration
 public class MyPaymentConfig {
 
-    // Defining this bean means NepalPay's KhaltiClient is NOT created.
-    // Useful when you need custom configuration, logging, or proxying.
     @Bean
     public KhaltiClient customKhaltiClient(
             NepalPayProperties props,
             RestClient.Builder builder) {
+        // your custom configuration here
         return new KhaltiClient(props.khalti(), builder);
     }
 }</code></pre>
-
-            <p>
-                This pattern also works for <code>EsewaClient</code>
-                and <code>ConnectIpsClient</code>.
-            </p>
+            <p>Works for all four clients: <code>KhaltiClient</code>, <code>EsewaClient</code>, <code>ConnectIpsClient</code>, <code>FonepayClient</code>.</p>
         </section>
 
     </article>
 </div>
 
 <footer class="footer">
-    <p>
-        NepalPay Spring Boot Starter · MIT License ·
-        <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
-           target="_blank" rel="noopener">GitHub</a>
-        ·
-        <a href="https://sujanlamichhane.com.np"
-           target="_blank" rel="noopener">Sujan Lamichhane</a>
-    </p>
+    <div class="footer-inner">
+        <div class="footer-brand">🇳🇵 NepalPay</div>
+        <div class="footer-links">
+            <a href="index.html">Home</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub</a>
+        </div>
+        <p class="footer-copy">MIT License</p>
+    </div>
 </footer>
-
 </body>
 </html>

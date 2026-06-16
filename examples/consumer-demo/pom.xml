@@ -20,9 +20,9 @@
 
     <name>NepalPay Consumer Demo</name>
     <description>
-        Example Spring Boot 4 app showing how to integrate
-        NepalPay Spring Boot 4 Starter for Khalti, eSewa,
-        and ConnectIPS payments.
+        Example Spring Boot 4 application demonstrating NepalPay Spring Boot 4 Starter
+        integration for Khalti, eSewa, ConnectIPS, and Fonepay payments.
+        Uses NepalPay v0.6.0 — includes refund and retry support.
     </description>
 
     <properties>
@@ -50,13 +50,14 @@
         </dependency>
 
         <!--
-            NepalPay Spring Boot 4 Starter.
+            NepalPay Spring Boot 4 Starter v0.6.0
+            Includes: Khalti refund + retry with exponential backoff
             Use nepal-pay-spring-boot-3-starter for Spring Boot 3.x projects.
         -->
         <dependency>
             <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
             <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-            <version>v0.3.0</version>
+            <version>v0.6.0</version>
         </dependency>
 
         <dependency>
