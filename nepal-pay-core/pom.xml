@@ -7,9 +7,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.nepalpay</groupId>
+        <groupId>io.github.sujankim</groupId>
         <artifactId>nepal-pay-parent</artifactId>
-        <version>0.5.0</version>
+        <version>1.0.0</version>
     </parent>
 
     <artifactId>nepal-pay-core</artifactId>
@@ -17,10 +17,10 @@
 
     <name>NepalPay Core</name>
     <description>
-        Core models, exceptions, and enums for NepalPay.
-        Zero Spring dependency. Zero Jackson runtime dependency.
-        Works in ANY Java 17+ project — Spring Boot 3, 4, or plain Java.
+        Core models, exceptions, enums, and retry configuration for NepalPay.
+        Zero Spring dependency. Works in ANY Java 17+ project.
     </description>
+    <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
 
     <properties>
         <java.version>17</java.version>
@@ -31,18 +31,12 @@
 
     <dependencies>
 
-        <!--
-            jackson-annotations — for @JsonProperty, @JsonIgnoreProperties on model records.
-            Stays under com.fasterxml.jackson in BOTH Jackson 2 and 3.
-            This is intentional by the Jackson team for backward compatibility.
-        -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <version>2.20</version>
         </dependency>
 
-        <!-- Lombok — compile-time only, reduces boilerplate -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -50,22 +44,19 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- ====== TEST ====== -->
-
+        <!-- TEST -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
@@ -101,6 +92,7 @@
                 <version>3.5.2</version>
             </plugin>
 
+            <!-- Required by Maven Central: sources jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -113,6 +105,7 @@
                 </executions>
             </plugin>
 
+            <!-- Required by Maven Central: javadoc jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -130,7 +123,68 @@
                 </executions>
             </plugin>
 
+            <!--
+                Central Publishing Maven Plugin (official Sonatype plugin).
+                Replaces the deprecated nexus-staging-maven-plugin.
+                Required since OSSRH sunset June 30, 2025.
+                Source: https://central.sonatype.org/publish/publish-portal-maven/
+            -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.10.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <!--
+                        autoPublish=false for FIRST release — review before going live.
+                        After confirming first release worked: change to true.
+                        WARNING: Maven Central artifacts are IMMUTABLE once published.
+                    -->
+                    <autoPublish>false</autoPublish>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
+
+    <!--
+        Release profile — activated with -P release in publish workflow.
+        GPG signing is ONLY needed during publishing, not during tests.
+    -->
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!--
+                        GPG signing — required by Maven Central.
+                        Signs every artifact with your private key.
+                        Version 3.2.8 is latest (June 28, 2025).
+                        Passphrase injected via -Dgpg.passphrase from GitHub Secret.
+                        -pinentry-mode loopback prevents GUI dialog in headless CI.
+                    -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals><goal>sign</goal></goals>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

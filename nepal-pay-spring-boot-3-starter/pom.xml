@@ -6,25 +6,60 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+        Spring Boot starter-parent stays as parent — provides BOM for
+        all Spring dependencies. Nepal-pay-parent cannot be parent here.
+    -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.0</version>
+        <version>3.5.15</version>
         <relativePath/>
     </parent>
 
-    <groupId>io.nepalpay</groupId>
+    <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>0.5.0</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
+    <!-- Required by Maven Central -->
     <name>NepalPay Spring Boot 3 Starter</name>
     <description>
         Spring Boot 3.2+ compatible starter for Nepal payment gateways.
         Supports Khalti, eSewa, ConnectIPS, and Fonepay.
-        Uses Jackson 2 (com.fasterxml.jackson.databind.ObjectMapper).
-        Minimum: Spring Boot 3.2, Java 17.
+        Uses Jackson 2 (com.fasterxml.jackson). Java 17+.
     </description>
+    <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+
+    <!-- Required by Maven Central -->
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <!-- Required by Maven Central -->
+    <developers>
+        <developer>
+            <id>sujankim</id>
+            <name>Sujan Lamichhane</name>
+            <email>sujan.officals@email.com</email>
+            <url>https://sujanlamichhane.com.np</url>
+        </developer>
+    </developers>
+
+    <!-- Required by Maven Central -->
+    <scm>
+        <connection>
+            scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git
+        </connection>
+        <developerConnection>
+            scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git
+        </developerConnection>
+        <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <java.version>17</java.version>
@@ -35,75 +70,61 @@
 
     <dependencies>
 
-        <!-- NepalPay Core — shared models, exceptions, enums -->
+        <!-- NepalPay Core — single entry, v1.0.0 only -->
         <dependency>
-            <groupId>io.nepalpay</groupId>
+            <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>0.5.0</version>
+            <version>1.0.0</version>
         </dependency>
 
-        <!-- Spring Boot Autoconfigure — core of how starters work -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- Configuration Processor — generates IDE YAML autocomplete -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- SLF4J — logging facade -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!--
-            Jackson 2 databind — Spring Boot 3 uses com.fasterxml.jackson.
-            Version managed by Spring Boot 3.5.0 BOM.
-        -->
+        <!-- Jackson 2 — Spring Boot 3 uses com.fasterxml.jackson -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <!-- Spring Web — for RestClient (available since Spring Boot 3.2) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!--
-            Spring Context — provides ResourceLoader for loading .pfx files.
-            Used by ConnectIPS auto-configuration to read certificate bytes.
-        -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- ====== TEST ====== -->
-
+        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -115,6 +136,7 @@
 
     <build>
         <plugins>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -133,6 +155,8 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <!-- Required by Maven Central -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -143,6 +167,8 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- Required by Maven Central -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -158,7 +184,52 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!--
+                Central Publishing Maven Plugin.
+                Official Sonatype plugin for Maven Central (post-OSSRH).
+                Source: https://central.sonatype.org/publish/publish-portal-maven/
+            -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.10.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals><goal>sign</goal></goals>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

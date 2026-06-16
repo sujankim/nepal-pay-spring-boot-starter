@@ -6,9 +6,9 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.nepalpay</groupId>
+    <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-parent</artifactId>
-    <version>0.5.0</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>NepalPay Parent</name>
@@ -27,7 +27,7 @@
 
     <developers>
         <developer>
-            <id>sujanlamichhane</id>
+            <id>sujankim</id>
             <name>Sujan Lamichhane</name>
             <email>sujan.officals@email.com</email>
             <url>https://sujanlamichhane.com.np</url>
@@ -35,9 +35,14 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git</connection>
-        <developerConnection>scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git</developerConnection>
+        <connection>
+            scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git
+        </connection>
+        <developerConnection>
+            scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git
+        </developerConnection>
         <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+        <tag>HEAD</tag>
     </scm>
 
     <modules>
