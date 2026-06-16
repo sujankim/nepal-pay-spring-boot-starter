@@ -29,13 +29,6 @@
         <java.version>21</java.version>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
-
     <dependencies>
 
         <dependency>
@@ -50,14 +43,15 @@
         </dependency>
 
         <!--
-            NepalPay Spring Boot 4 Starter v0.6.0
+            NepalPay Spring Boot 4 Starter v1.0.0
             Includes: Khalti refund + retry with exponential backoff
             Use nepal-pay-spring-boot-3-starter for Spring Boot 3.x projects.
         -->
+        <!-- Update to use Maven Central coordinates -->
         <dependency>
-            <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
+            <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-            <version>v0.6.0</version>
+            <version>1.0.0</version>
         </dependency>
 
         <dependency>

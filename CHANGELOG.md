@@ -3,6 +3,35 @@
 All notable changes to NepalPay Spring Boot Starter.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [1.0.0] — 2026-06-16 🚀 First Maven Central Release
+
+### Changed
+- Published to **Maven Central** — no JitPack repository block needed
+- GroupId: `io.github.sujankim` (auto-verified via GitHub login)
+- Add `flatten-maven-plugin 1.6.0` to `nepal-pay-core`
+  for clean consumer POM generation
+- Add `central-publishing-maven-plugin 0.6.0` to all modules
+- Add `maven-gpg-plugin 3.2.7` release profile to all modules
+- Spring Boot 3 parent: `3.5.0` → `3.5.15` (security patch fixes)
+- All Javadoc `&` → `&amp;` in `FonepayCallbackResponse.java`
+- GitHub Actions: `checkout@v4` → `v5`, `setup-java@v4` → `v5`
+
+### Install (Maven Central — no repository block needed)
+```xml
+<!-- Spring Boot 3.2+ -->
+<dependency>
+    <groupId>io.github.sujankim</groupId>
+    <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+<!-- Spring Boot 4.x -->
+<dependency>
+    <groupId>io.github.sujankim</groupId>
+    <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
 ---
 
 ## [0.6.0] — 2026-06-16 🔁 Retry with Exponential Backoff

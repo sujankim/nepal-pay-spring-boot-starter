@@ -2,8 +2,8 @@
 
 <img src="https://img.shields.io/badge/Java-17%2B-orange?style=for-the-badge&logo=openjdk"/>
 <img src="https://img.shields.io/badge/Spring%20Boot-3.2%2B%20%7C%204.x-6DB33F?style=for-the-badge&logo=springboot"/>
+<img src="https://img.shields.io/maven-central/v/io.github.sujankim/nepal-pay-spring-boot-3-starter?style=for-the-badge&label=Maven%20Central"/>
 <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/JitPack-v0.6.0-brightgreen?style=for-the-badge"/>
 <img src="https://img.shields.io/badge/Tests-350%2B%20passing-success?style=for-the-badge"/>
 
 # 🇳🇵 NepalPay Spring Boot Starter
@@ -25,44 +25,46 @@ Works with **Spring Boot 3.2+** and **Spring Boot 4.x**.
 
 ---
 
-# 🚀 Getting Started
+## 🚀 Getting Started
 
-## Step 1 — Add JitPack Repository
+### No repository block needed — available on Maven Central
 
-### Maven (`pom.xml`)
-
+**Maven — Spring Boot 3.2+:**
 ```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-    </repository>
-</repositories>
-````
+<dependency>
+    <groupId>io.github.sujankim</groupId>
+    <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
 
-### Gradle Groovy (`settings.gradle`)
+**Maven — Spring Boot 4.x:**
+```xml
+<dependency>
+    <groupId>io.github.sujankim</groupId>
+    <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
 
+**Gradle Groovy — Spring Boot 3.2+:**
 ```groovy
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
-}
+implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.0.0'
 ```
 
-### Gradle Kotlin (`settings.gradle.kts`)
+**Gradle Groovy — Spring Boot 4.x:**
+```groovy
+implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.0'
+```
 
+**Gradle Kotlin — Spring Boot 4.x:**
 ```kotlin
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
-}
+implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.0")
 ```
+
+> ✅ No `<repositories>` block needed.
+> Previously on JitPack as `com.github.sujankim.nepal-pay-spring-boot-starter`.
+> JitPack still works for v0.6.0 and earlier.
 
 ---
 

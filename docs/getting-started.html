@@ -69,6 +69,14 @@
         <section id="install">
             <h2>Install</h2>
 
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    <strong>Available on Maven Central.</strong>
+                    No repository block needed in your pom.xml or build.gradle.
+                </p>
+            </div>
+
             <div class="tabs">
                 <button class="tab-btn active" onclick="showTab('maven', this)">Maven</button>
                 <button class="tab-btn" onclick="showTab('gradle', this)">Gradle (Groovy)</button>
@@ -76,64 +84,32 @@
             </div>
 
             <div id="tab-maven" class="tab-pane active">
-                <p>Step 1 — Add JitPack to <code>pom.xml</code>:</p>
-                <pre><code>&lt;repositories&gt;
-    &lt;repository&gt;
-        &lt;id&gt;jitpack.io&lt;/id&gt;
-        &lt;url&gt;https://jitpack.io&lt;/url&gt;
-    &lt;/repository&gt;
-&lt;/repositories&gt;</code></pre>
-                <p>Step 2 — Add dependency:</p>
-                <pre><code>&lt;!-- Spring Boot 3.2+  (Java 17+) --&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
+                <p><strong>Spring Boot 3.2+ (Java 17+):</strong></p>
+                <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.6.0&lt;/version&gt;
-&lt;/dependency&gt;
-
-&lt;!-- Spring Boot 4.x  (Java 21+) --&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;com.github.sujankim.nepal-pay-spring-boot-starter&lt;/groupId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+                <p><strong>Spring Boot 4.x (Java 21+):</strong></p>
+                <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-4-starter&lt;/artifactId&gt;
-    &lt;version&gt;v0.6.0&lt;/version&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
             </div>
 
             <div id="tab-gradle" class="tab-pane">
-        <pre><code>// settings.gradle
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
-}
-
-// build.gradle — Spring Boot 3.2+
-implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.6.0'
-
-// build.gradle — Spring Boot 4.x
-implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.6.0'</code></pre>
+                <p><strong>Spring Boot 3.2+:</strong></p>
+                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.0.0'</code></pre>
+                <p><strong>Spring Boot 4.x:</strong></p>
+                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.0'</code></pre>
             </div>
 
             <div id="tab-kts" class="tab-pane">
-        <pre><code>// settings.gradle.kts
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }
-    }
-}
-
-// build.gradle.kts — Spring Boot 3.2+
-implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.6.0")
-
-// build.gradle.kts — Spring Boot 4.x
-implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.6.0")</code></pre>
-            </div>
-
-            <div class="callout callout-info">
-                <span class="callout-icon">ℹ️</span>
-                <p>The public API is <strong>identical</strong> in both starters. Only the internal Jackson version differs (Jackson 2 for Boot 3, Jackson 3 for Boot 4).</p>
+                <p><strong>Spring Boot 3.2+:</strong></p>
+                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-3-starter:1.0.0")</code></pre>
+                <p><strong>Spring Boot 4.x:</strong></p>
+                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.0")</code></pre>
             </div>
         </section>
 
