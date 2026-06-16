@@ -8,15 +8,15 @@ package io.nepalpay.core.fonepay.model;
  * <pre>
  * GET /api/payment/fonepay/callback
  *     ?PRN=ORD-001-123456
- *     &PID=MERCHANT_CODE
- *     &PS=success
- *     &RC=200
- *     &UID=fonepay-uid
- *     &BC=GBIME
- *     &INI=user@bank
- *     &P_AMT=100.0
- *     &R_AMT=0.0
- *     &DV=HMAC_SHA512_HEX_UPPERCASE
+ *     &amp;PID=MERCHANT_CODE
+ *     &amp;PS=success
+ *     &amp;RC=200
+ *     &amp;UID=fonepay-uid
+ *     &amp;BC=GBIME
+ *     &amp;INI=user@bank
+ *     &amp;P_AMT=100.0
+ *     &amp;R_AMT=0.0
+ *     &amp;DV=HMAC_SHA512_HEX_UPPERCASE
  * </pre>
  *
  * <p>ALWAYS verify the {@code DV} signature before trusting {@code PS}.
@@ -59,7 +59,7 @@ public record FonepayCallbackResponse(
     /**
      * Returns true only if Fonepay reported payment as successful.
      * NOTE: Always call
-     * {@link io.nepalpay.fonepay.FonepayClient#verifyCallback} instead —
+     * {@code FonepayClient.verifyCallback()} instead —
      * it verifies the HMAC signature BEFORE checking this status.
      *
      * @return true if payment status is success

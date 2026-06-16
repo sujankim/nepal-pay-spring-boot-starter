@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.sujankim</groupId>
+  <artifactId>nepal-pay-core</artifactId>
+  <version>1.0.0</version>
+  <name>NepalPay Core</name>
+  <description>Core models, exceptions, enums, and retry configuration for NepalPay Spring Boot Starter. Zero Spring dependency. Works in any Java 17+ project.</description>
+  <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>sujankim</id>
+      <name>Sujan Lamichhane</name>
+      <email>sujan.officals@email.com</email>
+      <url>https://sujanlamichhane.com.np</url>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git</connection>
+    <developerConnection>scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git</developerConnection>
+    <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.20</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.38</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.9.0</version>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
