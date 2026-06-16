@@ -6,21 +6,66 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>io.github.sujankim</groupId>
-        <artifactId>nepal-pay-parent</artifactId>
-        <version>1.0.0</version>
-    </parent>
+    <!--
+        NO PARENT DECLARATION.
 
+        nepal-pay-core is intentionally standalone.
+
+        WHY: Maven Central resolves the effective POM by fetching the parent
+        from Central itself. If the parent (nepal-pay-parent) is not yet on
+        Maven Central, the POM cannot be parsed → all file associations fail.
+
+        Boot 3 and Boot 4 starters use spring-boot-starter-parent which IS
+        already on Maven Central, so they are fine.
+    -->
+
+    <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-core</artifactId>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
+    <!-- Required by Maven Central: name -->
     <name>NepalPay Core</name>
+
+    <!-- Required by Maven Central: description -->
     <description>
-        Core models, exceptions, enums, and retry configuration for NepalPay.
-        Zero Spring dependency. Works in ANY Java 17+ project.
+        Core models, exceptions, enums, and retry configuration for NepalPay
+        Spring Boot Starter. Zero Spring dependency. Works in any Java 17+ project.
     </description>
+
+    <!-- Required by Maven Central: url -->
     <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+
+    <!-- Required by Maven Central: licenses -->
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <!-- Required by Maven Central: developers -->
+    <developers>
+        <developer>
+            <id>sujankim</id>
+            <name>Sujan Lamichhane</name>
+            <email>sujan.officals@email.com</email>
+            <url>https://sujanlamichhane.com.np</url>
+        </developer>
+    </developers>
+
+    <!-- Required by Maven Central: scm -->
+    <scm>
+        <connection>
+            scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git
+        </connection>
+        <developerConnection>
+            scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git
+        </developerConnection>
+        <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <java.version>17</java.version>
@@ -31,12 +76,17 @@
 
     <dependencies>
 
+        <!--
+            jackson-annotations only — for @JsonProperty on model records.
+            Stays under com.fasterxml in both Jackson 2 and 3 (intentional).
+        -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <version>2.20</version>
         </dependency>
 
+        <!-- Lombok — compile-time only -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -124,10 +174,10 @@
             </plugin>
 
             <!--
-                Central Publishing Maven Plugin (official Sonatype plugin).
-                Replaces the deprecated nexus-staging-maven-plugin.
-                Required since OSSRH sunset June 30, 2025.
-                Source: https://central.sonatype.org/publish/publish-portal-maven/
+                Sonatype Central Publishing Plugin v0.6.0.
+                Using 0.6.0 — confirmed stable for multi-module publishing.
+                0.10.0 had timing issues with multi-module deployments.
+                Docs: https://central.sonatype.org/publish/publish-portal-maven/
             -->
             <plugin>
                 <groupId>org.sonatype.central</groupId>
@@ -137,9 +187,10 @@
                 <configuration>
                     <publishingServerId>central</publishingServerId>
                     <!--
-                        autoPublish=false for FIRST release — review before going live.
-                        After confirming first release worked: change to true.
-                        WARNING: Maven Central artifacts are IMMUTABLE once published.
+                        autoPublish=false: plugin uploads + validates only.
+                        You then manually click Publish on central.sonatype.com.
+                        Change to true after first successful release.
+                        WARNING: published artifacts are IMMUTABLE.
                     -->
                     <autoPublish>false</autoPublish>
                 </configuration>
@@ -149,21 +200,14 @@
     </build>
 
     <!--
-        Release profile — activated with -P release in publish workflow.
-        GPG signing is ONLY needed during publishing, not during tests.
+        Release profile — activated with -P release in CI.
+        GPG signing only activates during publish — not during tests.
     -->
     <profiles>
         <profile>
             <id>release</id>
             <build>
                 <plugins>
-                    <!--
-                        GPG signing — required by Maven Central.
-                        Signs every artifact with your private key.
-                        Version 3.2.8 is latest (June 28, 2025).
-                        Passphrase injected via -Dgpg.passphrase from GitHub Secret.
-                        -pinentry-mode loopback prevents GUI dialog in headless CI.
-                    -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
@@ -174,6 +218,10 @@
                                 <phase>verify</phase>
                                 <goals><goal>sign</goal></goals>
                                 <configuration>
+                                    <!--
+                                        loopback prevents GUI passphrase dialog.
+                                        Required for headless CI environments.
+                                    -->
                                     <gpgArguments>
                                         <arg>--pinentry-mode</arg>
                                         <arg>loopback</arg>
