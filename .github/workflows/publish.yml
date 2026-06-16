@@ -3,10 +3,7 @@ name: Publish to Maven Central
 on:
   release:
     types: [ published ]
-    workflow_dispatch:
-      push:
-        tags:
-          - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,13 +17,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
 
-      # setup-java handles GPG import AND settings.xml automatically.
-      # gpg-private-key → imported correctly regardless of newlines
-      # gpg-passphrase  → env var name used in mvn command below
-      # server-id       → must match publishingServerId in pom.xml ("central")
-      - name: Set up Java 17 with Maven Central credentials
+      # setup-java handles ALL of this automatically:
+      #   → imports GPG key from gpg-private-key secret
+      #   → writes ~/.m2/settings.xml with server credentials
+      #   → server-id must match publishingServerId in pom.xml
+      #   → server-username/server-password = ENV VAR NAMES (not values)
+      #   → actual values come from env: block on the deploy step
+      - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -40,6 +39,16 @@ jobs:
 
       - name: Make mvnw executable
         run: chmod +x mvnw
+
+      - name: Verify nepal-pay-core has no parent element
+        run: |
+          echo "=== First 35 lines of nepal-pay-core/pom.xml ==="
+          head -35 nepal-pay-core/pom.xml
+          if grep -q "<parent>" nepal-pay-core/pom.xml; then
+            echo "FAIL: <parent> tag found — remove it before publishing"
+            exit 1
+          fi
+          echo "OK: no parent tag found"
 
       - name: Install parent POM
         run: ./mvnw install -N -q
@@ -65,7 +74,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Set up Java 17 with Maven Central credentials
+
+      - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -107,7 +117,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Java 21 with Maven Central credentials
+      - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
