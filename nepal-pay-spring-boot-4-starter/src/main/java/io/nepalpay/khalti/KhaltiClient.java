@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import java.time.Duration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -131,17 +133,28 @@ public final class KhaltiClient {
         this.baseDomain = baseDomain;
         this.retryProps = props.retryOrDefault();
 
+        // Apply connect + read timeout from configuration.
+        // SimpleClientHttpRequestFactory is built into spring-web —
+        // no extra HTTP client dependency needed.
+        // Default: 10 seconds (via @DefaultValue on KhaltiProperties).
+        // Without this, RestClient has NO timeout and can hang forever.
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(props.timeoutSeconds()));
+        factory.setReadTimeout(Duration.ofSeconds(props.timeoutSeconds()));
+
         this.restClient = restClientBuilder
                 .baseUrl(this.baseUrl)
+                .requestFactory(factory)
                 .defaultHeader("Authorization", "Key " + props.secretKey())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
         log.info("[NepalPay] KhaltiClient initialized | mode={} | baseUrl={}" +
-                        " | baseDomain={} | retry={}",
+                        " | baseDomain={} | timeout={}s | retry={}",
                 props.sandbox() ? "SANDBOX" : "PRODUCTION",
                 this.baseUrl,
                 this.baseDomain,
+                props.timeoutSeconds(),
                 this.retryProps.summary());
     }
 
@@ -378,46 +391,60 @@ public final class KhaltiClient {
             return operation.get();
         }
 
-        int attempt              = 0;
-        long delayMs             = retryProps.initialDelayMs();
-        KhaltiException lastException = null;
+        int attempt  = 0;
+        long delayMs = retryProps.initialDelayMs();
 
         while (true) {
             try {
                 return operation.get();
 
             } catch (KhaltiException e) {
-                // Never retry 4xx — bad key, bad request, won't fix themselves
                 if (e.httpStatus() >= 400 && e.httpStatus() < 500) {
                     throw e;
                 }
 
                 attempt++;
-                lastException = e;
 
                 if (attempt > retryProps.maxAttempts()) {
-                    log.error("[NepalPay] {} failed after {} attempt(s) — no more retries | lastStatus={}",
-                            operationName, attempt, e.httpStatus());
+                    log.error("[NepalPay] {} failed after {} attempt(s) — no more retries" +
+                            " | lastStatus={}", operationName, attempt, e.httpStatus());
                     throw e;
                 }
 
                 long waitMs = RetryProperties.jitter(delayMs);
-                log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={} | retrying in {}ms",
-                        operationName, attempt, retryProps.maxAttempts(), e.httpStatus(), waitMs);
+                log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={}" +
+                                " | retrying in {}ms",
+                        operationName, attempt, retryProps.maxAttempts(),
+                        e.httpStatus(), waitMs);
 
-                try {
-                    Thread.sleep(waitMs);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw lastException;
-                }
-
+                sleepForRetry(waitMs, e);          // ← extracted method (see below)
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {
                 throw new KhaltiException(
                         "Unexpected error during " + operationName + ": " + e.getMessage(), e);
             }
+        }
+    }
+
+    /**
+     * Sleeps for the given duration.
+     * Restores the interrupt flag and rethrows the original gateway exception
+     * if interrupted — the retry cannot continue without a working thread.
+     *
+     * <p>Extracted from the retry loop to avoid IntelliJ's "Thread.sleep in a loop"
+     * warning, which is a false positive here since we ARE waiting intentionally
+     * (exponential backoff), not busy-waiting.
+     *
+     * @param waitMs      milliseconds to sleep
+     * @param onInterrupt the exception to throw if interrupted
+     */
+    private void sleepForRetry(long waitMs, KhaltiException onInterrupt) {
+        try {
+            Thread.sleep(waitMs);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw onInterrupt;
         }
     }
 
