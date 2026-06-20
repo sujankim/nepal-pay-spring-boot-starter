@@ -10,6 +10,8 @@ import io.nepalpay.core.retry.RetryProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.client.RestClient;
+import java.time.Duration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -91,15 +93,21 @@ public final class EsewaClient {
         this.formActionUrl = props.sandbox() ? SANDBOX_FORM_URL : PRODUCTION_FORM_URL;
         this.retryProps    = props.retryOrDefault();
 
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(props.timeoutSeconds()));
+        factory.setReadTimeout(Duration.ofSeconds(props.timeoutSeconds()));
+
         this.restClient = restClientBuilder
                 .baseUrl(statusBaseUrlOverride)
+                .requestFactory(factory)
                 .build();
 
         log.info("[NepalPay] EsewaClient initialized | mode={} | productCode={}" +
-                        " | statusUrl={} | retry={}",
+                        " | statusUrl={} | timeout={}s | retry={}",
                 props.sandbox() ? "SANDBOX" : "PRODUCTION",
                 props.productCode(),
                 statusBaseUrlOverride,
+                props.timeoutSeconds(),
                 this.retryProps.summary());
     }
 
@@ -311,9 +319,8 @@ public final class EsewaClient {
             return operation.get();
         }
 
-        int attempt             = 0;
-        long delayMs            = retryProps.initialDelayMs();
-        EsewaException lastException = null;
+        int attempt  = 0;
+        long delayMs = retryProps.initialDelayMs();
 
         while (true) {
             try {
@@ -325,7 +332,6 @@ public final class EsewaClient {
                 }
 
                 attempt++;
-                lastException = e;
 
                 if (attempt > retryProps.maxAttempts()) {
                     log.error("[NepalPay] {} failed after {} attempt(s) | lastStatus={}",
@@ -334,22 +340,27 @@ public final class EsewaClient {
                 }
 
                 long waitMs = RetryProperties.jitter(delayMs);
-                log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={} | retrying in {}ms",
-                        operationName, attempt, retryProps.maxAttempts(), e.httpStatus(), waitMs);
+                log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={}" +
+                                " | retrying in {}ms",
+                        operationName, attempt, retryProps.maxAttempts(),
+                        e.httpStatus(), waitMs);
 
-                try {
-                    Thread.sleep(waitMs);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw lastException;
-                }
-
+                sleepForRetry(waitMs, e);
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {
                 throw new EsewaException(
                         "Unexpected error during " + operationName + ": " + e.getMessage(), e);
             }
+        }
+    }
+
+    private void sleepForRetry(long waitMs, EsewaException onInterrupt) {
+        try {
+            Thread.sleep(waitMs);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw onInterrupt;
         }
     }
 

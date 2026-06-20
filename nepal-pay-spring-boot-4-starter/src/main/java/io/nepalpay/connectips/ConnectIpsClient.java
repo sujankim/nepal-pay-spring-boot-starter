@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import java.time.Duration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +52,18 @@ public final class ConnectIpsClient {
     private static final String CURRENCY     = "NPR";
     private static final String TOKEN_SUFFIX = "TOKEN=TOKEN";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+    /**
+     * Default HTTP timeout for ConnectIPS API calls (connect + read).
+     *
+     * <p>30 seconds is intentionally longer than Khalti/eSewa's 10s default.
+     * ConnectIPS validates bank transfers via NCHL — bank systems can
+     * legitimately be slower than commercial payment gateway APIs.
+     *
+     * <p>TODO: Make configurable via nepalpay.connectips.timeout-seconds
+     *          (tracked in issue #7)
+     */
+    private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     // ── Fields ────────────────────────────────────────────────────────────────
     private final int    merchantId;
@@ -128,16 +142,22 @@ public final class ConnectIpsClient {
         this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps    = (retry != null) ? retry : RetryProperties.DEFAULT;
 
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+        factory.setReadTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+
         this.restClient = builder
                 .baseUrl(validateBaseUrlOverride)
+                .requestFactory(factory)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
         log.info("[NepalPay] ConnectIpsClient initialized | mode={} | merchantId={}" +
-                        " | validateUrl={} | retry={}",
+                        " | validateUrl={} | timeout={}s | retry={}",
                 sandbox ? "UAT" : "PRODUCTION",
                 merchantId,
                 validateBaseUrlOverride,
+                DEFAULT_TIMEOUT_SECONDS,
                 this.retryProps.summary());
     }
 
@@ -289,9 +309,8 @@ public final class ConnectIpsClient {
             return operation.get();
         }
 
-        int attempt                    = 0;
-        long delayMs                   = retryProps.initialDelayMs();
-        ConnectIpsException lastException = null;
+        int attempt  = 0;
+        long delayMs = retryProps.initialDelayMs();
 
         while (true) {
             try {
@@ -303,7 +322,6 @@ public final class ConnectIpsClient {
                 }
 
                 attempt++;
-                lastException = e;
 
                 if (attempt > retryProps.maxAttempts()) {
                     log.error("[NepalPay] {} failed after {} attempt(s) | lastStatus={}",
@@ -312,22 +330,27 @@ public final class ConnectIpsClient {
                 }
 
                 long waitMs = RetryProperties.jitter(delayMs);
-                log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={} | retrying in {}ms",
-                        operationName, attempt, retryProps.maxAttempts(), e.httpStatus(), waitMs);
+                log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={}" +
+                                " | retrying in {}ms",
+                        operationName, attempt, retryProps.maxAttempts(),
+                        e.httpStatus(), waitMs);
 
-                try {
-                    Thread.sleep(waitMs);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw lastException;
-                }
-
+                sleepForRetry(waitMs, e);
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {
                 throw new ConnectIpsException(
                         "Unexpected error during " + operationName + ": " + e.getMessage(), e);
             }
+        }
+    }
+
+    private void sleepForRetry(long waitMs, ConnectIpsException onInterrupt) {
+        try {
+            Thread.sleep(waitMs);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw onInterrupt;
         }
     }
 
