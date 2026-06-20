@@ -1,5 +1,7 @@
 package io.nepalpay.core.retry;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * Retry configuration for NepalPay gateway clients.
  *
@@ -191,6 +193,10 @@ public record RetryProperties(
      * millisecond when a gateway recovers from downtime
      * (the "thundering herd" problem).
      *
+     * <p>Uses {@link ThreadLocalRandom} instead of {@link Math#random()}
+     * for better performance under concurrent access — each thread gets
+     * its own Random instance with no synchronization overhead.
+     *
      * <p>Example: jitter(500) → somewhere between 450ms and 550ms.
      *
      * @param delayMs base delay in milliseconds
@@ -198,9 +204,9 @@ public record RetryProperties(
      */
     public static long jitter(long delayMs) {
         if (delayMs <= 0) return 0;
-        // ±10% random jitter
         long jitterRange = (long) (delayMs * 0.1);
-        long offset = (long) ((Math.random() * 2 * jitterRange) - jitterRange);
+        long offset = (long) (ThreadLocalRandom.current().nextDouble()
+                * 2 * jitterRange - jitterRange);
         return Math.max(0, delayMs + offset);
     }
 

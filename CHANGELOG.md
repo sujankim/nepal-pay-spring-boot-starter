@@ -3,6 +3,14 @@
 All notable changes to NepalPay Spring Boot Starter.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [Unreleased]
+
+### Fixed
+- `RetryProperties.jitter()` now uses `ThreadLocalRandom` instead of
+  `Math.random()` for better performance under concurrent retry
+  execution across multiple gateway clients
+---
+
 ## [1.0.0] — 2026-06-16 🚀 First Maven Central Release
 
 ### Changed
