@@ -58,6 +58,19 @@ public final class EsewaClient {
     private final String formActionUrl;
     private final RetryProperties retryProps;
 
+    /**
+     * Shared JsonMapper instance for decoding eSewa Base64 callback data.
+     *
+     * <p>Boot 4 uses Jackson 3 ({@code tools.jackson.databind.json.JsonMapper}).
+     * JsonMapper (like ObjectMapper in Jackson 2) is thread-safe after
+     * configuration and expensive to construct. Using a static singleton
+     * avoids creating and discarding a new instance on every payment callback.
+     *
+     * <p>Jackson docs: "use static singleton, inject: just make sure to reuse!"
+     */
+    private static final tools.jackson.databind.json.JsonMapper JSON_MAPPER =
+            tools.jackson.databind.json.JsonMapper.builder().build();
+
     // ─────────────────────────────────────────────────────────────────────────
     // CONSTRUCTORS
     // ─────────────────────────────────────────────────────────────────────────
@@ -368,10 +381,8 @@ public final class EsewaClient {
             byte[] decodedBytes = Base64.getDecoder().decode(encodedData.trim());
             String jsonString   = new String(decodedBytes, StandardCharsets.UTF_8);
             log.debug("[NepalPay] eSewa decoded callback JSON: {}", jsonString);
-            // Boot 4 — Jackson 3 — JsonMapper
-            tools.jackson.databind.json.JsonMapper jsonMapper =
-                    tools.jackson.databind.json.JsonMapper.builder().build();
-            return jsonMapper.readValue(jsonString, EsewaCallbackData.class);
+            // Reuse shared singleton — JsonMapper is thread-safe after construction.
+            return JSON_MAPPER.readValue(jsonString, EsewaCallbackData.class);
         } catch (IllegalArgumentException e) {
             throw new EsewaException(
                     "Failed to decode eSewa Base64 callback data. " +
