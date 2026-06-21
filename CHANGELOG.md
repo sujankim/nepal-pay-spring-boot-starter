@@ -2,13 +2,25 @@
 
 All notable changes to NepalPay Spring Boot Starter.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
-
+---
 ## [Unreleased]
 
 ### Fixed
-- `RetryProperties.jitter()` now uses `ThreadLocalRandom` instead of
-  `Math.random()` for better performance under concurrent retry
-  execution across multiple gateway clients
+- `RetryProperties.jitter()` now uses `ThreadLocalRandom` for thread safety
+- `KhaltiClient`, `EsewaClient`, `ConnectIpsClient` now correctly apply
+  `timeout-seconds` via `SimpleClientHttpRequestFactory`
+- Duplicate `spring-boot-autoconfigure:3.5.4` removed from Boot 3 + Boot 4 POMs
+- Retry loops restructured: `lastException` eliminated, `sleepForRetry()`
+  extracted in all 3 clients
+- `EsewaClient` now uses a `static final` ObjectMapper/JsonMapper singleton
+  instead of creating a new instance on every `verifyCallback()` call
+
+### Added
+- `ConnectIpsClient` uses `DEFAULT_TIMEOUT_SECONDS = 30` (bank payments
+  require a longer timeout than commercial gateways)
+
+### Issues
+- #7 opened: make ConnectIPS timeout configurable via properties
 ---
 
 ## [1.0.0] — 2026-06-16 🚀 First Maven Central Release
