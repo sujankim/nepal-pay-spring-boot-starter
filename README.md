@@ -34,7 +34,7 @@ Works with **Spring Boot 3.2+** and **Spring Boot 4.x**.
 <dependency>
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
@@ -43,23 +43,23 @@ Works with **Spring Boot 3.2+** and **Spring Boot 4.x**.
 <dependency>
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
 **Gradle Groovy — Spring Boot 3.2+:**
 ```groovy
-implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.0.0'
+implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.0.1'
 ```
 
 **Gradle Groovy — Spring Boot 4.x:**
 ```groovy
-implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.0'
+implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.1'
 ```
 
 **Gradle Kotlin — Spring Boot 4.x:**
 ```kotlin
-implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.0")
+implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.1")
 ```
 
 > ✅ No `<repositories>` block needed.

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.sujankim</groupId>
   <artifactId>nepal-pay-core</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <name>NepalPay Core</name>
   <description>Core models, exceptions, enums, and retry configuration for NepalPay Spring Boot Starter. Zero Spring dependency. Works in any Java 17+ project.</description>
   <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>

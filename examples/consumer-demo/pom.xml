@@ -15,7 +15,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>nepal-pay-consumer-demo</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>NepalPay Consumer Demo</name>
@@ -51,7 +51,7 @@
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
 
         <dependency>
