@@ -27,6 +27,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 - `ConnectIpsClient` uses `DEFAULT_TIMEOUT_SECONDS = 30` (bank payments
   require a longer timeout than commercial gateways)
+- CI: `actions/checkout` and `actions/setup-java` aligned to `@v5`
+    in both `ci.yml` and `publish.yml`
 
 ### Issues
 - #7 opened: make ConnectIPS timeout configurable via properties
