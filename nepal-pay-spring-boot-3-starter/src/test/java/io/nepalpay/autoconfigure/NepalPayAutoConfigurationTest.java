@@ -27,16 +27,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code RestClientAutoConfiguration} on the classpath and keeps
  * the test scope minimal and focused.
  *
- * <p>Tests cover:
- * <ul>
- *   <li>KhaltiClient bean — created / not created / sandbox mode</li>
- *   <li>EsewaClient bean — created / not created / sandbox mode</li>
- *   <li>ConnectIpsClient bean — created / not created / sandbox mode</li>
- *   <li>FonepayClient bean — created / not created / sandbox mode</li>
- *   <li>Developer override — @ConditionalOnMissingBean behavior</li>
- *   <li>Multiple gateways — all four created together</li>
- *   <li>No keys — no beans created</li>
- * </ul>
+ * <p>ConnectIPS URL/sandbox tests live in {@code ConnectIpsClientTest}
+ * (same package as the client) where the package-private test constructor
+ * is accessible. This class only tests auto-configuration behavior:
+ * beans created, beans not created, context failures.
  */
 @DisplayName("NepalPayAutoConfiguration")
 class NepalPayAutoConfigurationTest {
@@ -61,7 +55,7 @@ class NepalPayAutoConfigurationTest {
                             RestClient.Builder.class,
                             RestClient::builder);
 
-    // ── KhaltiClient ──────────────────────────────────────────────────────────
+    // ── KhaltiClient ──────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("KhaltiClient bean")
@@ -150,15 +144,14 @@ class NepalPayAutoConfigurationTest {
                     )
                     .withBean(KhaltiClient.class, () -> customBean)
                     .run(context -> {
-                        // Only ONE KhaltiClient bean — not two
                         assertThat(context).hasSingleBean(KhaltiClient.class);
-
-                        // The bean in context is our custom one
-                        KhaltiClient beanInContext = context.getBean(KhaltiClient.class);
+                        KhaltiClient beanInContext =
+                                context.getBean(KhaltiClient.class);
                         assertThat(beanInContext.baseUrl())
                                 .isEqualTo("https://custom-mock.com");
                     });
         }
+
         @Test
         @DisplayName("retry defaults to disabled when not configured")
         void retryDefaultsToDisabledWhenNotConfigured() {
@@ -166,17 +159,11 @@ class NepalPayAutoConfigurationTest {
                     .withPropertyValues(
                             "nepalpay.khalti.secret-key=test_key",
                             "nepalpay.khalti.return-url=https://example.com/cb"
-                            // ← no retry: block
                     )
                     .run(context -> {
-                        // Properties bound correctly
                         NepalPayProperties props =
                                 context.getBean(NepalPayProperties.class);
-
-                        // retryOrDefault() never returns null
                         assertThat(props.khalti().retryOrDefault()).isNotNull();
-
-                        // retry is disabled by default
                         assertThat(props.khalti().retryOrDefault().isActive())
                                 .isFalse();
                     });
@@ -198,7 +185,6 @@ class NepalPayAutoConfigurationTest {
                     .run(context -> {
                         NepalPayProperties props =
                                 context.getBean(NepalPayProperties.class);
-
                         RetryProperties retry = props.khalti().retryOrDefault();
                         assertThat(retry.isActive()).isTrue();
                         assertThat(retry.maxAttempts()).isEqualTo(3);
@@ -209,7 +195,7 @@ class NepalPayAutoConfigurationTest {
         }
     }
 
-    // ── EsewaClient ───────────────────────────────────────────────────────────
+    // ── EsewaClient ───────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("EsewaClient bean")
@@ -254,7 +240,8 @@ class NepalPayAutoConfigurationTest {
                         EsewaClient bean = context.getBean(EsewaClient.class);
                         assertThat(bean.isSandbox()).isTrue();
                         assertThat(bean.formActionUrl())
-                                .isEqualTo("https://rc-epay.esewa.com.np/api/epay/main/v2/form");
+                                .isEqualTo(
+                                        "https://rc-epay.esewa.com.np/api/epay/main/v2/form");
                     });
         }
 
@@ -273,7 +260,8 @@ class NepalPayAutoConfigurationTest {
                         EsewaClient bean = context.getBean(EsewaClient.class);
                         assertThat(bean.isSandbox()).isFalse();
                         assertThat(bean.formActionUrl())
-                                .isEqualTo("https://epay.esewa.com.np/api/epay/main/v2/form");
+                                .isEqualTo(
+                                        "https://epay.esewa.com.np/api/epay/main/v2/form");
                     });
         }
 
@@ -305,14 +293,12 @@ class NepalPayAutoConfigurationTest {
                             "nepalpay.esewa.failure-url=https://example.com/failure"
                     )
                     .withBean(EsewaClient.class, () -> customBean)
-                    .run(context -> {
-                        // Only ONE EsewaClient — not two
-                        assertThat(context).hasSingleBean(EsewaClient.class);
-                    });
+                    .run(context ->
+                            assertThat(context).hasSingleBean(EsewaClient.class));
         }
     }
 
-    // ── ConnectIpsClient ──────────────────────────────────────────────────────
+    // ── ConnectIpsClient ──────────────────────────────────────────────────
 
     @Nested
     @DisplayName("ConnectIpsClient bean")
@@ -323,42 +309,13 @@ class NepalPayAutoConfigurationTest {
         void notCreatedWhenConfigAbsent() {
             contextRunner
                     .run(context ->
-                            assertThat(context).doesNotHaveBean(ConnectIpsClient.class));
+                            assertThat(context)
+                                    .doesNotHaveBean(ConnectIpsClient.class));
         }
 
         @Test
-        @DisplayName("sandbox=true gives UAT gateway URL")
-        void sandboxTrueGivesUatGatewayUrl() {
-            ConnectIpsClient client = new ConnectIpsClient(
-                    123, "APP-001", "TestApp", "password",
-                    new byte[0], "pfxpass",
-                    true,
-                    RestClient.builder()
-            );
-
-            assertThat(client.isSandbox()).isTrue();
-            assertThat(client.formActionUrl())
-                    .isEqualTo("https://uat.connectips.com/connectipswebgw/loginpage");
-        }
-
-        @Test
-        @DisplayName("sandbox=false gives production gateway URL")
-        void sandboxFalseGivesProductionGatewayUrl() {
-            ConnectIpsClient client = new ConnectIpsClient(
-                    123, "APP-001", "TestApp", "password",
-                    new byte[0], "pfxpass",
-                    false,
-                    RestClient.builder()
-            );
-
-            assertThat(client.isSandbox()).isFalse();
-            assertThat(client.formActionUrl())
-                    .isEqualTo("https://connectips.com/connectipswebgw/loginpage");
-        }
-
-        @Test
-        @DisplayName("ConnectIpsClient: throws when pfx-path is invalid")
-        void connectIpsClient_invalidPfxPath_throwsOnBeanCreation() {
+        @DisplayName("context fails when pfx-path is invalid")
+        void connectIpsClient_invalidPfxPath_contextFails() {
             contextRunner
                     .withPropertyValues(
                             "nepalpay.connectips.merchant-id=123",
@@ -372,7 +329,7 @@ class NepalPayAutoConfigurationTest {
         }
     }
 
-    // ── FonepayClient ─────────────────────────────────────────────────────────
+    // ── FonepayClient ─────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("FonepayClient bean")
@@ -415,7 +372,8 @@ class NepalPayAutoConfigurationTest {
                         FonepayClient bean = context.getBean(FonepayClient.class);
                         assertThat(bean.isSandbox()).isTrue();
                         assertThat(bean.gatewayUrl())
-                                .isEqualTo("https://dev.fonepay.com/api/merchantRequest");
+                                .isEqualTo(
+                                        "https://dev.fonepay.com/api/merchantRequest");
                     });
         }
 
@@ -461,37 +419,32 @@ class NepalPayAutoConfigurationTest {
                     )
                     .withBean(FonepayClient.class, () -> customBean)
                     .run(context -> {
-                        // Only ONE FonepayClient — not two
                         assertThat(context).hasSingleBean(FonepayClient.class);
-
-                        // Bean in context is our custom one
-                        FonepayClient beanInContext = context.getBean(FonepayClient.class);
+                        FonepayClient beanInContext =
+                                context.getBean(FonepayClient.class);
                         assertThat(beanInContext.gatewayUrl())
                                 .isEqualTo("https://custom-fonepay-gateway.com");
                     });
         }
     }
 
-    // ── All gateways together ─────────────────────────────────────────────────
+    // ── Multiple gateways ─────────────────────────────────────────────────
 
     @Nested
     @DisplayName("Multiple gateways")
     class MultipleGatewaysTests {
 
         @Test
-        @DisplayName("all four gateways created when all keys present")
-        void allFourGatewaysCreated() {
+        @DisplayName("Khalti, eSewa, Fonepay created when all three keys present")
+        void khaltiEsewaFonepayCreated() {
             contextRunner
                     .withPropertyValues(
-                            // Khalti
                             "nepalpay.khalti.secret-key=test_khalti_key",
                             "nepalpay.khalti.return-url=https://example.com/khalti/callback",
-                            // eSewa
                             "nepalpay.esewa.secret-key=8gBm/:&EnhH.1/q",
                             "nepalpay.esewa.product-code=EPAYTEST",
                             "nepalpay.esewa.success-url=https://example.com/esewa/success",
                             "nepalpay.esewa.failure-url=https://example.com/esewa/failure",
-                            // Fonepay
                             "nepalpay.fonepay.merchant-code=TEST_MERCHANT",
                             "nepalpay.fonepay.secret-key=test_fonepay_key",
                             "nepalpay.fonepay.return-url=https://example.com/fonepay/callback"
@@ -500,8 +453,8 @@ class NepalPayAutoConfigurationTest {
                         assertThat(context).hasSingleBean(KhaltiClient.class);
                         assertThat(context).hasSingleBean(EsewaClient.class);
                         assertThat(context).hasSingleBean(FonepayClient.class);
-                        // ConnectIPS not in this test —
-                        // requires pfx bytes which cannot be set via properties alone
+                        // ConnectIPS requires a real .pfx file —
+                        // cannot be auto-configured in unit tests
                     });
         }
 
@@ -553,4 +506,5 @@ class NepalPayAutoConfigurationTest {
                     });
         }
     }
+
 }
