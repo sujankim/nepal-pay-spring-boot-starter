@@ -11,17 +11,17 @@ permissions:
 
 jobs:
 
-  # ── Step 1: Build and install core ─────────────────────────────────────────
+  # ── Step 1: Build and install core ─────────────────────────────────────
   build-core:
     name: Build and Install Core (Java 17)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5                      # ← was @v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5                    # ← was @v4
         with:
           distribution: temurin
           java-version: 17
@@ -36,7 +36,7 @@ jobs:
       - name: Install core
         run: ./mvnw clean install -pl nepal-pay-core -q
 
-  # ── Step 2a: Test Spring Boot 3 starter ────────────────────────────────────
+  # ── Step 2a: Test Spring Boot 3 starter ────────────────────────────────
   test-boot3:
     name: Test Spring Boot 3 Starter (Java 17)
     runs-on: ubuntu-latest
@@ -44,10 +44,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5                      # ← was @v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5                    # ← was @v4
         with:
           distribution: temurin
           java-version: 17
@@ -72,7 +72,7 @@ jobs:
             -Dmaven.javadoc.skip=true \
             -q
 
-  # ── Step 2b: Test Spring Boot 4 starter ────────────────────────────────────
+  # ── Step 2b: Test Spring Boot 4 starter ────────────────────────────────
   test-boot4:
     name: Test Spring Boot 4 Starter (Java 21)
     runs-on: ubuntu-latest
@@ -80,10 +80,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5                      # ← was @v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5                    # ← was @v4
         with:
           distribution: temurin
           java-version: 21
