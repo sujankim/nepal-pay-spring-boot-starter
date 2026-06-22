@@ -6,9 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [Unreleased]
 
 ### Fixed
-- `RetryProperties.jitter()` now uses `ThreadLocalRandom` instead of
-  `Math.random()` for better performance under concurrent retry
-  execution across multiple gateway clients
+- `RetryProperties.jitter()` now uses `ThreadLocalRandom` for thread safety
+- All gateway clients now correctly apply `timeout-seconds` via
+  `SimpleClientHttpRequestFactory`
+- Duplicate `spring-boot-autoconfigure:3.5.4` removed from both POMs
+- Retry loops restructured: `lastException` eliminated, `sleepForRetry()`
+  extracted in all 3 clients
+- `EsewaClient` uses `static final` ObjectMapper/JsonMapper singleton
+- `ConnectIpsClient` now caches `PrivateKey` at construction time instead
+  of loading KeyStore on every payment. Misconfigured .pfx now causes
+  immediate startup failure (fail fast) rather than failing at payment time
 ---
 
 ## [1.0.0] — 2026-06-16 🚀 First Maven Central Release
