@@ -11,7 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
@@ -24,52 +25,21 @@ import java.util.Map;
  * <p>Uses Spring {@link WebClient} and returns {@link Mono} responses.
  * Drop-in reactive replacement for the blocking {@code KhaltiClient}.
  *
- * <p>Provides:
- * <ul>
- *   <li>{@link #initiatePayment}  — Start payment, get redirect URL</li>
- *   <li>{@link #lookupPayment}    — Verify payment after callback</li>
- *   <li>{@link #refundPayment}    — Full refund</li>
- *   <li>{@link #refundPayment(String, Long)} — Partial refund</li>
- * </ul>
- *
- * <p>Usage in a reactive controller:
- * <pre>{@code
- * @PostMapping("/khalti/initiate")
- * public Mono<ResponseEntity<Map<String, Object>>> initiate(
- *         @RequestBody PaymentRequest req) {
- *
- *     return khaltiReactiveClient
- *         .initiatePayment(buildRequest(req))
- *         .map(res -> ResponseEntity.ok(Map.of(
- *             "pidx",        res.pidx(),
- *             "payment_url", res.paymentUrl()
- *         )))
- *         .onErrorResume(KhaltiException.class, e ->
- *             Mono.just(ResponseEntity.badRequest().body(
- *                 Map.of("error", e.getMessage())
- *             ))
- *         );
- * }
- * }</pre>
- *
  * @author Sujan Lamichhane
  */
 @Slf4j
 public final class KhaltiReactiveClient {
 
-    // ── Official Khalti API base URLs ─────────────────────────────────────
-    private static final String SANDBOX_BASE_URL    = "https://dev.khalti.com/api/v2";
-    private static final String PRODUCTION_BASE_URL = "https://khalti.com/api/v2";
+    private static final String SANDBOX_BASE_URL       = "https://dev.khalti.com/api/v2";
+    private static final String PRODUCTION_BASE_URL    = "https://khalti.com/api/v2";
     private static final String SANDBOX_BASE_DOMAIN    = "https://dev.khalti.com";
     private static final String PRODUCTION_BASE_DOMAIN = "https://khalti.com";
 
-    // ── Endpoint paths ────────────────────────────────────────────────────
     private static final String INITIATE_PATH      = "/epayment/initiate/";
     private static final String LOOKUP_PATH        = "/epayment/lookup/";
     private static final String REFUND_PATH_PREFIX = "/api/merchant-transaction/";
     private static final String REFUND_PATH_SUFFIX = "/refund/";
 
-    // ── Fields ────────────────────────────────────────────────────────────
     private final NepalPayProperties.KhaltiProperties props;
     private final WebClient webClient;
     private final String baseUrl;
@@ -80,12 +50,6 @@ public final class KhaltiReactiveClient {
     // CONSTRUCTORS
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Production constructor — used by auto-configuration.
-     *
-     * @param props          Khalti properties from application.yml
-     * @param webClientBuilder Spring WebClient builder
-     */
     public KhaltiReactiveClient(
             NepalPayProperties.KhaltiProperties props,
             WebClient.Builder webClientBuilder) {
@@ -95,13 +59,6 @@ public final class KhaltiReactiveClient {
                 props.sandbox() ? SANDBOX_BASE_DOMAIN : PRODUCTION_BASE_DOMAIN);
     }
 
-    /**
-     * Test constructor — allows injecting a custom base URL.
-     *
-     * @param props             Khalti properties
-     * @param webClientBuilder  WebClient builder
-     * @param baseUrlOverride   Custom base URL (MockWebServer URL in tests)
-     */
     public KhaltiReactiveClient(
             NepalPayProperties.KhaltiProperties props,
             WebClient.Builder webClientBuilder,
@@ -114,9 +71,6 @@ public final class KhaltiReactiveClient {
                         : baseUrlOverride);
     }
 
-    /**
-     * Core private constructor.
-     */
     private KhaltiReactiveClient(
             NepalPayProperties.KhaltiProperties props,
             WebClient.Builder webClientBuilder,
@@ -148,54 +102,57 @@ public final class KhaltiReactiveClient {
     /**
      * Initiate a Khalti payment — reactive.
      *
-     * @param request Payment details
-     * @return {@link Mono} emitting the response, or error signal on failure
+     * <p>Wrapped in {@link Mono#defer} so validation errors are also
+     * delivered as reactive error signals — callers can handle all
+     * errors uniformly via {@code onErrorResume} / {@code StepVerifier}.
      */
     public Mono<KhaltiInitiateResponse> initiatePayment(
             KhaltiInitiateRequest request) {
 
-        validateInitiateRequest(request);
-        KhaltiInitiateRequest finalRequest = withDefaults(request);
+        // Mono.defer — validation runs lazily on subscription.
+        // This ensures errors are Mono signals, not thrown exceptions,
+        // so callers get consistent reactive error handling.
+        return Mono.defer(() -> {
+            validateInitiateRequest(request);
+            KhaltiInitiateRequest finalRequest = withDefaults(request);
 
-        log.debug("[NepalPay Reactive] Khalti initiate | orderId={} | amount={}",
-                finalRequest.purchaseOrderId(), finalRequest.amount());
+            log.debug("[NepalPay Reactive] Khalti initiate | orderId={} | amount={}",
+                    finalRequest.purchaseOrderId(), finalRequest.amount());
 
-        return webClient.post()
-                .uri(INITIATE_PATH)
-                .bodyValue(finalRequest)
-                .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, res ->
-                        res.bodyToMono(String.class)
-                                .defaultIfEmpty("")
-                                .flatMap(body -> {
-                                    log.error("[NepalPay Reactive] Khalti initiate" +
-                                                    " 4xx | status={} | body={}",
-                                            res.statusCode().value(), body);
-                                    return Mono.error(new KhaltiException(
-                                            "Khalti payment initiation failed — " +
-                                                    "check your secret key or request",
-                                            res.statusCode().value(), body));
-                                }))
-                .onStatus(HttpStatusCode::is5xxServerError, res -> {
-                    log.error("[NepalPay Reactive] Khalti initiate 5xx | status={}",
-                            res.statusCode().value());
-                    return Mono.error(new KhaltiException(
-                            "Khalti server error — please try again later",
-                            res.statusCode().value(), null));
-                })
-                .bodyToMono(KhaltiInitiateResponse.class)
-                .doOnNext(res -> log.info(
-                        "[NepalPay Reactive] Khalti payment initiated" +
-                                " | pidx={} | orderId={}",
-                        res.pidx(), finalRequest.purchaseOrderId()))
-                .transform(this::withRetry);
+            return webClient.post()
+                    .uri(INITIATE_PATH)
+                    .bodyValue(finalRequest)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, res ->
+                            res.bodyToMono(String.class)
+                                    .defaultIfEmpty("")
+                                    .flatMap(body -> {
+                                        log.error("[NepalPay Reactive] Khalti initiate" +
+                                                        " 4xx | status={} | body={}",
+                                                res.statusCode().value(), body);
+                                        return Mono.error(new KhaltiException(
+                                                "Khalti payment initiation failed — " +
+                                                        "check your secret key or request",
+                                                res.statusCode().value(), body));
+                                    }))
+                    .onStatus(HttpStatusCode::is5xxServerError, res -> {
+                        log.error("[NepalPay Reactive] Khalti initiate 5xx | status={}",
+                                res.statusCode().value());
+                        return Mono.error(new KhaltiException(
+                                "Khalti server error — please try again later",
+                                res.statusCode().value(), null));
+                    })
+                    .bodyToMono(KhaltiInitiateResponse.class)
+                    .doOnNext(res -> log.info(
+                            "[NepalPay Reactive] Khalti payment initiated" +
+                                    " | pidx={} | orderId={}",
+                            res.pidx(), finalRequest.purchaseOrderId()))
+                    .transform(this::withRetry);
+        });
     }
 
     /**
      * Lookup (verify) a Khalti payment — reactive.
-     *
-     * @param pidx Payment identifier from {@link #initiatePayment}
-     * @return {@link Mono} emitting lookup response
      */
     public Mono<KhaltiLookupResponse> lookupPayment(String pidx) {
         if (pidx == null || pidx.isBlank()) {
@@ -238,9 +195,6 @@ public final class KhaltiReactiveClient {
 
     /**
      * Full refund — reactive.
-     *
-     * @param transactionId Khalti transaction ID from lookupPayment()
-     * @return {@link Mono} emitting refund response
      */
     public Mono<KhaltiRefundResponse> refundPayment(String transactionId) {
         return executeRefundRequest(transactionId, null);
@@ -248,10 +202,6 @@ public final class KhaltiReactiveClient {
 
     /**
      * Partial refund — reactive.
-     *
-     * @param transactionId Khalti transaction ID from lookupPayment()
-     * @param amountPaisa   Amount to refund in paisa
-     * @return {@link Mono} emitting refund response
      */
     public Mono<KhaltiRefundResponse> refundPayment(
             String transactionId, Long amountPaisa) {
@@ -331,17 +281,16 @@ public final class KhaltiReactiveClient {
     }
 
     /**
-     * Applies retry logic using Reactor's {@link Retry}.
+     * Applies retry using Reactor's {@link Retry#backoff}.
      *
-     * <p>Reactor retry differs from the manual loop in blocking clients:
+     * <p>Retries on:
      * <ul>
-     *   <li>Uses {@code .retryWhen()} operator on the Mono pipeline</li>
-     *   <li>{@code Retry.backoff()} provides exponential backoff built-in</li>
-     *   <li>Only retries on {@link KhaltiException} with non-4xx status</li>
+     *   <li>{@link WebClientRequestException} — network/transport failures</li>
+     *   <li>{@link KhaltiException} with httpStatus=0 or >=500</li>
      * </ul>
      *
-     * @param source the Mono to apply retry to
-     * @return Mono with retry applied, or unchanged if retry is disabled
+     * <p>Uses {@link Exceptions#isRetryExhausted} to unwrap exhausted
+     * retry wrapper — callers receive the original {@link KhaltiException}.
      */
     private <T> Mono<T> withRetry(Mono<T> source) {
         if (!retryProps.isActive()) {
@@ -353,23 +302,24 @@ public final class KhaltiReactiveClient {
                                 retryProps.maxAttempts(),
                                 Duration.ofMillis(retryProps.initialDelayMs()))
                         .maxBackoff(Duration.ofMillis(retryProps.maxDelayMs()))
-                        .jitter(0.1)   // ← 10% jitter — matches RetryProperties.jitter()
+                        .jitter(0.1)
                         .filter(throwable ->
-                                // Only retry non-4xx KhaltiExceptions
-                                throwable instanceof KhaltiException ke
+                                // Retry WebClient transport failures (connection, timeout)
+                                throwable instanceof WebClientRequestException
+                                        // Retry 5xx and network errors wrapped as KhaltiException
+                                        || (throwable instanceof KhaltiException ke
                                         && (ke.httpStatus() == 0
-                                        || ke.httpStatus() >= 500))
+                                        || ke.httpStatus() >= 500)))
                         .doBeforeRetry(signal ->
                                 log.warn("[NepalPay Reactive] Khalti retry" +
                                                 " attempt {} | cause={}",
                                         signal.totalRetries() + 1,
                                         signal.failure().getMessage()))
         ).onErrorMap(
-                // Reactor wraps retry exhaustion in RetryExhaustedException —
-                // unwrap to our KhaltiException so callers get consistent types
-                ex -> ex instanceof reactor.util.retry.Retry.RetryExhaustedException
-                        ? ex.getCause()
-                        : ex
+                // Unwrap Reactor's retry-exhausted wrapper → original exception
+                // Use reactor.core.Exceptions.isRetryExhausted (correct API)
+                Exceptions::isRetryExhausted,
+                Throwable::getCause
         );
     }
 
@@ -407,6 +357,17 @@ public final class KhaltiReactiveClient {
                 .purchaseOrderName(req.purchaseOrderName())
                 .returnUrl(returnUrl)
                 .websiteUrl(websiteUrl)
+                // preserve customerInfo from original request
+                .customerInfo(
+                        req.customerInfo() != null
+                                ? req.customerInfo().name()
+                                : null,
+                        req.customerInfo() != null
+                                ? req.customerInfo().email()
+                                : null,
+                        req.customerInfo() != null
+                                ? req.customerInfo().phone()
+                                : null)
                 .build();
     }
 }

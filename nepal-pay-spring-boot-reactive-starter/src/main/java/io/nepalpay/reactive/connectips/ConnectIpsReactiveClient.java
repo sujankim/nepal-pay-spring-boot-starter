@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
@@ -22,19 +24,16 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Enumeration;
 
 /**
  * Reactive ConnectIPS Payment Gateway Client.
- *
- * <p>Uses {@link WebClient} for non-blocking HTTP calls.
- * RSA signing remains synchronous (CPU-bound, not I/O-bound).
  *
  * @author Sujan Lamichhane
  */
 @Slf4j
 public final class ConnectIpsReactiveClient {
 
-    // ── URLs ──────────────────────────────────────────────────────────────
     private static final String UAT_GATEWAY_URL    =
             "https://uat.connectips.com/connectipswebgw/loginpage";
     private static final String PROD_GATEWAY_URL   =
@@ -50,24 +49,20 @@ public final class ConnectIpsReactiveClient {
             DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
-    // ── Fields ────────────────────────────────────────────────────────────
-    private final int          merchantId;
-    private final String       appId;
-    private final String       appName;
-    private final String       appPassword;
-    private final boolean      sandbox;
-    private final String       formActionUrl;
-    private final WebClient    webClient;
+    private final int             merchantId;
+    private final String          appId;
+    private final String          appName;
+    private final String          appPassword;
+    private final boolean         sandbox;
+    private final String          formActionUrl;
+    private final WebClient       webClient;
     private final RetryProperties retryProps;
-    private final PrivateKey   privateKey;
+    private final PrivateKey      privateKey;
 
     // ─────────────────────────────────────────────────────────────────────
     // CONSTRUCTORS
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Production constructor (8-arg).
-     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -78,9 +73,6 @@ public final class ConnectIpsReactiveClient {
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE);
     }
 
-    /**
-     * Test constructor (9-arg) — custom validate URL.
-     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -90,9 +82,6 @@ public final class ConnectIpsReactiveClient {
                 sandbox, builder, validateBaseUrlOverride, RetryProperties.DEFAULT);
     }
 
-    /**
-     * Production constructor with retry.
-     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -103,9 +92,6 @@ public final class ConnectIpsReactiveClient {
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE, retry);
     }
 
-    /**
-     * Full constructor (10-arg).
-     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -133,9 +119,7 @@ public final class ConnectIpsReactiveClient {
                 this.retryProps.summary());
     }
 
-    /**
-     * Test-only constructor — accepts pre-built PrivateKey.
-     */
+    /** Test-only constructor — accepts pre-built PrivateKey. */
     ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             PrivateKey privateKey, boolean sandbox,
@@ -162,10 +146,18 @@ public final class ConnectIpsReactiveClient {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Build signed ConnectIPS form payload — synchronous (RSA signing).
+     * Build signed ConnectIPS form payload — synchronous.
+     *
+     * <p>Validates inputs before signing to avoid sending invalid data.
      */
     public ConnectIpsFormPayload buildFormPayload(
             ConnectIpsPaymentRequest request) {
+
+        // ✅ CodeRabbit fix: null check before accessing fields
+        if (request == null) {
+            throw new ConnectIpsException(
+                    "ConnectIpsPaymentRequest cannot be null");
+        }
 
         return buildFormPayload(
                 request.txnId(), request.txnAmtPaisa(),
@@ -178,6 +170,9 @@ public final class ConnectIpsReactiveClient {
     public ConnectIpsFormPayload buildFormPayload(
             String txnId, long txnAmtPaisa, String referenceId,
             String remarks, String particulars) {
+
+        // validate inputs before expensive RSA signing
+        validatePaymentInput(txnId, referenceId, txnAmtPaisa);
 
         String txnDate         = LocalDate.now().format(DATE_FORMAT);
         String safeRemarks     = remarks     != null ? remarks     : "";
@@ -195,14 +190,16 @@ public final class ConnectIpsReactiveClient {
 
     /**
      * Validate a ConnectIPS transaction — reactive.
-     *
-     * @param txnId       Transaction ID
-     * @param referenceId Reference/order ID
-     * @param txnAmtPaisa Amount in paisa
-     * @return Mono emitting validation response
      */
     public Mono<ConnectIpsValidateResponse> validateTransaction(
             String txnId, String referenceId, long txnAmtPaisa) {
+
+        // validate before signing
+        try {
+            validatePaymentInput(txnId, referenceId, txnAmtPaisa);
+        } catch (ConnectIpsException e) {
+            return Mono.error(e);
+        }
 
         String txnDate = LocalDate.now().format(DATE_FORMAT);
         String message = buildTokenMessage(
@@ -248,9 +245,10 @@ public final class ConnectIpsReactiveClient {
                 .onStatus(HttpStatusCode::is4xxClientError, res ->
                         res.bodyToMono(String.class)
                                 .defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(new ConnectIpsException(
-                                        "ConnectIPS validation failed",
-                                        res.statusCode().value(), body))))
+                                .flatMap(body -> Mono.error(
+                                        new ConnectIpsException(
+                                                "ConnectIPS validation failed",
+                                                res.statusCode().value(), body))))
                 .onStatus(HttpStatusCode::is5xxServerError, res ->
                         Mono.error(new ConnectIpsException(
                                 "ConnectIPS server error during validation",
@@ -271,16 +269,49 @@ public final class ConnectIpsReactiveClient {
                                 Duration.ofMillis(retryProps.initialDelayMs()))
                         .maxBackoff(Duration.ofMillis(retryProps.maxDelayMs()))
                         .jitter(0.1)
-                        .filter(t -> t instanceof ConnectIpsException ce
-                                && (ce.httpStatus() == 0 || ce.httpStatus() >= 500))
+                        .filter(t ->
+                                // retry transport failures too
+                                t instanceof WebClientRequestException
+                                        || (t instanceof ConnectIpsException ce
+                                        && (ce.httpStatus() == 0
+                                        || ce.httpStatus() >= 500)))
                         .doBeforeRetry(s -> log.warn(
                                 "[NepalPay Reactive] ConnectIPS retry attempt {}",
                                 s.totalRetries() + 1))
-        ).onErrorMap(ex ->
-                ex instanceof reactor.util.retry.Retry.RetryExhaustedException
-                        ? ex.getCause() : ex);
+        ).onErrorMap(
+                // correct API — reactor.core.Exceptions.isRetryExhausted
+                Exceptions::isRetryExhausted,
+                Throwable::getCause
+        );
     }
 
+    /**
+     * Validates payment input before signing.
+     * Prevents sending blank IDs or zero/negative amounts to ConnectIPS.
+     */
+    private static void validatePaymentInput(
+            String txnId, String referenceId, long txnAmtPaisa) {
+
+        if (txnId == null || txnId.isBlank()) {
+            throw new ConnectIpsException(
+                    "txnId is required and cannot be blank");
+        }
+        if (referenceId == null || referenceId.isBlank()) {
+            throw new ConnectIpsException(
+                    "referenceId is required and cannot be blank");
+        }
+        if (txnAmtPaisa <= 0) {
+            throw new ConnectIpsException(
+                    "txnAmtPaisa must be greater than 0. Got: " + txnAmtPaisa);
+        }
+    }
+
+    /**
+     * Loads and returns the RSA PrivateKey from a PKCS12 .pfx file.
+     *
+     * <p>Iterates all aliases and selects the first key entry explicitly —
+     * the first alias is not guaranteed to be a private-key entry.
+     */
     private static PrivateKey loadPrivateKey(
             byte[] pfxBytes, String pfxPassword) {
 
@@ -298,9 +329,25 @@ public final class ConnectIpsReactiveClient {
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
             keyStore.load(new ByteArrayInputStream(pfxBytes),
                     pfxPassword.toCharArray());
-            String alias = keyStore.aliases().nextElement();
-            return (PrivateKey) keyStore.getKey(
-                    alias, pfxPassword.toCharArray());
+
+            // iterate aliases and select the first private-key
+            // entry explicitly. The first alias is not guaranteed to be a key entry.
+            Enumeration<String> aliases = keyStore.aliases();
+            while (aliases.hasMoreElements()) {
+                String alias = aliases.nextElement();
+                if (!keyStore.isKeyEntry(alias)) {
+                    continue;
+                }
+                Object key = keyStore.getKey(alias, pfxPassword.toCharArray());
+                if (key instanceof PrivateKey privateKey) {
+                    return privateKey;
+                }
+            }
+
+            throw new ConnectIpsException(
+                    "ConnectIPS .pfx does not contain a private key entry. " +
+                            "Ensure the .pfx file from NCHL is a valid PKCS12 certificate.");
+
         } catch (ConnectIpsException e) {
             throw e;
         } catch (Exception e) {

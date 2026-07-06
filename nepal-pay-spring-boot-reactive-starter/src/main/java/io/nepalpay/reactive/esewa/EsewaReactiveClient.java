@@ -10,7 +10,8 @@ import io.nepalpay.reactive.config.NepalPayProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
@@ -19,6 +20,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.UUID;
@@ -26,18 +28,11 @@ import java.util.UUID;
 /**
  * Reactive eSewa Payment Gateway Client.
  *
- * <p>Uses {@link WebClient} and returns {@link Mono} responses.
- *
- * <p>Note: {@link #buildFormPayload} and {@link #verifyCallbackSignature}
- * are synchronous (no HTTP call needed — pure HMAC computation).
- * Only {@link #checkStatus} is reactive (makes an HTTP call).
- *
  * @author Sujan Lamichhane
  */
 @Slf4j
 public final class EsewaReactiveClient {
 
-    // ── URLs ──────────────────────────────────────────────────────────────
     private static final String SANDBOX_FORM_URL        =
             "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
     private static final String PRODUCTION_FORM_URL     =
@@ -56,7 +51,6 @@ public final class EsewaReactiveClient {
     // Shared singleton — thread-safe after construction
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    // ── Fields ────────────────────────────────────────────────────────────
     private final NepalPayProperties.EsewaProperties props;
     private final WebClient webClient;
     private final String formActionUrl;
@@ -66,9 +60,6 @@ public final class EsewaReactiveClient {
     // CONSTRUCTORS
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Production constructor — used by auto-configuration.
-     */
     public EsewaReactiveClient(
             NepalPayProperties.EsewaProperties props,
             WebClient.Builder webClientBuilder) {
@@ -77,9 +68,6 @@ public final class EsewaReactiveClient {
                 props.sandbox() ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL);
     }
 
-    /**
-     * Test constructor — custom status API base URL.
-     */
     public EsewaReactiveClient(
             NepalPayProperties.EsewaProperties props,
             WebClient.Builder webClientBuilder,
@@ -107,10 +95,6 @@ public final class EsewaReactiveClient {
 
     /**
      * Build signed eSewa form payload — synchronous (no HTTP call).
-     *
-     * @param amount          Transaction amount in NPR
-     * @param transactionUuid Your unique transaction UUID (store in DB!)
-     * @return Signed form payload
      */
     public EsewaFormPayload buildFormPayload(
             BigDecimal amount, String transactionUuid) {
@@ -133,6 +117,12 @@ public final class EsewaReactiveClient {
         BigDecimal tax      = taxAmount      != null ? taxAmount      : BigDecimal.ZERO;
         BigDecimal service  = serviceCharge  != null ? serviceCharge  : BigDecimal.ZERO;
         BigDecimal delivery = deliveryCharge != null ? deliveryCharge : BigDecimal.ZERO;
+
+        // ✅ CodeRabbit fix: reject negative charge components
+        if (tax.signum() < 0 || service.signum() < 0 || delivery.signum() < 0) {
+            throw new EsewaException(
+                    "Charge components (tax, service, delivery) cannot be negative");
+        }
 
         BigDecimal total = amount.add(tax).add(service).add(delivery)
                 .setScale(2, RoundingMode.HALF_UP);
@@ -157,36 +147,28 @@ public final class EsewaReactiveClient {
 
     /**
      * Verify eSewa callback — reactive.
-     *
-     * <p>Steps:
-     * <ol>
-     *   <li>Decode Base64 → {@link EsewaCallbackData} (sync)</li>
-     *   <li>Verify HMAC signature (sync)</li>
-     *   <li>Call status API — {@link Mono} (async)</li>
-     * </ol>
-     *
-     * @param encodedData Base64 "data" param from eSewa redirect
-     * @return Mono emitting verification result
      */
     public Mono<EsewaVerificationResult> verifyCallback(String encodedData) {
         if (encodedData == null || encodedData.isBlank()) {
             return Mono.error(
-                    new EsewaException("eSewa callback data cannot be null or blank"));
+                    new EsewaException(
+                            "eSewa callback data cannot be null or blank"));
         }
 
-        // Steps 1 + 2 are synchronous — wrap in Mono.fromCallable
         return Mono.fromCallable(() -> {
-                    EsewaCallbackData callbackData = decodeCallbackData(encodedData);
+                    EsewaCallbackData callbackData =
+                            decodeCallbackData(encodedData);
                     verifyCallbackSignature(callbackData);
                     return callbackData;
                 })
                 .flatMap(callbackData ->
                         checkStatus(callbackData.transactionUuid(),
                                 callbackData.totalAmount())
-                                .map(statusResponse -> new EsewaVerificationResult(
-                                        callbackData,
-                                        statusResponse,
-                                        statusResponse.isPaymentSuccessful())))
+                                .map(statusResponse ->
+                                        new EsewaVerificationResult(
+                                                callbackData,
+                                                statusResponse,
+                                                statusResponse.isPaymentSuccessful())))
                 .doOnNext(result -> log.info(
                         "[NepalPay Reactive] eSewa callback verified" +
                                 " | uuid={} | success={}",
@@ -196,17 +178,14 @@ public final class EsewaReactiveClient {
 
     /**
      * Check eSewa transaction status — reactive.
-     *
-     * @param transactionUuid Your original transaction UUID
-     * @param totalAmount     The exact total amount string
-     * @return Mono emitting status response
      */
     public Mono<EsewaStatusResponse> checkStatus(
             String transactionUuid, String totalAmount) {
 
         if (transactionUuid == null || transactionUuid.isBlank()) {
             return Mono.error(
-                    new EsewaException("transactionUuid cannot be null or blank"));
+                    new EsewaException(
+                            "transactionUuid cannot be null or blank"));
         }
         if (totalAmount == null || totalAmount.isBlank()) {
             return Mono.error(
@@ -265,9 +244,6 @@ public final class EsewaReactiveClient {
     // VERIFICATION RESULT
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Result of {@link #verifyCallback}.
-     */
     public record EsewaVerificationResult(
             EsewaCallbackData callbackData,
             EsewaStatusResponse statusResponse,
@@ -290,14 +266,20 @@ public final class EsewaReactiveClient {
                                 Duration.ofMillis(retryProps.initialDelayMs()))
                         .maxBackoff(Duration.ofMillis(retryProps.maxDelayMs()))
                         .jitter(0.1)
-                        .filter(t -> t instanceof EsewaException ee
-                                && (ee.httpStatus() == 0 || ee.httpStatus() >= 500))
+                        .filter(t ->
+                                // ✅ CodeRabbit fix: also retry transport failures
+                                t instanceof WebClientRequestException
+                                        || (t instanceof EsewaException ee
+                                        && (ee.httpStatus() == 0
+                                        || ee.httpStatus() >= 500)))
                         .doBeforeRetry(s -> log.warn(
                                 "[NepalPay Reactive] eSewa retry attempt {}",
                                 s.totalRetries() + 1))
-        ).onErrorMap(ex ->
-                ex instanceof reactor.util.retry.Retry.RetryExhaustedException
-                        ? ex.getCause() : ex);
+        ).onErrorMap(
+                // ✅ Fix: correct API — reactor.core.Exceptions.isRetryExhausted
+                Exceptions::isRetryExhausted,
+                Throwable::getCause
+        );
     }
 
     private EsewaCallbackData decodeCallbackData(String encodedData) {
@@ -330,8 +312,27 @@ public final class EsewaReactiveClient {
             if (i < fields.length - 1) msg.append(",");
         }
 
-        String expected = generateHmac(msg.toString(), props.secretKey());
-        if (!expected.equals(data.signature())) {
+        byte[] expectedBytes = generateHmacBytes(
+                msg.toString(), props.secretKey());
+
+        // Decode received signature bytes separately.
+        // If the signature is not valid Base64, it is definitively invalid —
+        // catch IllegalArgumentException and treat as a signature mismatch.
+        byte[] receivedBytes;
+        try {
+            receivedBytes = Base64.getDecoder().decode(
+                    data.signature() != null ? data.signature() : "");
+        } catch (IllegalArgumentException e) {
+            log.error("[NepalPay Reactive] eSewa SIGNATURE MISMATCH" +
+                            " (invalid Base64 signature) | uuid={}",
+                    data.transactionUuid());
+            throw new EsewaException(
+                    "eSewa callback signature verification FAILED. " +
+                            "uuid=" + data.transactionUuid());
+        }
+
+        // Constant-time comparison — prevents timing attacks
+        if (!MessageDigest.isEqual(expectedBytes, receivedBytes)) {
             log.error("[NepalPay Reactive] eSewa SIGNATURE MISMATCH | uuid={}",
                     data.transactionUuid());
             throw new EsewaException(
@@ -340,17 +341,21 @@ public final class EsewaReactiveClient {
         }
     }
 
-    private String generateHmac(String message, String secretKey) {
+    private byte[] generateHmacBytes(String message, String secretKey) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(new SecretKeySpec(
                     secretKey.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            return Base64.getEncoder().encodeToString(
-                    mac.doFinal(message.getBytes(StandardCharsets.UTF_8)));
+            return mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             throw new EsewaException(
                     "Failed to generate HMAC-SHA256: " + e.getMessage(), e);
         }
+    }
+
+    private String generateHmac(String message, String secretKey) {
+        return Base64.getEncoder()
+                .encodeToString(generateHmacBytes(message, secretKey));
     }
 
     private String getFieldValue(EsewaCallbackData data, String field) {
