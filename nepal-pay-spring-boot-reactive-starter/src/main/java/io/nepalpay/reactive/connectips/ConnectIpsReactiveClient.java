@@ -29,6 +29,19 @@ import java.util.Enumeration;
 /**
  * Reactive ConnectIPS Payment Gateway Client.
  *
+ * <p>Uses Spring {@link WebClient} and returns {@link Mono} responses.
+ * Drop-in reactive replacement for the blocking {@code ConnectIpsClient}.
+ *
+ * <p>ConnectIPS is operated by Nepal Clearing House Ltd (NCHL).
+ * Requires merchant registration — contact connectips@nchl.com.np.
+ *
+ * <p>Provides:
+ * <ul>
+ *   <li>{@link #buildFormPayload} — RSA-signed form payload (synchronous)</li>
+ *   <li>{@link #validateTransaction} — Server-side payment verification (reactive)</li>
+ *   <li>{@link #validateTransactionWithToken} — Test-friendly verification (reactive)</li>
+ * </ul>
+ *
  * @author Sujan Lamichhane
  */
 @Slf4j
@@ -63,6 +76,9 @@ public final class ConnectIpsReactiveClient {
     // CONSTRUCTORS
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Production constructor — used by auto-configuration.
+     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -73,6 +89,9 @@ public final class ConnectIpsReactiveClient {
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE);
     }
 
+    /**
+     * Test constructor — custom validate URL, DEFAULT retry.
+     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -82,6 +101,10 @@ public final class ConnectIpsReactiveClient {
                 sandbox, builder, validateBaseUrlOverride, RetryProperties.DEFAULT);
     }
 
+    /**
+     * Production constructor with explicit retry.
+     * Used by auto-configuration when retry is configured.
+     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -92,6 +115,9 @@ public final class ConnectIpsReactiveClient {
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE, retry);
     }
 
+    /**
+     * Full constructor — custom validate URL + explicit retry.
+     */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
@@ -119,7 +145,12 @@ public final class ConnectIpsReactiveClient {
                 this.retryProps.summary());
     }
 
-    /** Test-only constructor — accepts pre-built PrivateKey. */
+    /**
+     * Test-only constructor — accepts pre-built PrivateKey directly.
+     *
+     * <p>Avoids needing a real .pfx file in tests. Package-private so only
+     * test code in the same package can use it.
+     */
     ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
             PrivateKey privateKey, boolean sandbox,
@@ -146,32 +177,40 @@ public final class ConnectIpsReactiveClient {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Build signed ConnectIPS form payload — synchronous.
+     * Build signed ConnectIPS form payload — synchronous (no HTTP call).
      *
-     * <p>Validates inputs before signing to avoid sending invalid data.
+     * <p>Validates the request before performing RSA signing.
+     *
+     * @param request payment request (must not be null)
+     * @return signed form payload
+     * @throws ConnectIpsException if request is null, inputs are invalid,
+     *                             or RSA signing fails
      */
-    public ConnectIpsFormPayload buildFormPayload(
-            ConnectIpsPaymentRequest request) {
-
-        // ✅ CodeRabbit fix: null check before accessing fields
+    public ConnectIpsFormPayload buildFormPayload(ConnectIpsPaymentRequest request) {
         if (request == null) {
             throw new ConnectIpsException(
                     "ConnectIpsPaymentRequest cannot be null");
         }
-
         return buildFormPayload(
                 request.txnId(), request.txnAmtPaisa(),
                 request.referenceId(), request.remarks(), request.particulars());
     }
 
     /**
-     * Build signed ConnectIPS form payload — synchronous.
+     * Build signed ConnectIPS form payload — synchronous (no HTTP call).
+     *
+     * @param txnId       unique transaction ID
+     * @param txnAmtPaisa transaction amount in PAISA (NPR × 100)
+     * @param referenceId your order or reference ID
+     * @param remarks     optional remarks
+     * @param particulars optional particulars
+     * @return signed form payload
+     * @throws ConnectIpsException if inputs are invalid or RSA signing fails
      */
     public ConnectIpsFormPayload buildFormPayload(
             String txnId, long txnAmtPaisa, String referenceId,
             String remarks, String particulars) {
 
-        // validate inputs before expensive RSA signing
         validatePaymentInput(txnId, referenceId, txnAmtPaisa);
 
         String txnDate         = LocalDate.now().format(DATE_FORMAT);
@@ -189,39 +228,79 @@ public final class ConnectIpsReactiveClient {
     }
 
     /**
-     * Validate a ConnectIPS transaction — reactive.
+     * Validate a ConnectIPS transaction after payment — reactive.
+     *
+     * <p><strong>Reactive contract:</strong> Both input validation
+     * ({@code validatePaymentInput}) and RSA token generation
+     * ({@code generateRsaToken}) are wrapped inside {@link Mono#defer}
+     * so any {@link ConnectIpsException} they throw is emitted as a
+     * proper Mono error signal — callers can handle all errors uniformly
+     * via {@code onErrorResume} / {@code StepVerifier.expectError}.
+     *
+     * @param txnId       transaction ID from {@link #buildFormPayload}
+     * @param referenceId original reference/order ID
+     * @param txnAmtPaisa amount in PAISA (must match original)
+     * @return Mono of validation response
      */
     public Mono<ConnectIpsValidateResponse> validateTransaction(
             String txnId, String referenceId, long txnAmtPaisa) {
 
-        // validate before signing
-        try {
-            validatePaymentInput(txnId, referenceId, txnAmtPaisa);
-        } catch (ConnectIpsException e) {
-            return Mono.error(e);
-        }
+        // wrap ALL synchronous work — validation AND
+        // RSA signing — inside Mono.defer so any thrown ConnectIpsException
+        // becomes a Mono.error signal instead of escaping the reactive pipeline.
+        return Mono.defer(() -> {
+            try {
+                validatePaymentInput(txnId, referenceId, txnAmtPaisa);
+            } catch (ConnectIpsException e) {
+                return Mono.error(e);
+            }
 
-        String txnDate = LocalDate.now().format(DATE_FORMAT);
-        String message = buildTokenMessage(
-                txnId, txnDate, txnAmtPaisa, referenceId, "", "");
-        String token   = generateRsaToken(message);
+            String txnDate = LocalDate.now().format(DATE_FORMAT);
+            String message = buildTokenMessage(
+                    txnId, txnDate, txnAmtPaisa, referenceId, "", "");
 
-        return executeValidateRequest(referenceId, txnAmtPaisa, token);
+            String token;
+            try {
+                token = generateRsaToken(message);
+            } catch (ConnectIpsException e) {
+                // RSA signing failure — emit as reactive error signal
+                return Mono.error(e);
+            }
+
+            log.debug("[NepalPay Reactive] ConnectIPS validating | txnId={}",
+                    txnId);
+            return executeValidateRequest(referenceId, txnAmtPaisa, token);
+        });
     }
 
     /**
-     * Validate using pre-built token — test-friendly.
+     * Validate using a pre-built token — test-friendly, skips RSA signing.
+     *
+     * @param referenceId your reference ID
+     * @param txnAmtPaisa amount in PAISA
+     * @param token       pre-built token (use mock value in tests)
+     * @return Mono of validation response
      */
     public Mono<ConnectIpsValidateResponse> validateTransactionWithToken(
             String referenceId, long txnAmtPaisa, String token) {
 
+        log.debug("[NepalPay Reactive] ConnectIPS validating with pre-built token" +
+                " | refId={}", referenceId);
         return executeValidateRequest(referenceId, txnAmtPaisa, token);
     }
 
-    /** @return form action URL */
+    /**
+     * Returns the ConnectIPS gateway form action URL.
+     *
+     * @return UAT or production form action URL
+     */
     public String formActionUrl() { return formActionUrl; }
 
-    /** @return true if sandbox mode */
+    /**
+     * Returns true if operating in UAT (sandbox) mode.
+     *
+     * @return true if sandbox mode is active
+     */
     public boolean isSandbox() { return sandbox; }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -245,14 +324,21 @@ public final class ConnectIpsReactiveClient {
                 .onStatus(HttpStatusCode::is4xxClientError, res ->
                         res.bodyToMono(String.class)
                                 .defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(
-                                        new ConnectIpsException(
-                                                "ConnectIPS validation failed",
-                                                res.statusCode().value(), body))))
-                .onStatus(HttpStatusCode::is5xxServerError, res ->
-                        Mono.error(new ConnectIpsException(
-                                "ConnectIPS server error during validation",
-                                res.statusCode().value(), null)))
+                                .flatMap(body -> {
+                                    log.error("[NepalPay Reactive] ConnectIPS validate" +
+                                                    " 4xx | refId={} | body={}",
+                                            referenceId, body);
+                                    return Mono.error(new ConnectIpsException(
+                                            "ConnectIPS validation failed",
+                                            res.statusCode().value(), body));
+                                }))
+                .onStatus(HttpStatusCode::is5xxServerError, res -> {
+                    log.error("[NepalPay Reactive] ConnectIPS validate 5xx" +
+                            " | refId={}", referenceId);
+                    return Mono.error(new ConnectIpsException(
+                            "ConnectIPS server error during validation",
+                            res.statusCode().value(), null));
+                })
                 .bodyToMono(ConnectIpsValidateResponse.class)
                 .doOnNext(res -> log.info(
                         "[NepalPay Reactive] ConnectIPS validate result" +
@@ -261,6 +347,17 @@ public final class ConnectIpsReactiveClient {
                 .transform(this::withRetry);
     }
 
+    /**
+     * Applies Reactor retry with exponential backoff.
+     *
+     * <p>Retries on:
+     * <ul>
+     *   <li>{@link WebClientRequestException} — network/transport failures</li>
+     *   <li>{@link ConnectIpsException} with httpStatus=0 or >=500</li>
+     * </ul>
+     *
+     * <p>Never retries 4xx — bad requests won't fix themselves on retry.
+     */
     private <T> Mono<T> withRetry(Mono<T> source) {
         if (!retryProps.isActive()) return source;
         return source.retryWhen(
@@ -270,7 +367,6 @@ public final class ConnectIpsReactiveClient {
                         .maxBackoff(Duration.ofMillis(retryProps.maxDelayMs()))
                         .jitter(0.1)
                         .filter(t ->
-                                // retry transport failures too
                                 t instanceof WebClientRequestException
                                         || (t instanceof ConnectIpsException ce
                                         && (ce.httpStatus() == 0
@@ -279,7 +375,6 @@ public final class ConnectIpsReactiveClient {
                                 "[NepalPay Reactive] ConnectIPS retry attempt {}",
                                 s.totalRetries() + 1))
         ).onErrorMap(
-                // correct API — reactor.core.Exceptions.isRetryExhausted
                 Exceptions::isRetryExhausted,
                 Throwable::getCause
         );
@@ -288,6 +383,8 @@ public final class ConnectIpsReactiveClient {
     /**
      * Validates payment input before signing.
      * Prevents sending blank IDs or zero/negative amounts to ConnectIPS.
+     *
+     * @throws ConnectIpsException if any input is invalid
      */
     private static void validatePaymentInput(
             String txnId, String referenceId, long txnAmtPaisa) {
@@ -307,18 +404,25 @@ public final class ConnectIpsReactiveClient {
     }
 
     /**
-     * Loads and returns the RSA PrivateKey from a PKCS12 .pfx file.
+     * Loads and extracts the RSA PrivateKey from a PKCS12 (.pfx) file.
      *
      * <p>Iterates all aliases and selects the first key entry explicitly —
      * the first alias is not guaranteed to be a private-key entry.
+     *
+     * <p>Fails fast at construction time so misconfiguration is detected
+     * immediately rather than silently failing on first payment.
+     *
+     * @param pfxBytes    raw bytes of the CREDITOR.pfx file
+     * @param pfxPassword password protecting the .pfx file
+     * @return extracted RSA PrivateKey ready for signing
+     * @throws ConnectIpsException if the key cannot be loaded for any reason
      */
-    private static PrivateKey loadPrivateKey(
-            byte[] pfxBytes, String pfxPassword) {
-
+    private static PrivateKey loadPrivateKey(byte[] pfxBytes, String pfxPassword) {
         if (pfxBytes == null || pfxBytes.length == 0) {
             throw new ConnectIpsException(
                     "ConnectIPS .pfx certificate bytes are empty. " +
-                            "Set nepalpay.connectips.pfx-path in application.yml.");
+                            "Set nepalpay.connectips.pfx-path in application.yml. " +
+                            "Contact NCHL at connectips@nchl.com.np.");
         }
         if (pfxPassword == null || pfxPassword.isBlank()) {
             throw new ConnectIpsException(
@@ -330,8 +434,6 @@ public final class ConnectIpsReactiveClient {
             keyStore.load(new ByteArrayInputStream(pfxBytes),
                     pfxPassword.toCharArray());
 
-            // iterate aliases and select the first private-key
-            // entry explicitly. The first alias is not guaranteed to be a key entry.
             Enumeration<String> aliases = keyStore.aliases();
             while (aliases.hasMoreElements()) {
                 String alias = aliases.nextElement();
@@ -339,8 +441,8 @@ public final class ConnectIpsReactiveClient {
                     continue;
                 }
                 Object key = keyStore.getKey(alias, pfxPassword.toCharArray());
-                if (key instanceof PrivateKey privateKey) {
-                    return privateKey;
+                if (key instanceof PrivateKey pk) {
+                    return pk;
                 }
             }
 
@@ -374,6 +476,16 @@ public final class ConnectIpsReactiveClient {
                 + ","             + TOKEN_SUFFIX;
     }
 
+    /**
+     * Signs a message using the cached RSA private key.
+     *
+     * <p>The private key was loaded once in the constructor.
+     * Only the actual signing operation runs here.
+     *
+     * @param message the plain-text message to sign
+     * @return Base64-encoded RSA-SHA256 signature
+     * @throws ConnectIpsException if signing fails
+     */
     private String generateRsaToken(String message) {
         try {
             Signature sig = Signature.getInstance("SHA256withRSA");
