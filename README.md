@@ -2,118 +2,99 @@
 
 <img src="https://img.shields.io/badge/Java-17%2B-orange?style=for-the-badge&logo=openjdk"/>
 <img src="https://img.shields.io/badge/Spring%20Boot-3.2%2B%20%7C%204.x-6DB33F?style=for-the-badge&logo=springboot"/>
+<img src="https://img.shields.io/badge/WebFlux-Reactive-6DB33F?style=for-the-badge&logo=spring"/>
 <img src="https://img.shields.io/maven-central/v/io.github.sujankim/nepal-pay-spring-boot-3-starter?style=for-the-badge&label=Maven%20Central"/>
 <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/Tests-350%2B%20passing-success?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Tests-400%2B%20passing-success?style=for-the-badge"/>
 
 # 🇳🇵 NepalPay Spring Boot Starter
 
 **The first production-grade Java library for Nepal payment gateways.**
 
-Khalti · eSewa · ConnectIPS · Fonepay
+**Khalti · eSewa · ConnectIPS · Fonepay**
 
-Works with **Spring Boot 3.2+** and **Spring Boot 4.x**.
+Works with **Spring Boot 3.2+**, **Spring Boot 4.x**, and **Spring WebFlux**.
 
 [Getting Started](#-getting-started) •
 [Khalti](#-khalti) •
 [eSewa](#-esewa) •
 [Fonepay](#-fonepay) •
 [ConnectIPS](#-connectips) •
+[Reactive](#-reactive-webclient) •
 [Retry](#-retry-with-exponential-backoff)
 
 </div>
 
 ---
 
-## 🚀 Getting Started
+# 🚀 Getting Started
 
-### No repository block needed — available on Maven Central
+## No repository block needed — available on Maven Central
 
-**Maven — Spring Boot 3.2+:**
-```xml
-<dependency>
-    <groupId>io.github.sujankim</groupId>
-    <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>1.0.1</version>
-</dependency>
-```
+## Step 1 — Choose Your Starter
 
-**Maven — Spring Boot 4.x:**
-```xml
-<dependency>
-    <groupId>io.github.sujankim</groupId>
-    <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>1.0.1</version>
-</dependency>
-```
+| Use Case | Starter Artifact | Spring Boot | Java |
+|---|---|---|---|
+| Blocking (RestClient) | `nepal-pay-spring-boot-3-starter` | 3.2+ | 17+ |
+| Blocking (RestClient) | `nepal-pay-spring-boot-4-starter` | 4.x | 21+ |
+| **Reactive (WebClient)** | **`nepal-pay-spring-boot-reactive-starter`** | **3.2+** | **17+** |
 
-**Gradle Groovy — Spring Boot 3.2+:**
-```groovy
-implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.0.1'
-```
-
-**Gradle Groovy — Spring Boot 4.x:**
-```groovy
-implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.1'
-```
-
-**Gradle Kotlin — Spring Boot 4.x:**
-```kotlin
-implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.0.1")
-```
-
-> ✅ No `<repositories>` block needed.
-> Previously on JitPack as `com.github.sujankim.nepal-pay-spring-boot-starter`.
-> JitPack still works for v0.6.0 and earlier.
+> ✅ Blocking and reactive starters share the same `nepalpay.*` configuration.
+> Simply change the artifact name to migrate from blocking to reactive.
 
 ---
 
 ## Step 2 — Add Dependency
 
-| Spring Boot | Java | Artifact                          |
-| ----------- | ---- | --------------------------------- |
-| 3.2+        | 17+  | `nepal-pay-spring-boot-3-starter` |
-| 4.x         | 21+  | `nepal-pay-spring-boot-4-starter` |
-
-### Maven — Spring Boot 3.2+
+### Maven — Spring Boot 3.2+ (Blocking)
 
 ```xml
 <dependency>
-    <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
+    <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>v0.6.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
-### Maven — Spring Boot 4.x
+### Maven — Spring Boot 4.x (Blocking)
 
 ```xml
 <dependency>
-    <groupId>com.github.sujankim.nepal-pay-spring-boot-starter</groupId>
+    <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>v0.6.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
-### Gradle Groovy — Spring Boot 3.2+
+### Maven — Spring WebFlux (Reactive)
 
-```groovy
-implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-3-starter:v0.6.0'
+```xml
+<dependency>
+    <groupId>io.github.sujankim</groupId>
+    <artifactId>nepal-pay-spring-boot-reactive-starter</artifactId>
+    <version>1.1.0</version>
+</dependency>
 ```
 
-### Gradle Groovy — Spring Boot 4.x
+### Gradle (Groovy)
+
+#### Blocking
 
 ```groovy
-implementation 'com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.6.0'
+implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.1.0'
 ```
 
-### Gradle Kotlin — Spring Boot 4.x
+#### Reactive
+
+```groovy
+implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.0'
+```
+
+### Gradle (Kotlin)
 
 ```kotlin
-implementation("com.github.sujankim.nepal-pay-spring-boot-starter:nepal-pay-spring-boot-4-starter:v0.6.0")
+implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.0")
 ```
-
-> The public API is identical in both starters. Only the internal Jackson version differs (Jackson 2 for Boot 3, Jackson 3 for Boot 4).
 
 ---
 
@@ -150,9 +131,13 @@ nepalpay:
     sandbox: true
 ```
 
+> ✅ The exact same YAML works for both blocking and reactive starters.
+
 ---
 
 ## Step 4 — Inject and Use
+
+### Blocking
 
 ```java
 @Service
@@ -163,60 +148,202 @@ public class PaymentService {
     private final EsewaClient esewaClient;
     private final FonepayClient fonepayClient;
     private final ConnectIpsClient connectIpsClient;
+
 }
 ```
 
-> ✅ Zero `@Bean`
->
-> ✅ Zero `@EnableNepalPay`
->
-> ✅ Zero configuration classes
+### Reactive
+
+```java
+@Service
+@RequiredArgsConstructor
+public class ReactivePaymentService {
+
+    private final KhaltiReactiveClient khaltiReactiveClient;
+    private final EsewaReactiveClient esewaReactiveClient;
+    private final ConnectIpsReactiveClient connectIpsReactiveClient;
+
+    // FonepayClient from blocking starter
+    private final FonepayClient fonepayClient;
+
+}
+```
+
+✅ Zero `@Bean`
+
+✅ Zero `@EnableNepalPay`
+
+✅ Zero configuration classes
+
+---
+
+# ⚡ Reactive (WebClient)
+
+The reactive starter returns `Mono<>` responses using Spring WebFlux `WebClient`.
+
+Perfect for reactive controllers, functional routers, and event-driven applications.
+
+---
+
+## Khalti — Reactive
+
+```java
+// Initiate payment
+khaltiReactiveClient.initiatePayment(
+    KhaltiInitiateRequest.builder()
+        .amount(10000L)
+        .purchaseOrderId("ORD-001")
+        .purchaseOrderName("Pro Plan")
+        .build()
+)
+.doOnNext(res -> orderRepo.savePidx(orderId, res.pidx()))
+.map(KhaltiInitiateResponse::paymentUrl);
+
+// Verify payment
+khaltiReactiveClient.lookupPayment(pidx)
+    .filter(KhaltiLookupResponse::isPaymentSuccessful)
+    .flatMap(lookup -> orderRepo.markPaid(orderId, lookup.transactionId()));
+
+// Full refund
+khaltiReactiveClient.refundPayment(transactionId)
+    .filter(KhaltiRefundResponse::isRefundSuccessful)
+    .flatMap(r -> orderRepo.markRefunded(orderId));
+
+// Partial refund
+khaltiReactiveClient.refundPayment(transactionId, 5000L);
+```
+
+---
+
+## eSewa — Reactive
+
+```java
+String uuid = EsewaReactiveClient.generateTransactionUuid();
+
+EsewaFormPayload payload =
+    esewaReactiveClient.buildFormPayload(
+        new BigDecimal("100.00"),
+        uuid
+    );
+
+esewaReactiveClient.verifyCallback(data)
+    .filter(EsewaReactiveClient.EsewaVerificationResult::isPaymentSuccessful)
+    .flatMap(result ->
+        orderRepo.markPaid(result.callbackData().transactionUuid()));
+
+esewaReactiveClient.checkStatus(uuid, "100.00")
+    .filter(EsewaStatusResponse::isPaymentSuccessful)
+    .flatMap(res -> orderRepo.markPaid(uuid));
+```
+
+---
+
+## ConnectIPS — Reactive
+
+```java
+ConnectIpsFormPayload payload =
+    connectIpsReactiveClient.buildFormPayload(
+        ConnectIpsPaymentRequest.builder()
+            .txnId("TXN-" + orderId)
+            .amountNPR(100L)
+            .referenceId(orderId)
+            .build()
+    );
+
+connectIpsReactiveClient.validateTransaction(
+        txnId,
+        referenceId,
+        txnAmtPaisa
+    )
+    .filter(ConnectIpsValidateResponse::isPaymentSuccessful)
+    .flatMap(res -> orderRepo.markPaid(referenceId));
+```
+
+---
+
+## Fonepay in Reactive Applications
+
+Fonepay performs **no server-side HTTP calls**, so simply use the blocking client.
+
+```java
+FonepayRedirectParams params =
+    fonepayClient.buildRedirectParams(
+        FonepayPaymentRequest.builder()
+            .prn("FP-" + orderId)
+            .amount(100.0)
+            .remarks1("Pro Plan")
+            .build()
+    );
+```
+
+---
+
+## Reactive Retry
+
+```yaml
+nepalpay:
+  khalti:
+    retry:
+      enabled: true
+      max-attempts: 3
+      initial-delay-ms: 500
+      multiplier: 2.0
+      max-delay-ms: 5000
+```
+
+```java
+khaltiReactiveClient
+    .initiatePayment(request)
+    .onErrorResume(KhaltiException.class, Mono::error);
+```
+
+Retry is automatically applied using Reactor's `Retry.backoff()`.
+
+Retries:
+
+- ✅ 5xx server errors
+- ✅ Network failures
+
+Never retries:
+
+- ❌ 4xx client errors
 
 ---
 
 # 💳 Khalti
 
 ```java
-// 1. Initiate — amount in PAISA (NPR × 100)
-KhaltiInitiateResponse res = khaltiClient.initiatePayment(
-    KhaltiInitiateRequest.builder()
-        .amount(10000L)
-        .purchaseOrderId("ORD-001")
-        .purchaseOrderName("Pro Plan")
-        .build()
-);
+KhaltiInitiateResponse response =
+    khaltiClient.initiatePayment(
+        KhaltiInitiateRequest.builder()
+            .amount(10000L)
+            .purchaseOrderId("ORD-001")
+            .purchaseOrderName("Pro Plan")
+            .build()
+    );
 
-// Save res.pidx() to DB
-// Redirect user to res.paymentUrl()
-
-// 2. Verify after callback
-KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
+KhaltiLookupResponse lookup =
+    khaltiClient.lookupPayment(pidx);
 
 if (lookup.isPaymentSuccessful()) {
-    // mark as paid
+    // mark paid
 }
 
 if (!lookup.isAmountValid(expectedPaisa)) {
-    // tampered
+    // reject payment
 }
 
-// 3. Refund
 KhaltiRefundResponse refund =
     khaltiClient.refundPayment(lookup.transactionId());
 
-// Partial refund
 KhaltiRefundResponse partial =
     khaltiClient.refundPayment(
         lookup.transactionId(),
         5000L
     );
-
-if (refund.isRefundSuccessful()) {
-    // mark as refunded
-}
 ```
 
-> ⚠️ Refund uses `transactionId`, not `pidx`.
+> ⚠️ Refunds require the **transactionId**, not the `pidx`.
 
 ---
 
@@ -235,7 +362,7 @@ EsewaClient.EsewaVerificationResult result =
     esewaClient.verifyCallback(data);
 
 if (result.isPaymentSuccessful()) {
-    // mark as paid
+    // mark paid
 }
 ```
 
@@ -273,7 +400,7 @@ FonepayClient.FonepayVerificationResult result =
     fonepayClient.verifyCallback(callback);
 
 if (result.isPaymentSuccessful()) {
-    // mark as paid
+    // mark paid
 }
 ```
 
@@ -291,15 +418,15 @@ ConnectIpsFormPayload payload =
             .build()
     );
 
-ConnectIpsValidateResponse res =
+ConnectIpsValidateResponse response =
     connectIpsClient.validateTransaction(
         txnId,
         referenceId,
         txnAmtPaisa
     );
 
-if (res.isPaymentSuccessful()) {
-    // mark as paid
+if (response.isPaymentSuccessful()) {
+    // mark paid
 }
 ```
 
@@ -318,40 +445,57 @@ nepalpay:
       max-delay-ms: 5000
 ```
 
-| Gateway    | Retry Applies To                                      |
-| ---------- | ----------------------------------------------------- |
-| Khalti     | ✅ initiatePayment(), lookupPayment(), refundPayment() |
-| eSewa      | ✅ checkStatus()                                       |
-| ConnectIPS | ✅ validateTransaction()                               |
-| Fonepay    | ❌ No HTTP calls                                       |
+| Gateway | Blocking | Reactive |
+|----------|----------|----------|
+| Khalti | ✅ | ✅ |
+| eSewa | ✅ | ✅ |
+| ConnectIPS | ✅ | ✅ |
+| Fonepay | ❌ | ❌ |
 
-**Retries:** 5xx errors and network timeouts
+Retries:
 
-**No Retries:** 4xx errors and signature failures
+- ✅ Network failures
+- ✅ HTTP 5xx
+
+No retries:
+
+- ❌ HTTP 4xx
+- ❌ Signature validation failures
 
 ---
 
 # ⚠️ Amount Units
 
-| Gateway    | Unit  | Java Type    | Example                    |
-| ---------- | ----- | ------------ | -------------------------- |
-| Khalti     | Paisa | `long`       | `10000L`                   |
-| eSewa      | NPR   | `BigDecimal` | `new BigDecimal("100.00")` |
-| Fonepay    | NPR   | `double`     | `100.0`                    |
-| ConnectIPS | Paisa | `long`       | `amountNPR(100L)`          |
+| Gateway | Unit | Java Type | Example |
+|----------|------|-----------|---------|
+| Khalti | Paisa | `long` | `10000L` |
+| eSewa | NPR | `BigDecimal` | `new BigDecimal("100.00")` |
+| Fonepay | NPR | `double` | `100.0` |
+| ConnectIPS | Paisa | `long` | `amountNPR(100L)` |
 
 ---
 
 # 🔐 Security
 
 ```java
+// Blocking
 khaltiClient.lookupPayment(pidx).isPaymentSuccessful();
 esewaClient.verifyCallback(data).isPaymentSuccessful();
 fonepayClient.verifyCallback(callback).isPaymentSuccessful();
-connectIpsClient
-    .validateTransaction(txnId, refId, amt)
-    .isPaymentSuccessful();
+connectIpsClient.validateTransaction(txnId, refId, amount).isPaymentSuccessful();
+
+// Reactive
+khaltiReactiveClient.lookupPayment(pidx)
+    .filter(KhaltiLookupResponse::isPaymentSuccessful);
+
+esewaReactiveClient.verifyCallback(data)
+    .filter(EsewaReactiveClient.EsewaVerificationResult::isPaymentSuccessful);
+
+connectIpsReactiveClient.validateTransaction(txnId, refId, amount)
+    .filter(ConnectIpsValidateResponse::isPaymentSuccessful);
 ```
+
+Always persist payment identifiers **before** redirecting users.
 
 ```java
 orderRepo.savePidx(orderId, response.pidx());
@@ -360,24 +504,23 @@ orderRepo.savePrn(orderId, prn);
 orderRepo.saveTxnId(orderId, txnId);
 ```
 
-❌ Never trust redirect URL parameters alone.
+Never:
 
-❌ Never hardcode secret keys.
-
-❌ Never put keys in frontend code.
-
-❌ Never commit `CREDITOR.pfx` to Git.
+- ❌ Trust redirect query parameters
+- ❌ Hardcode secret keys
+- ❌ Store secrets in frontend code
+- ❌ Commit your `.pfx` certificate to Git
 
 ---
 
 # 🗺️ Supported Gateways
 
-| Gateway    | Status   | Notes                                   |
-| ---------- | -------- | --------------------------------------- |
-| Khalti     | ✅ v0.5.0 | Initiate, lookup, full + partial refund |
-| eSewa      | ✅ v0.1.0 | Self-service sandbox                    |
-| ConnectIPS | ✅ v0.2.0 | NCHL merchant registration required     |
-| Fonepay    | ✅ v0.4.0 | Integration via bank/Fonepay            |
+| Gateway | Status | Blocking | Reactive | Notes |
+|----------|--------|----------|----------|------|
+| Khalti | ✅ v0.5.0 | ✅ | ✅ v1.1.0 | Initiate, lookup, refunds |
+| eSewa | ✅ v0.1.0 | ✅ | ✅ v1.1.0 | Sandbox support |
+| ConnectIPS | ✅ v0.2.0 | ✅ | ✅ v1.1.0 | NCHL merchant required |
+| Fonepay | ✅ v0.4.0 | ✅ | ✅ (blocking client) | Redirect only |
 
 ---
 
@@ -386,29 +529,35 @@ orderRepo.saveTxnId(orderId, txnId);
 ```text
 nepal-pay-spring-boot-starter/
 ├── nepal-pay-core/
-│   └── io.nepalpay.core.*
+│   └── io.nepalpay.core.*          — Models, exceptions, retry (no Spring)
 ├── nepal-pay-spring-boot-3-starter/
-│   └── io.nepalpay.*
-└── nepal-pay-spring-boot-4-starter/
-    └── io.nepalpay.*
+│   └── io.nepalpay.*               — Blocking, RestClient, Jackson 2
+├── nepal-pay-spring-boot-4-starter/
+│   └── io.nepalpay.*               — Blocking, RestClient, Jackson 3
+└── nepal-pay-spring-boot-reactive-starter/
+    └── io.nepalpay.reactive.*      — Reactive, WebClient, Mono<>
 ```
 
 ---
 
 # 🤝 Contributing
 
-See [CONTRIBUTING.md](Contributing.md) for setup, code standards, and how to add a new gateway.
+See **CONTRIBUTING.md** for:
+
+- Local setup
+- Coding standards
+- Adding new gateways
 
 Open issues:
 
-* #4 Kotlin code examples
-* #6 Spring WebFlux support
+- #4 Kotlin examples
+- #8 ConnectIPS configurable timeout
 
 ---
 
 # 📜 License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [**LICENSE**](LICENSE).
 
 ---
 
@@ -416,18 +565,18 @@ MIT — see [LICENSE](LICENSE).
 
 **Sujan Lamichhane**
 
-- [sujanlamichhane.com.np](https://sujanlamichhane.com.np)
-- [dev.to](https://dev.to/sujankim)
-- [@sujankim](https://github.com/sujankim)
+- https://sujanlamichhane.com.np
+- https://dev.to/sujankim
+- https://github.com/sujankim
 
 ---
 
 <div align="center">
 
-📖 [Full Documentation](https://sujankim.github.io/nepal-pay-spring-boot-starter/index.html)
+# [📖 Full Documentation](https://sujankim.github.io/nepal-pay-spring-boot-starter/index.html)
 
 Built with ❤️ for Nepal's developer community 🇳🇵
 
-If NepalPay saved you time, give it a ⭐!
+**If NepalPay saved you time, please give it a ⭐ on GitHub!**
 
 </div>
