@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reactive (WebFlux) — NepalPay</title>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+
+<div class="page-hero">
+    <nav class="topnav">
+        <div class="topnav-inner">
+            <a class="nav-brand" href="index.html">
+                <span class="nav-brand-flag">🇳🇵</span> NepalPay
+            </a>
+            <div class="nav-links">
+                <a href="getting-started.html">Getting Started</a>
+                <a href="khalti.html">Khalti</a>
+                <a href="esewa.html">eSewa</a>
+                <a href="connectips.html">ConnectIPS</a>
+                <a href="fonepay.html">Fonepay</a>
+                <a href="reactive.html" class="active">Reactive</a>
+                <a href="configuration.html">Config</a>
+                <a href="security.html">Security</a>
+            </div>
+            <a class="nav-github"
+               href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank">GitHub ↗</a>
+        </div>
+    </nav>
+    <div class="page-header-body">
+        <div class="page-header-left">
+            <div class="page-version-pill">✅ v1.1.0</div>
+            <h1>Reactive (WebFlux)</h1>
+            <p>
+                Non-blocking payment gateway clients using Spring WebClient
+                and Reactor <code>Mono&lt;T&gt;</code>.
+                Drop-in reactive replacement for the blocking starters.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="docs-wrapper">
+
+    <!-- ── Sidebar ────────────────────────────────────────────────── -->
+    <aside class="sidebar">
+        <nav class="sidebar-nav">
+            <div class="sidebar-group-label">Overview</div>
+            <a href="#why-reactive">Why Reactive?</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#install">Install</a>
+            <a href="#configure">Configure</a>
+            <a href="#inject">Inject Clients</a>
+            <div class="sidebar-group-label">Clients</div>
+            <a href="#khalti">Khalti</a>
+            <a href="#esewa">eSewa</a>
+            <a href="#connectips">ConnectIPS</a>
+            <a href="#fonepay">Fonepay</a>
+            <div class="sidebar-group-label">Advanced</div>
+            <a href="#retry">Retry</a>
+            <a href="#error-handling">Error Handling</a>
+            <a href="#security">Security Rules</a>
+            <a href="#testing">Testing</a>
+            <div class="sidebar-group-label">Reference</div>
+            <a href="#blocking-vs-reactive">Blocking vs Reactive</a>
+        </nav>
+    </aside>
+
+    <!-- ── Content ────────────────────────────────────────────────── -->
+    <article class="docs-content">
+
+        <!-- ── Why Reactive ──────────────────────────────────────── -->
+        <section id="why-reactive">
+            <h2>Why Reactive?</h2>
+
+            <p>
+                Spring WebFlux applications run on a non-blocking event loop
+                (Netty). Calling a blocking HTTP client (like
+                <code>RestClient</code>) inside a WebFlux handler blocks the
+                event loop thread — killing the performance benefit of
+                reactive.
+            </p>
+
+            <div class="code-compare">
+                <div class="code-compare-block">
+                    <span class="code-compare-label label-bad">
+                        ❌ Blocking client in WebFlux
+                    </span>
+                    <pre><code>// BAD — blocks the event loop thread
+@GetMapping("/pay")
+public Mono&lt;String&gt; pay() {
+    // khaltiClient uses RestClient internally
+    // This blocks the Netty thread!
+    KhaltiInitiateResponse res =
+        khaltiClient.initiatePayment(req);
+    return Mono.just(res.paymentUrl());
+}</code></pre>
+                </div>
+                <div class="code-compare-block">
+                    <span class="code-compare-label label-good">
+                        ✅ Reactive client in WebFlux
+                    </span>
+                    <pre><code>// GOOD — fully non-blocking pipeline
+@GetMapping("/pay")
+public Mono&lt;String&gt; pay() {
+    // khaltiReactiveClient uses WebClient
+    // Non-blocking all the way through
+    return khaltiReactiveClient
+        .initiatePayment(req)
+        .map(KhaltiInitiateResponse::paymentUrl);
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    <strong>Using Spring MVC (not WebFlux)?</strong>
+                    Stick with the blocking starter —
+                    <code>nepal-pay-spring-boot-3-starter</code> or
+                    <code>nepal-pay-spring-boot-4-starter</code>.
+                    There is no benefit to using reactive clients in a
+                    blocking MVC application.
+                </p>
+            </div>
+        </section>
+
+        <!-- ── How It Works ──────────────────────────────────────── -->
+        <section id="how-it-works">
+            <h2>How It Works</h2>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Concern</th>
+                        <th>Blocking Starter</th>
+                        <th>Reactive Starter</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>HTTP client</td>
+                        <td><code>RestClient</code></td>
+                        <td><code>WebClient</code></td>
+                    </tr>
+                    <tr>
+                        <td>Return type</td>
+                        <td>Direct value <code>T</code></td>
+                        <td><code>Mono&lt;T&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td>Error signal</td>
+                        <td><code>throw new XxxException()</code></td>
+                        <td><code>Mono.error(new XxxException())</code></td>
+                    </tr>
+                    <tr>
+                        <td>Retry</td>
+                        <td>
+                            <code>while</code> loop +
+                            <code>Thread.sleep()</code>
+                        </td>
+                        <td><code>Retry.backoff()</code></td>
+                    </tr>
+                    <tr>
+                        <td>Validation</td>
+                        <td><code>if (x == null) throw ...</code></td>
+                        <td>
+                            Inside <code>Mono.defer()</code> →
+                            <code>Mono.error()</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Test assertion</td>
+                        <td><code>assertThat(response)</code></td>
+                        <td>
+                            <code>StepVerifier.create(mono)</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Configuration</td>
+                        <td colspan="2">
+                            Identical — same <code>nepalpay.*</code> YAML
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Models + exceptions</td>
+                        <td colspan="2">
+                            Identical — from
+                            <code>nepal-pay-core</code>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Reactive contract rule</h3>
+            <p>
+                All synchronous work that can throw — input validation,
+                RSA signing, HMAC computation — is wrapped inside
+                <code>Mono.defer()</code> so any exception is emitted as
+                a reactive error signal, never thrown outside the pipeline.
+            </p>
+            <pre><code>// ✅ Correct — ConnectIPS validateTransaction() example
+public Mono&lt;ConnectIpsValidateResponse&gt; validateTransaction(
+        String txnId, String referenceId, long txnAmtPaisa) {
+
+    return Mono.defer(() -> {
+        // Validation inside defer — becomes Mono.error if invalid
+        try {
+            validatePaymentInput(txnId, referenceId, txnAmtPaisa);
+        } catch (ConnectIpsException e) {
+            return Mono.error(e);
+        }
+
+        // RSA signing inside defer — becomes Mono.error if fails
+        String token;
+        try {
+            token = generateRsaToken(buildMessage(...));
+        } catch (ConnectIpsException e) {
+            return Mono.error(e);
+        }
+
+        return executeValidateRequest(referenceId, txnAmtPaisa, token);
+    });
+}</code></pre>
+        </section>
+
+        <!-- ── Install ───────────────────────────────────────────── -->
+        <section id="install">
+            <h2>Install</h2>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    <strong>Available on Maven Central.</strong>
+                    No repository block needed.
+                </p>
+            </div>
+
+            <p><strong>Maven:</strong></p>
+            <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-reactive-starter&lt;/artifactId&gt;
+    &lt;version&gt;1.1.0&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+
+            <p><strong>Gradle (Groovy):</strong></p>
+            <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.0'</code></pre>
+
+            <p><strong>Gradle (Kotlin):</strong></p>
+            <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.0")</code></pre>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <strong>Fonepay in reactive apps:</strong>
+                    Add the blocking starter alongside the reactive starter.
+                    Fonepay uses URL redirect and makes no server-side HTTP
+                    calls — the blocking <code>FonepayClient</code> works
+                    perfectly in reactive apps without any changes.
+                </p>
+            </div>
+
+            <pre><code>&lt;!-- Reactive starter --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-reactive-starter&lt;/artifactId&gt;
+    &lt;version&gt;1.1.0&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- Blocking starter alongside — for FonepayClient only --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
+    &lt;version&gt;1.1.0&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+        </section>
+
+        <!-- ── Configure ─────────────────────────────────────────── -->
+        <section id="configure">
+            <h2>Configure</h2>
+
+            <p>
+                The reactive starter uses the <strong>exact same
+                <code>application.yml</code></strong> as the blocking starters.
+                No changes needed if you are migrating from blocking to reactive.
+            </p>
+
+            <pre><code>nepalpay:
+
+  khalti:
+    secret-key:  ${KHALTI_SECRET_KEY}
+    return-url:  ${KHALTI_RETURN_URL}
+    website-url: ${YOUR_WEBSITE_URL}
+    sandbox: true
+    retry:
+      enabled: true           # same retry config — uses Retry.backoff()
+      max-attempts: 3
+      initial-delay-ms: 500
+      multiplier: 2.0
+      max-delay-ms: 5000
+
+  esewa:
+    secret-key:   ${ESEWA_SECRET_KEY}
+    product-code: ${ESEWA_PRODUCT_CODE}
+    success-url:  ${ESEWA_SUCCESS_URL}
+    failure-url:  ${ESEWA_FAILURE_URL}
+    sandbox: true
+
+  connectips:
+    merchant-id:  ${CONNECTIPS_MERCHANT_ID}
+    app-id:       ${CONNECTIPS_APP_ID}
+    app-name:     ${CONNECTIPS_APP_NAME}
+    app-password: ${CONNECTIPS_APP_PASSWORD}
+    pfx-path:     ${CONNECTIPS_PFX_PATH}
+    pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+    sandbox: true
+
+  fonepay:
+    merchant-code: ${FONEPAY_MERCHANT_CODE}
+    secret-key:    ${FONEPAY_SECRET_KEY}
+    return-url:    ${FONEPAY_RETURN_URL}
+    sandbox: true</code></pre>
+        </section>
+
+        <!-- ── Inject ─────────────────────────────────────────────── -->
+        <section id="inject">
+            <h2>Inject Clients</h2>
+
+            <pre><code>@Service
+@RequiredArgsConstructor
+public class ReactivePaymentService {
+
+    // ── Reactive clients (from reactive starter) ──────────────────
+    private final KhaltiReactiveClient     khaltiReactiveClient;
+    private final EsewaReactiveClient      esewaReactiveClient;
+    private final ConnectIpsReactiveClient connectIpsReactiveClient;
+
+    // ── Fonepay — blocking client works fine in reactive apps ─────
+    // Fonepay makes NO server-side HTTP calls (URL redirect only).
+    // Inject from blocking starter alongside reactive starter.
+    private final FonepayClient fonepayClient;
+}</code></pre>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    Zero <code>@Bean</code> · Zero <code>@Configuration</code>
+                    · Zero boilerplate. Beans are auto-configured when keys
+                    are present in <code>application.yml</code>.
+                    Uses <code>@ConditionalOnMissingBean</code> — override
+                    with your own bean if needed.
+                </p>
+            </div>
+        </section>
+
+        <!-- ── Khalti ────────────────────────────────────────────── -->
+        <section id="khalti">
+            <h2>Khalti — Reactive</h2>
+
+            <div class="flow">Your Backend — khaltiReactiveClient.initiatePayment()
+                → WebClient POST to Khalti API (non-blocking)
+                → Mono&lt;KhaltiInitiateResponse&gt;
+                ↓ doOnNext: save pidx to DB
+                ↓ map: return paymentUrl to frontend
+                ↓ Frontend redirects user to paymentUrl
+                ↓ User pays on Khalti
+                ↓ Khalti redirects to your returnUrl
+                ↓
+                ⚠️ NEVER trust redirect params alone!
+                ↓
+                khaltiReactiveClient.lookupPayment(pidx)
+                → WebClient POST to Khalti lookup API
+                → Mono&lt;KhaltiLookupResponse&gt;
+                ↓ filter: isPaymentSuccessful()
+                ↓ flatMap: mark order as paid</div>
+
+            <h3>Initiate payment</h3>
+            <pre><code>public Mono&lt;String&gt; startKhalti(String orderId, long amountNPR) {
+    return khaltiReactiveClient.initiatePayment(
+        KhaltiInitiateRequest.builder()
+            .amount(amountNPR * 100L)      // NPR → paisa
+            .purchaseOrderId(orderId)
+            .purchaseOrderName("Pro Plan")
+            .build()
+    )
+    // IMPORTANT: save pidx BEFORE returning paymentUrl
+    .doOnNext(res -> orderRepo.savePidx(orderId, res.pidx()))
+    .map(KhaltiInitiateResponse::paymentUrl);
+}</code></pre>
+
+            <h3>Verify after callback</h3>
+            <pre><code>// Called at your returnUrl
+@GetMapping("/khalti/callback")
+public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
+        @RequestParam String pidx) {
+
+    return khaltiReactiveClient.lookupPayment(pidx)
+        .flatMap(lookup -> {
+            if (!lookup.isPaymentSuccessful()) {
+                return Mono.just(ResponseEntity.badRequest()
+                    .body("Not confirmed: " + lookup.status()));
+            }
+            return orderRepo.markPaid(pidx, lookup.transactionId())
+                .thenReturn(ResponseEntity.ok("Payment confirmed"));
+        });
+}</code></pre>
+
+            <h3>Full refund</h3>
+            <pre><code>public Mono&lt;Boolean&gt; refundKhalti(String transactionId) {
+    return khaltiReactiveClient
+        .refundPayment(transactionId)
+        .map(KhaltiRefundResponse::isRefundSuccessful);
+}</code></pre>
+
+            <h3>Partial refund</h3>
+            <pre><code>// Refund NPR 50 = 5000 paisa
+public Mono&lt;Boolean&gt; partialRefund(
+        String transactionId, Long amountPaisa) {
+    return khaltiReactiveClient
+        .refundPayment(transactionId, amountPaisa)
+        .map(KhaltiRefundResponse::isRefundSuccessful);
+}</code></pre>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <strong>Amount is in Paisa — not NPR.</strong>
+                    NPR 100 → send <code>10000L</code>.
+                    Refund uses <code>transactionId</code> from
+                    <code>lookupPayment()</code>, NOT <code>pidx</code>.
+                </p>
+            </div>
+        </section>
+
+        <!-- ── eSewa ─────────────────────────────────────────────── -->
+        <section id="esewa">
+            <h2>eSewa — Reactive</h2>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    <code>buildFormPayload()</code> is <strong>synchronous
+                </strong> — it generates an HMAC-SHA256 signature locally
+                    and returns immediately. No HTTP call, no
+                    <code>Mono</code> needed.
+                    Only <code>checkStatus()</code> and
+                    <code>verifyCallback()</code> are reactive.
+                </p>
+            </div>
+
+            <div class="flow">Backend: esewaReactiveClient.buildFormPayload()
+                → HMAC-SHA256 signed (synchronous, no HTTP)
+                → returns EsewaFormPayload
+                ↓
+                Frontend: POST form fields to payload.formActionUrl()
+                ↓
+                User pays on eSewa
+                ↓
+                eSewa redirects to successUrl?data=BASE64_JSON
+                ↓
+                ⚠️ NEVER trust this redirect alone!
+                ↓
+                esewaReactiveClient.verifyCallback(data)
+                → Mono.fromCallable: decode Base64
+                → MessageDigest.isEqual: verify HMAC (constant-time)
+                → WebClient GET: call eSewa status API
+                → Mono&lt;EsewaVerificationResult&gt;
+                ↓ filter: isPaymentSuccessful()
+                ↓ flatMap: mark order as paid</div>
+
+            <h3>Build form payload — synchronous</h3>
+            <pre><code>public EsewaFormPayload startEsewa(BigDecimal amountNPR) {
+    String uuid = EsewaReactiveClient.generateTransactionUuid();
+
+    // IMPORTANT: save uuid to DB BEFORE returning!
+    orderRepo.saveUuid(orderId, uuid);
+
+    // Synchronous — no HTTP, no Mono
+    // ⚠️ Amount is NPR directly — NOT paisa like Khalti
+    return esewaReactiveClient.buildFormPayload(amountNPR, uuid);
+    // Frontend POSTs all fields to payload.formActionUrl()
+}</code></pre>
+
+            <h3>With tax and charges</h3>
+            <pre><code>EsewaFormPayload payload = esewaReactiveClient.buildFormPayload(
+    new BigDecimal("100.00"),  // base amount
+    new BigDecimal("13.00"),   // tax
+    uuid,
+    BigDecimal.ZERO,           // service charge
+    BigDecimal.ZERO            // delivery charge
+    // total = 100 + 13 = 113.00
+);</code></pre>
+
+            <h3>Verify callback — reactive</h3>
+            <pre><code>// eSewa redirects to: yourSuccessUrl?data=BASE64_JSON
+@GetMapping("/esewa/callback")
+public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
+        @RequestParam String data) {
+
+    return esewaReactiveClient.verifyCallback(data)
+        .flatMap(result -> {
+            if (!result.isPaymentSuccessful()) {
+                return Mono.just(ResponseEntity.badRequest()
+                    .body("Not confirmed: "
+                        + result.statusResponse().status()));
+            }
+            String uuid = result.callbackData().transactionUuid();
+            return orderRepo.markPaid(uuid)
+                .thenReturn(ResponseEntity.ok("Payment confirmed"));
+        });
+}</code></pre>
+
+            <h3>Check status directly — reactive</h3>
+            <pre><code>public Mono&lt;Boolean&gt; checkEsewa(String uuid, String amount) {
+    return esewaReactiveClient
+        .checkStatus(uuid, amount)
+        .map(EsewaStatusResponse::isPaymentSuccessful);
+}</code></pre>
+        </section>
+
+        <!-- ── ConnectIPS ─────────────────────────────────────────── -->
+        <section id="connectips">
+            <h2>ConnectIPS — Reactive</h2>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <strong>Requires NCHL merchant registration.</strong>
+                    Contact
+                    <a href="mailto:connectips@nchl.com.np">
+                        connectips@nchl.com.np
+                    </a>
+                    to obtain credentials and your
+                    <code>CREDITOR.pfx</code> file.
+                </p>
+            </div>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    <code>buildFormPayload()</code> is
+                    <strong>synchronous</strong> — performs RSA-SHA256
+                    signing locally using the cached private key.
+                    No HTTP call, no <code>Mono</code>.<br><br>
+                    <code>validateTransaction()</code> is
+                    <strong>reactive</strong> — wraps both input
+                    validation <em>and</em> RSA signing inside
+                    <code>Mono.defer()</code> so all errors are
+                    emitted as reactive signals.
+                </p>
+            </div>
+
+            <div class="flow">Backend: connectIpsReactiveClient.buildFormPayload()
+                → validatePaymentInput() — throws → Mono.error if invalid
+                → generateRsaToken()     — RSA-SHA256 signing (synchronous)
+                → returns ConnectIpsFormPayload
+                ↓
+                Frontend: POST form to payload.formActionUrl()
+                ↓
+                User completes bank transfer on ConnectIPS
+                ↓
+                ConnectIPS redirects to your callback URL
+                ↓
+                ⚠️ NEVER trust this redirect alone!
+                ↓
+                connectIpsReactiveClient.validateTransaction(txnId, refId, amt)
+                → Mono.defer: validate inputs + generate RSA token
+                → WebClient POST: call ConnectIPS validate API (HTTP Basic Auth)
+                → Mono&lt;ConnectIpsValidateResponse&gt;
+                ↓ filter: isPaymentSuccessful()
+                ↓ flatMap: mark order as paid</div>
+
+            <h3>Build form payload — synchronous</h3>
+            <pre><code>public ConnectIpsFormPayload startConnectIps(
+        String orderId, long amountNPR) {
+
+    String txnId = "TXN-" + orderId + "-"
+            + System.currentTimeMillis();
+
+    // IMPORTANT: save txnId to DB BEFORE returning!
+    orderRepo.saveTxnId(orderId, txnId);
+
+    // Synchronous — RSA signing, no HTTP, no Mono
+    return connectIpsReactiveClient.buildFormPayload(
+        ConnectIpsPaymentRequest.builder()
+            .txnId(txnId)
+            .amountNPR(amountNPR)     // auto-converts to paisa
+            .referenceId(orderId)
+            .remarks("Payment for " + orderId)
+            .particulars("NepalPay")
+            .build()
+    );
+}</code></pre>
+
+            <h3>Validate transaction — reactive</h3>
+            <pre><code>@GetMapping("/connectips/callback")
+public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
+        @RequestParam String txnId,
+        @RequestParam String referenceId,
+        @RequestParam long txnAmt) {
+
+    return connectIpsReactiveClient
+        .validateTransaction(txnId, referenceId, txnAmt)
+        .flatMap(res -> {
+            if (!res.isPaymentSuccessful()) {
+                return Mono.just(ResponseEntity.badRequest()
+                    .body("Not confirmed: " + res.statusDesc()));
+            }
+            return orderRepo.markPaid(referenceId)
+                .thenReturn(ResponseEntity.ok("Payment confirmed"));
+        });
+}</code></pre>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    <strong>Never commit <code>CREDITOR.pfx</code>
+                        to Git.</strong>
+                    The RSA private key is cached at startup from the path
+                    configured in
+                    <code>nepalpay.connectips.pfx-path</code>.
+                    A misconfigured or missing .pfx file causes an immediate
+                    startup failure — intentional fail-fast behaviour.
+                </p>
+            </div>
+        </section>
+
+        <!-- ── Fonepay ───────────────────────────────────────────── -->
+        <section id="fonepay">
+            <h2>Fonepay — Use Blocking Client</h2>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    Fonepay uses a <strong>URL redirect model</strong> and
+                    makes <strong>zero server-side HTTP calls</strong>.
+                    The blocking <code>FonepayClient</code> is
+                    <strong>100% safe to use in reactive apps</strong>
+                    — it never touches the event loop.
+                </p>
+            </div>
+
+            <p>
+                Add the blocking starter alongside the reactive starter
+                in your <code>pom.xml</code>:
+            </p>
+
+            <pre><code>&lt;!-- Reactive starter — Khalti, eSewa, ConnectIPS reactive --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-reactive-starter&lt;/artifactId&gt;
+    &lt;version&gt;1.1.0&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- Blocking starter — for FonepayClient only --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
+    &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
+    &lt;version&gt;1.1.0&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+
+            <pre><code>@Service
+@RequiredArgsConstructor
+public class FonepayService {
+
+    // Blocking client — works fine in reactive apps
+    private final FonepayClient fonepayClient;
+
+    public String startFonepay(String orderId, double amountNPR) {
+        String prn = "FP-" + orderId;
+        // IMPORTANT: save prn to DB before returning!
+        orderRepo.savePrn(orderId, prn);
+
+        return fonepayClient.buildRedirectParams(
+            FonepayPaymentRequest.builder()
+                .prn(prn)
+                .amount(amountNPR)      // NPR directly — not paisa
+                .remarks1("Pro Plan")
+                .build()
+        ).redirectUrl();
+        // Frontend: window.location.href = redirectUrl
+    }
+
+    // Callback verification — synchronous, wrap in Mono if needed
+    public Mono&lt;Boolean&gt; verifyFonepay(
+            FonepayCallbackResponse callback) {
+        return Mono.fromCallable(() ->
+            fonepayClient.verifyCallback(callback)
+                         .isPaymentSuccessful());
+    }
+}</code></pre>
+
+            <p>
+                See the full
+                <a href="fonepay.html">Fonepay guide →</a>
+            </p>
+        </section>
+
+        <!-- ── Retry ─────────────────────────────────────────────── -->
+        <section id="retry">
+            <h2>Retry</h2>
+
+            <p>
+                The reactive starter uses Reactor's
+                <code>Retry.backoff()</code> — identical retry
+                semantics to the blocking starter but fully non-blocking.
+            </p>
+
+            <pre><code>nepalpay:
+  khalti:
+    retry:
+      enabled: true           # disabled by default — opt-in
+      max-attempts: 3         # retries after first failure
+      initial-delay-ms: 500   # first retry after 500ms
+      multiplier: 2.0         # 500 → 1000 → 2000ms
+      max-delay-ms: 5000      # never wait more than 5s</code></pre>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Scenario</th>
+                        <th>Retried?</th>
+                        <th>Reason</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>5xx server errors</td>
+                        <td><span class="pill pill-green">✅ Yes</span></td>
+                        <td>Gateway temporarily down</td>
+                    </tr>
+                    <tr>
+                        <td>Network timeout /
+                            <code>WebClientRequestException</code></td>
+                        <td><span class="pill pill-green">✅ Yes</span></td>
+                        <td>Transient network issue</td>
+                    </tr>
+                    <tr>
+                        <td>400 / 401 / 4xx</td>
+                        <td><span class="pill pill-red">❌ No</span></td>
+                        <td>Bad request — retrying won't help</td>
+                    </tr>
+                    <tr>
+                        <td>Signature failure</td>
+                        <td><span class="pill pill-red">❌ No</span></td>
+                        <td>Security alert — must not retry</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Gateway</th>
+                        <th>Methods with retry</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>Khalti</td>
+                        <td>
+                            <code>initiatePayment()</code>,
+                            <code>lookupPayment()</code>,
+                            <code>refundPayment()</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>eSewa</td>
+                        <td>
+                            <code>checkStatus()</code>
+                            (inside <code>verifyCallback()</code>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>ConnectIPS</td>
+                        <td><code>validateTransaction()</code></td>
+                    </tr>
+                    <tr>
+                        <td>Fonepay</td>
+                        <td>
+                            <span class="pill pill-gray">N/A</span>
+                            No HTTP calls
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── Error Handling ─────────────────────────────────────── -->
+        <section id="error-handling">
+            <h2>Error Handling</h2>
+
+            <p>
+                All reactive clients emit typed gateway exceptions as
+                <code>Mono.error()</code> signals — never thrown directly.
+                Handle them with <code>onErrorResume</code> or
+                <code>onErrorMap</code>.
+            </p>
+
+            <pre><code>// Handle specific gateway exceptions
+khaltiReactiveClient.initiatePayment(request)
+    .onErrorResume(KhaltiException.class, ex -> {
+        log.error("Khalti initiation failed | status={} | body={}",
+            ex.httpStatus(), ex.responseBody());
+        return Mono.error(new PaymentException(
+            "Payment gateway error", ex));
+    });
+
+// Handle all NepalPay exceptions in one place
+khaltiReactiveClient.lookupPayment(pidx)
+    .onErrorResume(NepalPayException.class, ex ->
+        Mono.just(fallbackResponse()));</code></pre>
+
+            <h3>Exception hierarchy</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Exception</th>
+                        <th>When thrown</th>
+                        <th>Fields</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><code>KhaltiException</code></td>
+                        <td>Any Khalti API failure</td>
+                        <td>
+                            <code>httpStatus()</code>,
+                            <code>responseBody()</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>EsewaException</code></td>
+                        <td>
+                            eSewa API failure,
+                            signature mismatch
+                        </td>
+                        <td>
+                            <code>httpStatus()</code>,
+                            <code>responseBody()</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>ConnectIpsException</code></td>
+                        <td>
+                            ConnectIPS API failure,
+                            RSA signing error,
+                            invalid .pfx
+                        </td>
+                        <td>
+                            <code>httpStatus()</code>,
+                            <code>responseBody()</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>FonepayException</code></td>
+                        <td>
+                            Signature mismatch,
+                            invalid PRN, config error
+                        </td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td><code>NepalPayException</code></td>
+                        <td>Base — catch all gateway errors</td>
+                        <td>—</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── Security ──────────────────────────────────────────── -->
+        <section id="security">
+            <h2>Security Rules</h2>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    <strong>Never trust redirect URL parameters alone.</strong>
+                    Always verify server-side using the reactive client
+                    — <code>lookupPayment()</code>,
+                    <code>verifyCallback()</code>,
+                    <code>validateTransaction()</code>.
+                    Redirect parameters can be forged by anyone.
+                </p>
+            </div>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    <strong>Always save identifiers before redirecting.</strong>
+                    Save <code>pidx</code>, <code>uuid</code>,
+                    <code>prn</code>, <code>txnId</code> to your database
+                    <em>before</em> returning a redirect URL or form payload
+                    to the frontend — even if the browser crashes mid-flow.
+                </p>
+            </div>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    <strong>eSewa uses constant-time HMAC comparison.</strong>
+                    <code>EsewaReactiveClient</code> uses
+                    <code>MessageDigest.isEqual()</code> for signature
+                    verification — prevents timing attacks.
+                </p>
+            </div>
+
+            <p>
+                See the full
+                <a href="security.html">Security guide →</a>
+            </p>
+        </section>
+
+        <!-- ── Testing ───────────────────────────────────────────── -->
+        <section id="testing">
+            <h2>Testing with StepVerifier</h2>
+
+            <p>
+                Use <code>reactor-test</code>'s
+                <code>StepVerifier</code> to assert on
+                <code>Mono</code> responses. Combine with
+                <code>MockWebServer</code> to mock HTTP responses.
+            </p>
+
+            <h3>Add test dependency</h3>
+            <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.projectreactor&lt;/groupId&gt;
+    &lt;artifactId&gt;reactor-test&lt;/artifactId&gt;
+    &lt;scope&gt;test&lt;/scope&gt;
+&lt;/dependency&gt;</code></pre>
+
+            <h3>Success assertion</h3>
+            <pre><code>@Test
+void lookupPayment_completed_isSuccessful() {
+    mockWebServer.enqueue(new MockResponse()
+        .setResponseCode(200)
+        .setHeader("Content-Type", "application/json")
+        .setBody("""
+            {"pidx":"bZQLD9","status":"Completed",
+             "total_amount":10000}
+            """));
+
+    StepVerifier.create(
+            khaltiReactiveClient.lookupPayment("bZQLD9"))
+        .expectNextMatches(res ->
+            res.isPaymentSuccessful()
+                && res.totalAmount().equals(10000L))
+        .verifyComplete();
+}</code></pre>
+
+            <h3>Error signal assertion</h3>
+            <pre><code>@Test
+void lookupPayment_nullPidx_emitsError() {
+    StepVerifier.create(
+            khaltiReactiveClient.lookupPayment(null))
+        .expectErrorMatches(err ->
+            err instanceof KhaltiException
+                && err.getMessage().contains(
+                    "pidx cannot be null"))
+        .verify();
+
+    // No HTTP call was made — validation rejected it
+    assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
+}</code></pre>
+
+            <h3>Retry assertion</h3>
+            <pre><code>@Test
+void lookupPayment_retryOnce_succeeds() {
+    // First request fails with 500
+    mockWebServer.enqueue(new MockResponse()
+        .setResponseCode(500));
+    // Second request succeeds
+    mockWebServer.enqueue(new MockResponse()
+        .setResponseCode(200)
+        .setHeader("Content-Type", "application/json")
+        .setBody("""
+            {"pidx":"bZQLD9","status":"Completed",
+             "total_amount":10000}
+            """));
+
+    StepVerifier.create(
+            retryClient.lookupPayment("bZQLD9"))
+        .expectNextMatches(KhaltiLookupResponse::isPaymentSuccessful)
+        .verifyComplete();
+
+    // Verify retry happened — 2 total requests
+    assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
+}</code></pre>
+        </section>
+
+        <!-- ── Blocking vs Reactive Reference ────────────────────── -->
+        <section id="blocking-vs-reactive">
+            <h2>Blocking vs Reactive — Full Reference</h2>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Blocking</th>
+                        <th>Reactive</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>Artifact</td>
+                        <td>
+                            <code>nepal-pay-spring-boot-3-starter</code>
+                            <br>
+                            <code>nepal-pay-spring-boot-4-starter</code>
+                        </td>
+                        <td>
+                            <code>nepal-pay-spring-boot-reactive-starter</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>HTTP client</td>
+                        <td><code>RestClient</code></td>
+                        <td><code>WebClient</code></td>
+                    </tr>
+                    <tr>
+                        <td>Khalti</td>
+                        <td><code>KhaltiClient</code></td>
+                        <td><code>KhaltiReactiveClient</code></td>
+                    </tr>
+                    <tr>
+                        <td>eSewa</td>
+                        <td><code>EsewaClient</code></td>
+                        <td><code>EsewaReactiveClient</code></td>
+                    </tr>
+                    <tr>
+                        <td>ConnectIPS</td>
+                        <td><code>ConnectIpsClient</code></td>
+                        <td><code>ConnectIpsReactiveClient</code></td>
+                    </tr>
+                    <tr>
+                        <td>Fonepay</td>
+                        <td><code>FonepayClient</code></td>
+                        <td>
+                            Use <code>FonepayClient</code>
+                            (no HTTP calls)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Return type</td>
+                        <td><code>T</code></td>
+                        <td><code>Mono&lt;T&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td>Retry</td>
+                        <td>
+                            <code>Thread.sleep()</code> loop
+                        </td>
+                        <td><code>Retry.backoff()</code></td>
+                    </tr>
+                    <tr>
+                        <td>Configuration</td>
+                        <td colspan="2">
+                            ✅ Identical — same
+                            <code>nepalpay.*</code> YAML
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Models</td>
+                        <td colspan="2">
+                            ✅ Identical — from
+                            <code>nepal-pay-core</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Exceptions</td>
+                        <td colspan="2">
+                            ✅ Identical — from
+                            <code>nepal-pay-core</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Java version</td>
+                        <td>17+ (Boot 3) / 21+ (Boot 4)</td>
+                        <td>17+</td>
+                    </tr>
+                    <tr>
+                        <td>Tests</td>
+                        <td>
+                            <code>MockWebServer</code> +
+                            <code>assertThat</code>
+                        </td>
+                        <td>
+                            <code>MockWebServer</code> +
+                            <code>StepVerifier</code>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </article>
+</div>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">🇳🇵 NepalPay</div>
+        <div class="footer-links">
+            <a href="index.html">Home</a>
+            <a href="getting-started.html">Getting Started</a>
+            <a href="security.html">Security</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank">GitHub</a>
+        </div>
+        <p class="footer-copy">MIT License</p>
+    </div>
+</footer>
+
+</body>
+</html>
