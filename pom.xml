@@ -8,13 +8,14 @@
 
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-parent</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
 
     <name>NepalPay Parent</name>
     <description>
         Parent POM for NepalPay Spring Boot Starter.
-        Multi-module project supporting Spring Boot 3.2+ and 4.x.
+        Multi-module project supporting Spring Boot 3.2+, 4.x,
+        and Spring WebFlux reactive.
     </description>
     <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
 

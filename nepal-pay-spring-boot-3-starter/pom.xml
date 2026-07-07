@@ -6,23 +6,18 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!--
-        Spring Boot starter-parent stays as parent — provides BOM for
-        all Spring dependencies. Nepal-pay-parent cannot be parent here.
-    -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.13</version>
+        <version>3.5.15</version>
         <relativePath/>
     </parent>
 
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
-    <!-- Required by Maven Central -->
     <name>NepalPay Spring Boot 3 Starter</name>
     <description>
         Spring Boot 3.2+ compatible starter for Nepal payment gateways.
@@ -31,7 +26,6 @@
     </description>
     <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
 
-    <!-- Required by Maven Central -->
     <licenses>
         <license>
             <name>MIT License</name>
@@ -39,7 +33,6 @@
         </license>
     </licenses>
 
-    <!-- Required by Maven Central -->
     <developers>
         <developer>
             <id>sujankim</id>
@@ -49,7 +42,6 @@
         </developer>
     </developers>
 
-    <!-- Required by Maven Central -->
     <scm>
         <connection>
             scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git
@@ -70,11 +62,10 @@
 
     <dependencies>
 
-        <!-- NepalPay Core — single entry, v1.0.0 only -->
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>1.0.1</version>
+            <version>1.1.0</version>
         </dependency>
 
         <dependency>
@@ -101,7 +92,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Jackson 2 — Spring Boot 3 uses com.fasterxml.jackson -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -119,12 +109,12 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -156,7 +146,6 @@
                 </configuration>
             </plugin>
 
-            <!-- Required by Maven Central -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -168,7 +157,6 @@
                 </executions>
             </plugin>
 
-            <!-- Required by Maven Central -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -185,11 +173,6 @@
                 </executions>
             </plugin>
 
-            <!--
-                Central Publishing Maven Plugin.
-                Official Sonatype plugin for Maven Central (post-OSSRH).
-                Source: https://central.sonatype.org/publish/publish-portal-maven/
-            -->
             <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>

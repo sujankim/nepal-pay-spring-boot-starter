@@ -5,10 +5,10 @@ spring:
 server:
   port: 8080
 
-# ══════════════════════════════════════════════════════════════
-# NepalPay Configuration — v0.6.0
+# ══════════════════════════════════════════════════════════════════════════
+# NepalPay Configuration — v1.1.0
 #
-# Includes: Khalti refund + Retry with exponential backoff
+# Includes: Khalti refund + Retry + Reactive (WebFlux) support
 #
 # SANDBOX CREDENTIALS (safe to use locally, never in production):
 #   eSewa: ID=9806800001  Password=Nepal@123  MPIN=1122  Token=123456
@@ -16,17 +16,24 @@ server:
 #
 # NEVER hardcode production keys here.
 # Use environment variables for all real credentials.
-# ══════════════════════════════════════════════════════════════
+#
+# NOTE: This demo uses the blocking starter for most endpoints.
+# The /api/demo/reactive/* endpoints use the reactive starter beans.
+# Both starters share this same application.yml configuration.
+# ══════════════════════════════════════════════════════════════════════════
 nepalpay:
 
-  # ── Khalti Sandbox ──────────────────────────────────────────
+  # ── Khalti Sandbox ────────────────────────────────────────────────────
+  # Used by: KhaltiClient (blocking) + KhaltiReactiveClient (reactive)
   khalti:
     secret-key:  ${KHALTI_SECRET_KEY:test_secret_key_placeholder}
     return-url:  http://localhost:8080/api/demo/khalti/callback
     website-url: http://localhost:8080
     sandbox: true
-    # ── Retry (opt-in) ────────────────────────────────────────
-    # Uncomment to enable retry with exponential backoff:
+    # ── Retry (opt-in) ──────────────────────────────────────────────────
+    # Blocking: uses Thread.sleep() loop
+    # Reactive: uses Reactor Retry.backoff() — non-blocking
+    # Uncomment to enable:
     # retry:
     #   enabled: true
     #   max-attempts: 3          # retries after first failure
@@ -34,8 +41,9 @@ nepalpay:
     #   multiplier: 2.0          # 500 → 1000 → 2000ms
     #   max-delay-ms: 5000       # never wait more than 5s
 
-  # ── eSewa Sandbox ────────────────────────────────────────────
+  # ── eSewa Sandbox ──────────────────────────────────────────────────────
   # Official eSewa sandbox credentials from developer.esewa.com.np
+  # Used by: EsewaClient (blocking) + EsewaReactiveClient (reactive)
   esewa:
     secret-key:   ${ESEWA_SECRET_KEY:8gBm/:&EnhH.1/q}
     product-code: ${ESEWA_PRODUCT_CODE:EPAYTEST}
@@ -49,10 +57,11 @@ nepalpay:
     #   multiplier: 2.0
     #   max-delay-ms: 5000
 
-  # ── ConnectIPS ───────────────────────────────────────────────
+  # ── ConnectIPS ─────────────────────────────────────────────────────────
   # Requires NCHL merchant registration before use.
   # Contact: connectips@nchl.com.np
-  # Uncomment and fill in when you have NCHL credentials:
+  # Uncomment and fill in when you have NCHL credentials.
+  # Used by: ConnectIpsClient (blocking) — reactive client also available
   #
   # connectips:
   #   merchant-id:  ${CONNECTIPS_MERCHANT_ID}
@@ -69,9 +78,11 @@ nepalpay:
   #     multiplier: 2.0
   #     max-delay-ms: 5000
 
-  # ── Fonepay ──────────────────────────────────────────────────
+  # ── Fonepay ────────────────────────────────────────────────────────────
   # Contact Fonepay or your bank for merchant credentials.
   # Note: No retry config — Fonepay makes no HTTP calls (URL redirect only).
+  # Note: FonepayClient (blocking) works fine in reactive apps too —
+  #       use it directly, no reactive wrapper needed.
   # Uncomment when you have Fonepay credentials:
   #
   # fonepay:
@@ -80,8 +91,8 @@ nepalpay:
   #   return-url:    http://localhost:8080/api/demo/fonepay/callback
   #   sandbox: true
 
-# ── Logging ──────────────────────────────────────────────────
+# ── Logging ────────────────────────────────────────────────────────────────
 logging:
   level:
-    io.nepalpay: DEBUG     # see all NepalPay internal logs while developing
-    com.example: INFO
+    io.nepalpay:   DEBUG     # see all NepalPay internal logs
+    com.example:   INFO
