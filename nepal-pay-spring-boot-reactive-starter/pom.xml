@@ -6,10 +6,6 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!--
-        Spring Boot starter-parent provides BOM for all Spring dependencies.
-        WebFlux (WebClient, Reactor) is included via spring-boot-starter-webflux.
-    -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -19,16 +15,16 @@
 
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-reactive-starter</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>NepalPay Spring Boot Reactive Starter</name>
     <description>
         Spring WebFlux reactive starter for Nepal payment gateways.
-        Returns Mono responses using WebClient — non-blocking, suitable for
-        Spring WebFlux applications. Supports Khalti, eSewa, and ConnectIPS.
-        Fonepay uses URL redirect and works in both blocking and reactive apps.
-        Spring Boot 3.2+ and Java 17+.
+        Returns Mono responses using WebClient — non-blocking, suitable
+        for Spring WebFlux applications. Supports Khalti, eSewa, and
+        ConnectIPS. Fonepay uses URL redirect and works in both blocking
+        and reactive apps. Spring Boot 3.2+ and Java 17+.
     </description>
     <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
 
@@ -68,19 +64,12 @@
 
     <dependencies>
 
-        <!-- NepalPay Core — models, exceptions, retry config -->
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>1.0.1</version>
+            <version>1.1.0</version>
         </dependency>
 
-        <!--
-            WebFlux — brings in:
-              - WebClient (non-blocking HTTP client)
-              - Reactor Core (Mono, Flux)
-              - Netty (the non-blocking server/client runtime)
-        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
@@ -110,24 +99,17 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Jackson 2 — same as Boot 3 starter -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
 
-        <!--
-            okhttp3 MockWebServer — same HTTP mocking approach as blocking tests.
-            Works with WebClient because WebClient makes real HTTP calls
-            to whatever URL you point it at (including MockWebServer).
-        -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -135,11 +117,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!--
-            reactor-test — provides StepVerifier for testing Mono/Flux.
-            This is the official Reactor testing library.
-            StepVerifier.create(mono).expectNext(value).verifyComplete()
-        -->
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-test</artifactId>

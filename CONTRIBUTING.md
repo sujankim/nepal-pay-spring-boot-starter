@@ -19,7 +19,7 @@ Click the **Fork** button at the top-right of the GitHub repository.
 ## 2. Clone your fork
 
 ```bash
-git clone https://github.com/sujankim/nepal-pay-spring-boot-starter.git
+git clone https://github.com/YOUR_USERNAME/nepal-pay-spring-boot-starter.git
 cd nepal-pay-spring-boot-starter
 ```
 

@@ -15,7 +15,7 @@
 
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>NepalPay Spring Boot 4 Starter</name>
@@ -62,11 +62,10 @@
 
     <dependencies>
 
-        <!-- NepalPay Core — single entry, v1.0.0 only -->
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>1.0.1</version>
+            <version>1.1.0</version>
         </dependency>
 
         <dependency>
@@ -93,7 +92,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Jackson 3 — Spring Boot 4 uses tools.jackson -->
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -120,12 +118,12 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -157,7 +155,6 @@
                 </configuration>
             </plugin>
 
-            <!-- Required by Maven Central -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -169,7 +166,6 @@
                 </executions>
             </plugin>
 
-            <!-- Required by Maven Central -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -186,10 +182,6 @@
                 </executions>
             </plugin>
 
-            <!--
-                Central Publishing Maven Plugin.
-                Official Sonatype plugin for Maven Central (post-OSSRH).
-            -->
             <plugin>
                 <groupId>org.sonatype.central</groupId>
                 <artifactId>central-publishing-maven-plugin</artifactId>

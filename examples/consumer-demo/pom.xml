@@ -15,14 +15,14 @@
 
     <groupId>com.example</groupId>
     <artifactId>nepal-pay-consumer-demo</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>NepalPay Consumer Demo</name>
     <description>
-        Example Spring Boot 4 application demonstrating NepalPay Spring Boot 4 Starter
-        integration for Khalti, eSewa, ConnectIPS, and Fonepay payments.
-        Uses NepalPay v0.6.0 — includes refund and retry support.
+        Example Spring Boot 4 application demonstrating NepalPay v1.1.0.
+        Shows blocking and reactive payment integration for Khalti, eSewa,
+        ConnectIPS, and Fonepay. Includes refund and retry support.
     </description>
 
     <properties>
@@ -36,6 +36,15 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!--
+            WebFlux — needed for reactive controller endpoints
+            and WebClient used by reactive starter.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -43,15 +52,26 @@
         </dependency>
 
         <!--
-            NepalPay Spring Boot 4 Starter v1.0.0
-            Includes: Khalti refund + retry with exponential backoff
-            Use nepal-pay-spring-boot-3-starter for Spring Boot 3.x projects.
+            NepalPay Spring Boot 4 Starter v1.1.0 (blocking)
+            Includes: Khalti, eSewa, ConnectIPS, Fonepay
+            Uses RestClient — for blocking endpoints
         -->
-        <!-- Update to use Maven Central coordinates -->
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-            <version>1.0.1</version>
+            <version>1.1.0</version>
+        </dependency>
+
+        <!--
+            NepalPay Reactive Starter v1.1.0
+            Includes: KhaltiReactiveClient, EsewaReactiveClient,
+                      ConnectIpsReactiveClient
+            Uses WebClient — for reactive endpoints
+        -->
+        <dependency>
+            <groupId>io.github.sujankim</groupId>
+            <artifactId>nepal-pay-spring-boot-reactive-starter</artifactId>
+            <version>1.1.0</version>
         </dependency>
 
         <dependency>
