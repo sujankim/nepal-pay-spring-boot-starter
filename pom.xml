@@ -49,6 +49,7 @@
         <module>nepal-pay-core</module>
         <module>nepal-pay-spring-boot-3-starter</module>
         <module>nepal-pay-spring-boot-4-starter</module>
+        <module>nepal-pay-spring-boot-reactive-starter</module>
     </modules>
 
     <properties>
