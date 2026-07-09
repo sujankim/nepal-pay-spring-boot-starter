@@ -191,6 +191,13 @@ public class NepalPayAutoConfiguration {
      * <p>Fails fast at application startup with a clear error message
      * if the file cannot be found or read.
      *
+     * <p><strong>Fix (Bug #13):</strong> Uses try-with-resources to
+     * guarantee the {@link java.io.InputStream} is closed after reading,
+     * even if an exception is thrown during {@code readAllBytes()}.
+     * The previous implementation called {@code resource.getInputStream()}
+     * without closing it — file descriptors accumulated on each application
+     * restart, eventually exhausting the OS file descriptor limit.
+     *
      * @param pfxPath        path to the .pfx file (Spring Resource format)
      * @param resourceLoader Spring ResourceLoader
      * @return file contents as byte array
@@ -214,7 +221,10 @@ public class NepalPayAutoConfiguration {
                                 ". Ensure the file exists at this location on your server.");
             }
 
-            byte[] bytes = resource.getInputStream().readAllBytes();
+            final byte[] bytes;
+            try (var inputStream = resource.getInputStream()) {
+                bytes = inputStream.readAllBytes();
+            }
 
             if (bytes.length == 0) {
                 throw new ConnectIpsException(

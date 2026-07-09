@@ -15,7 +15,7 @@
 
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-reactive-starter</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <packaging>jar</packaging>
 
     <name>NepalPay Spring Boot Reactive Starter</name>
@@ -67,7 +67,7 @@
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
-            <version>1.1.0</version>
+            <version>1.1.1</version>
         </dependency>
 
         <dependency>

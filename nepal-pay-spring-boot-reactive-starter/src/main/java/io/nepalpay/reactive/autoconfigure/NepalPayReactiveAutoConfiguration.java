@@ -121,26 +121,54 @@ public class NepalPayReactiveAutoConfiguration {
 
     // ── Private helpers ───────────────────────────────────────────────────
 
+    /**
+     * Load .pfx file bytes from a Spring Resource path.
+     *
+     * <p>Fails fast at application startup with a clear error message
+     * if the file cannot be found or read.
+     *
+     * <p><strong></strong> Uses try-with-resources to
+     * guarantee the {@link java.io.InputStream} is closed after reading,
+     * even if an exception is thrown during {@code readAllBytes()}.
+     * The previous implementation called {@code resource.getInputStream()}
+     * without closing it — file descriptors accumulated on each application
+     * restart, eventually exhausting the OS file descriptor limit.
+     *
+     * @param pfxPath        path to the .pfx file (Spring Resource format)
+     * @param resourceLoader Spring ResourceLoader
+     * @return file contents as byte array
+     * @throws ConnectIpsException if file cannot be loaded
+     */
     private byte[] loadPfxBytes(String pfxPath, ResourceLoader resourceLoader) {
         if (pfxPath == null || pfxPath.isBlank()) {
             throw new ConnectIpsException(
                     "ConnectIPS pfx-path is not configured. " +
                             "Set nepalpay.connectips.pfx-path in application.yml.");
         }
+
         try {
             Resource resource = resourceLoader.getResource(pfxPath);
+
             if (!resource.exists()) {
                 throw new ConnectIpsException(
                         "ConnectIPS .pfx file not found at: " + pfxPath);
             }
-            byte[] bytes = resource.getInputStream().readAllBytes();
+
+            final byte[] bytes;
+            try (var inputStream = resource.getInputStream()) {
+                bytes = inputStream.readAllBytes();
+            }
+
             if (bytes.length == 0) {
                 throw new ConnectIpsException(
                         "ConnectIPS .pfx file is empty at: " + pfxPath);
             }
+
             log.info("[NepalPay Reactive] ConnectIPS .pfx loaded" +
                     " | path={} | bytes={}", pfxPath, bytes.length);
+
             return bytes;
+
         } catch (ConnectIpsException e) {
             throw e;
         } catch (Exception e) {

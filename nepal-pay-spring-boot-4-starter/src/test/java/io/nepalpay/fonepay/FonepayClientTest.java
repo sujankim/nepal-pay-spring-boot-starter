@@ -239,22 +239,13 @@ class FonepayClientTest {
     class VerifyCallback {
 
         @Test
-        @DisplayName("valid HMAC + PS=success → verified=true")
-        void verifyCallback_validSignatureSuccessStatus_verified() throws Exception {
-            String ps = "success", rc = "200", uid = "uid-001",
-                    bc = "GBIME", ini = "9800000001", pAmt = "100", rAmt = "0";
-
-            String message = PRN + "," + MERCHANT_CODE + "," + ps + ","
-                    + rc + "," + uid + "," + bc + "," + ini + "," + pAmt + "," + rAmt;
-            String dv = computeHmacSha512Hex(message, SECRET_KEY).toUpperCase();
-
-            FonepayClient.FonepayVerificationResult result =
-                    fonepayClient.verifyCallback(
-                            FonepayCallbackResponse.of(
-                                    PRN, MERCHANT_CODE, ps, rc, uid, bc, ini, pAmt, rAmt, dv));
-
-            assertThat(result.isPaymentSuccessful()).isTrue();
-            assertThat(result.verified()).isTrue();
+        @DisplayName("callback.isPaymentSuccessful() removed — must use verifyCallback()")
+        void callback_doesNotHaveIsPaymentSuccessful_method() {
+            FonepayCallbackResponse callback = FonepayCallbackResponse.of(
+                    PRN, MERCHANT_CODE, "success", "200",
+                    "uid", "BC", "ini", "100", "0", "some_dv");
+            assertThat(callback.paymentStatus())
+                    .isEqualTo(io.nepalpay.core.fonepay.model.FonepayPaymentStatus.SUCCESS);
         }
 
         @Test

@@ -270,7 +270,7 @@ public final class FonepayClient {
             );
         }
 
-        boolean paymentSuccess = callback.isPaymentSuccessful();
+        boolean paymentSuccess = callback.paymentStatus().isSuccess();
 
         log.info("[NepalPay] Fonepay callback verified | prn={} | ps={} | success={}",
                 callback.prn(), callback.ps(), paymentSuccess);
