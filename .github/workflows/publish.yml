@@ -1,5 +1,13 @@
 name: Publish to Maven Central
 
+# ── Action version note ──────────────────────────────────────────────────
+# actions/checkout@v5 and actions/setup-java@v5 require
+# Actions runner 2.327.1+ (Node.js 24).
+#
+# This is safe for NepalPay because ALL jobs use runs-on: ubuntu-latest
+# (GitHub-hosted runners) which are always kept up to date by GitHub.
+# See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20
+# ─────────────────────────────────────────────────────────────────────────
 on:
   release:
     types: [ published ]
