@@ -490,18 +490,21 @@ class KhaltiClientTest {
         }
 
         @Test
-        @DisplayName("isRefundSuccessful() = false when refunded=false in response")
-        void refundPayment_refundedFalseInResponse_isRefundSuccessfulFalse() {
+        @DisplayName("isRefundSuccessful() = true when refunded=true but status=null")
+        void refundPayment_refundedTrueButStatusNull_isSuccessful() {
             mockWebServer.enqueue(new MockResponse()
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {"pidx":"bZQLD9","transaction_id":"GFq9DrfGSZQKjsj","refunded":false,"status":"Pending"}
-                            """));
+                    {"pidx":"bZQLD9","transaction_id":"GFq9DrfGSZQKjsj",
+                     "refunded":true,"status":null}
+                    """));
 
             KhaltiRefundResponse response = khaltiClient.refundPayment("GFq9DrfGSZQKjsj");
-            assertThat(response.isRefundSuccessful()).isFalse();
-            assertThat(response.paymentStatus()).isEqualTo(KhaltiPaymentStatus.PENDING);
+            assertThat(response.isRefundSuccessful()).isTrue();
+            assertThat(response.refunded()).isTrue();
+            assertThat(response.paymentStatus())
+                    .isEqualTo(KhaltiPaymentStatus.UNKNOWN);
         }
 
         @Test
