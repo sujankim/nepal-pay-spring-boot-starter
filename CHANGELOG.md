@@ -1,12 +1,72 @@
 # Changelog
 
 All notable changes to NepalPay Spring Boot Starter.
-
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-# [v1.1.0] - 2026-07-07
+## [v1.1.1] - 2026-07-09
+
+### Fixed
+
+#### Bug #9 — `KhaltiRefundResponse.isRefundSuccessful()` false-negative
+- **File:** `nepal-pay-core` — `KhaltiRefundResponse.java`
+- **Problem:** Previous implementation used a double-check:
+  `Boolean.TRUE.equals(refunded) && paymentStatus().isRefunded()`
+  When Khalti returned `refunded=true` alongside a `null` or unexpected
+  `status` string, `paymentStatus()` returned `UNKNOWN`,
+  `isRefunded()` returned `false`, and the whole expression evaluated
+  to `false` — even though Khalti confirmed the refund was successful.
+  This could cause double-refunds on retry.
+- **Fix:** Use the `refunded` boolean field as the sole source of truth:
+  `Boolean.TRUE.equals(refunded)`
+  The `refunded` boolean is a dedicated field — no string parsing needed,
+  never ambiguous, and is what Khalti's own docs recommend checking.
+
+#### Bug #8 — `FonepayCallbackResponse.isPaymentSuccessful()` security footgun
+- **File:** `nepal-pay-core` — `FonepayCallbackResponse.java`
+- **Problem:** A public `isPaymentSuccessful()` method on the raw callback
+  record checked only `PS=success` without any HMAC-SHA512 verification.
+  A developer calling `callback.isPaymentSuccessful()` directly would skip
+  `FonepayClient.verifyCallback()` entirely — accepting a forged
+  `PS=success` redirect parameter as a confirmed payment with zero
+  cryptographic verification.
+- **Fix:** Removed `isPaymentSuccessful()` from `FonepayCallbackResponse`
+  entirely. The only safe path is `FonepayClient.verifyCallback(callback)`
+  which verifies the HMAC-SHA512 `DV` signature first and only then checks
+  the payment status. The `FonepayVerificationResult` it returns exposes
+  `isPaymentSuccessful()` — safely, after the HMAC check has passed.
+  `FonepayClient.verifyCallback()` updated to use
+  `callback.paymentStatus().isSuccess()` internally.
+
+#### Bug #13 — `getInputStream()` resource leak in all auto-configurations
+- **Files:**
+  - `nepal-pay-spring-boot-3-starter` — `NepalPayAutoConfiguration.java`
+  - `nepal-pay-spring-boot-4-starter` — `NepalPayAutoConfiguration.java`
+  - `nepal-pay-spring-boot-reactive-starter` — `NepalPayReactiveAutoConfiguration.java`
+- **Problem:** All three `loadPfxBytes()` methods called
+  `resource.getInputStream().readAllBytes()` without closing the stream.
+  On Kubernetes rolling restarts or crash loops, each startup opened a new
+  `FileInputStream` to `CREDITOR.pfx` and never closed it. File descriptors
+  accumulated until the OS limit was reached, causing the application to
+  crash with `java.io.IOException: Too many open files`.
+- **Fix:** Wrapped `getInputStream()` in `try-with-resources` across all
+  three auto-configuration files. The JVM now guarantees
+  `inputStream.close()` is called after `readAllBytes()` completes —
+  even if `readAllBytes()` throws an exception.
+
+### Tests Added
+- `KhaltiClientTest`: regression test for `refunded=true` + `status=null`
+  → `isRefundSuccessful()=true` (Boot 3 + Boot 4)
+- `FonepayClientTest`: regression test documenting that
+  `FonepayCallbackResponse` no longer has `isPaymentSuccessful()` —
+  safe path goes through `verifyCallback()` (Boot 3 + Boot 4)
+- `NepalPayAutoConfigurationTest`: regression test for empty `.pfx` file
+  → context fails fast with clear `ConnectIpsException` (Boot 3 + Boot 4)
+
+---
+
+## [v1.1.0] - 2026-07-07
 
 ## Added
 
