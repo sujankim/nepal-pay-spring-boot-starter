@@ -327,6 +327,32 @@ class NepalPayAutoConfigurationTest {
                     )
                     .run(context -> assertThat(context).hasFailed());
         }
+
+        @Test
+        @DisplayName("context fails cleanly when pfx-path points to empty file")
+        void connectIpsClient_emptyPfxFile_contextFails() {
+            try {
+                java.nio.file.Path emptyPfx =
+                        java.nio.file.Files.createTempFile("empty", ".pfx");
+                emptyPfx.toFile().deleteOnExit();
+
+                contextRunner
+                        .withPropertyValues(
+                                "nepalpay.connectips.merchant-id=123",
+                                "nepalpay.connectips.app-id=APP-001",
+                                "nepalpay.connectips.app-name=TestApp",
+                                "nepalpay.connectips.app-password=password",
+                                "nepalpay.connectips.pfx-path=file:"
+                                        + emptyPfx.toAbsolutePath(),
+                                "nepalpay.connectips.pfx-password=pfxpass"
+                        )
+                        .run(context -> assertThat(context).hasFailed());
+
+            } catch (java.io.IOException e) {
+                org.junit.jupiter.api.Assertions.fail(
+                        "Could not create temp file for test: " + e.getMessage());
+            }
+        }
     }
 
     // ── FonepayClient ─────────────────────────────────────────────────────
