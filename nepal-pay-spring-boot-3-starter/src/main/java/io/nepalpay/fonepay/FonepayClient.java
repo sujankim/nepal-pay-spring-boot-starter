@@ -223,7 +223,7 @@ public final class FonepayClient {
      * <ol>
      *   <li>Re-computes the HMAC-SHA512 signature from callback fields</li>
      *   <li>Compares it with the {@code DV} parameter from Fonepay</li>
-     *   <li>Checks payment status is "success"</li>
+     *   <li>Checks payment status is "success" — only AFTER HMAC passes</li>
      * </ol>
      *
      * <p>Only returns a successful result if BOTH signature matches
@@ -234,7 +234,8 @@ public final class FonepayClient {
      *
      * @param callback parsed callback parameters from Fonepay redirect
      * @return verification result with payment status
-     * @throws FonepayException if signature verification fails or params are missing
+     * @throws FonepayException if signature verification fails or params
+     *                          are missing
      */
     public FonepayVerificationResult verifyCallback(FonepayCallbackResponse callback) {
         if (callback == null) {
@@ -246,7 +247,7 @@ public final class FonepayClient {
         log.debug("[NepalPay] Fonepay verifying callback | prn={} | ps={}",
                 callback.prn(), callback.ps());
 
-        // Build response signature message — field order MANDATORY per Fonepay spec:
+        // Build response signature message — field order MANDATORY per spec:
         // PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT
         String message = callback.prn()  + "," + callback.pid()  + ","
                 + callback.ps()   + "," + callback.rc()   + ","
@@ -262,15 +263,15 @@ public final class FonepayClient {
                 : "";
 
         if (!expectedDv.equals(receivedDv)) {
-            log.error("[NepalPay] Fonepay signature MISMATCH — possible tampering! prn={}",
-                    callback.prn());
+            log.error("[NepalPay] Fonepay signature MISMATCH — possible tampering!" +
+                    " prn={}", callback.prn());
             throw new FonepayException(
                     "Fonepay callback signature verification FAILED. " +
                             "Possible tampered response. PRN=" + callback.prn()
             );
         }
 
-        boolean paymentSuccess = callback.isPaymentSuccessful();
+        boolean paymentSuccess = callback.paymentStatus().isSuccess();
 
         log.info("[NepalPay] Fonepay callback verified | prn={} | ps={} | success={}",
                 callback.prn(), callback.ps(), paymentSuccess);

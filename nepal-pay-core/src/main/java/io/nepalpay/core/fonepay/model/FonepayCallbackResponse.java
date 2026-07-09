@@ -3,8 +3,8 @@ package io.nepalpay.core.fonepay.model;
 /**
  * Callback parameters received from Fonepay after payment.
  *
- * <p>Fonepay redirects to your return URL with these as GET query parameters.
- * Example redirect:
+ * <p>Fonepay redirects to your return URL with these as GET query
+ * parameters. Example redirect:
  * <pre>
  * GET /api/payment/fonepay/callback
  *     ?PRN=ORD-001-123456
@@ -19,9 +19,19 @@ package io.nepalpay.core.fonepay.model;
  *     &amp;DV=HMAC_SHA512_HEX_UPPERCASE
  * </pre>
  *
- * <p>ALWAYS verify the {@code DV} signature before trusting {@code PS}.
- * Use {@code FonepayClient.verifyCallback()} which
- * does signature verification automatically.
+ * <p><strong>SECURITY — ALWAYS verify the {@code DV} signature
+ * before trusting {@code PS}.</strong>
+ * Use {@code FonepayClient.verifyCallback()} which performs
+ * HMAC-SHA512 signature verification automatically.
+ *
+ * <p><strong>Why there is no {@code isPaymentSuccessful()} method
+ * on this record:</strong>
+ * Calling {@code PS} alone to determine payment success is a
+ * security vulnerability — any attacker can change {@code PS=failed}
+ * to {@code PS=success} in the redirect URL. The only safe way to
+ * confirm a Fonepay payment is to verify the {@code DV} HMAC-SHA512
+ * signature first via {@code FonepayClient.verifyCallback()}.
+ * The result of THAT call exposes {@code isPaymentSuccessful()}.
  *
  * @param prn   Your original Product Reference Number
  * @param pid   Fonepay merchant code
@@ -32,7 +42,8 @@ package io.nepalpay.core.fonepay.model;
  * @param ini   Transaction initiator identifier
  * @param pAmt  Paid amount
  * @param rAmt  Refund amount
- * @param dv    HMAC-SHA512 signature for verification (hex, uppercase)
+ * @param dv    HMAC-SHA512 signature — MUST be verified before
+ *              trusting any other field in this record
  */
 public record FonepayCallbackResponse(
         String prn,
@@ -48,24 +59,23 @@ public record FonepayCallbackResponse(
 ) {
 
     /**
-     * Returns the typed payment status.
+     * Returns the typed payment status parsed from {@code PS}.
      *
-     * @return typed {@link FonepayPaymentStatus}
+     * <p><strong>WARNING: Do NOT use this alone to determine payment
+     * success.</strong> The {@code PS} parameter can be forged by an
+     * attacker. Always call
+     * {@code FonepayClient.verifyCallback(FonepayCallbackResponse)}
+     * first — it verifies the HMAC-SHA512 {@code DV} signature and
+     * THEN checks this status.
+     *
+     * <p>This method is intentionally kept for internal use by
+     * {@code FonepayClient} — it is called only AFTER signature
+     * verification has already passed.
+     *
+     * @return typed {@link FonepayPaymentStatus} — never null
      */
     public FonepayPaymentStatus paymentStatus() {
         return FonepayPaymentStatus.fromString(this.ps);
-    }
-
-    /**
-     * Returns true only if Fonepay reported payment as successful.
-     * NOTE: Always call
-     * {@code FonepayClient.verifyCallback()} instead —
-     * it verifies the HMAC signature BEFORE checking this status.
-     *
-     * @return true if payment status is success
-     */
-    public boolean isPaymentSuccessful() {
-        return paymentStatus().isSuccess();
     }
 
     /**
