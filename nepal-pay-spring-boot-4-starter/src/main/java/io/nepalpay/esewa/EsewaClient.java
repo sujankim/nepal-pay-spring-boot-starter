@@ -1,5 +1,6 @@
 package io.nepalpay.esewa;
 
+import tools.jackson.databind.json.JsonMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.config.NepalPayProperties;
 import io.nepalpay.core.esewa.model.EsewaCallbackData;
@@ -12,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -29,8 +29,6 @@ import java.util.function.Supplier;
  *
  * <p>Uses Jackson 3 ({@code tools.jackson.databind.json.JsonMapper})
  * for Base64 callback decoding.
- * This is the only difference from the Boot 3 variant which uses
- * {@code com.fasterxml.jackson.databind.ObjectMapper} (Jackson 2).
  *
  * <p>This client provides:
  * <ul>
@@ -71,18 +69,13 @@ public final class EsewaClient {
             "total_amount,transaction_uuid,product_code";
 
     /**
-     * Shared JsonMapper instance — Boot 4 uses Jackson 3.
+     * Shared ObjectMapper instance for decoding eSewa Base64 callback data.
      *
-     * <p>Boot 4 uses {@code tools.jackson.databind.json.JsonMapper}
-     * (Jackson 3) instead of Boot 3's
-     * {@code com.fasterxml.jackson.databind.ObjectMapper} (Jackson 2).
-     * This is the only code difference between the two starter variants.
-     *
-     * <p>JsonMapper is thread-safe after construction and expensive to
-     * build. Using a static singleton avoids creating a new instance on
-     * every payment callback.
+     * <p>ObjectMapper is thread-safe after configuration and expensive to
+     * construct. Using a static singleton avoids creating and discarding a
+     * new instance on every payment callback.
      */
-    private static final JsonMapper JSON_MAPPER =
+    private static final JsonMapper OBJECT_MAPPER =
             JsonMapper.builder().build();
 
     // ── Fields ────────────────────────────────────────────────────────────
@@ -126,10 +119,7 @@ public final class EsewaClient {
      * <p><strong>NOTE:</strong>
      * A separate {@code EsewaClient(props, builder, MeterRegistry)} overload
      * was removed because it was ambiguous with this constructor when
-     * {@code null} was passed. Use the 4-arg constructor
-     * {@link #EsewaClient(NepalPayProperties.EsewaProperties,
-     * RestClient.Builder, String, MeterRegistry)} to inject a
-     * {@link MeterRegistry} instead.
+     * {@code null} was passed. Use the 4-arg constructor to inject metrics.
      *
      * @param props                 eSewa properties
      * @param restClientBuilder     RestClient builder
@@ -148,7 +138,13 @@ public final class EsewaClient {
      *
      * <p>Used by {@code NepalPayMetricsAutoConfiguration} to inject a
      * {@link MeterRegistry} when Actuator is on the classpath.
-     * Exposed as {@code public} to avoid constructor ambiguity.
+     * Exposed as {@code public} to avoid constructor ambiguity — passing
+     * {@code null} for {@code meterRegistry} is safe and disables metrics.
+     *
+     * <p>This replaces the removed
+     * {@code EsewaClient(props, builder, MeterRegistry)} 3-arg overload
+     * which was ambiguous with the String test constructor when {@code null}
+     * was passed.
      *
      * @param props                 eSewa properties from application.yml
      * @param restClientBuilder     Spring Boot RestClient builder
@@ -204,7 +200,7 @@ public final class EsewaClient {
      * @param serviceCharge   Service charge in NPR ({@code null} = zero)
      * @param deliveryCharge  Delivery charge in NPR ({@code null} = zero)
      * @return Signed form payload to return to frontend
-     * @throws EsewaException if signature generation fails
+     * @throws EsewaException if validation or signature generation fails
      */
     public EsewaFormPayload buildFormPayload(
             BigDecimal amount,
@@ -218,6 +214,11 @@ public final class EsewaClient {
         BigDecimal tax      = taxAmount      != null ? taxAmount      : BigDecimal.ZERO;
         BigDecimal service  = serviceCharge  != null ? serviceCharge  : BigDecimal.ZERO;
         BigDecimal delivery = deliveryCharge != null ? deliveryCharge : BigDecimal.ZERO;
+
+        if (tax.signum() < 0 || service.signum() < 0 || delivery.signum() < 0) {
+            throw new EsewaException(
+                    "Charge components (tax, service, delivery) cannot be negative");
+        }
 
         BigDecimal total = amount.add(tax).add(service).add(delivery)
                 .setScale(2, RoundingMode.HALF_UP);
@@ -275,7 +276,7 @@ public final class EsewaClient {
      * <ol>
      *   <li>Decodes Base64 callback data</li>
      *   <li>Verifies HMAC-SHA256 signature</li>
-     *   <li>Calls eSewa status API (with retry if configured)</li>
+     *   <li>Calls eSewa status API — timed separately (C-12 fix)</li>
      * </ol>
      *
      * <p>Records {@code nepalpay.esewa.callback.verify.duration} timer
@@ -372,14 +373,22 @@ public final class EsewaClient {
     // PRIVATE — HTTP execution
     // ─────────────────────────────────────────────────────────────────────
 
+    /**
+     * Inner verifyCallback logic — wrapped by metrics timer in public method.
+     *
+     * <p><strong>Fix (C-12):</strong> Routes the status check through
+     * {@link #checkStatus} so it is timed by
+     * {@code nepalpay.esewa.status.check.duration} even when called from
+     * inside verifyCallback. Previously {@code doCheckStatus} was called
+     * directly, bypassing the metrics timer.
+     */
     private EsewaVerificationResult doVerifyCallback(String encodedData) {
         EsewaCallbackData callbackData = decodeCallbackData(encodedData);
         verifyCallbackSignature(callbackData);
 
-        EsewaStatusResponse statusResponse =
-                doCheckStatus(
-                        callbackData.transactionUuid(),
-                        callbackData.totalAmount());
+        EsewaStatusResponse statusResponse = checkStatus(
+                callbackData.transactionUuid(),
+                callbackData.totalAmount());
 
         boolean verified = statusResponse.isPaymentSuccessful();
 
@@ -392,6 +401,9 @@ public final class EsewaClient {
                 callbackData, statusResponse, verified);
     }
 
+    /**
+     * Inner checkStatus logic — wrapped by metrics timer in public method.
+     */
     private EsewaStatusResponse doCheckStatus(
             String transactionUuid, String totalAmount) {
 
@@ -523,10 +535,8 @@ public final class EsewaClient {
                     .decode(encodedData.trim());
             String jsonString = new String(
                     decodedBytes, StandardCharsets.UTF_8);
-            log.debug("[NepalPay] eSewa decoded callback JSON: {}",
-                    jsonString);
 
-            return JSON_MAPPER.readValue(jsonString, EsewaCallbackData.class);
+            return OBJECT_MAPPER.readValue(jsonString, EsewaCallbackData.class);
         } catch (IllegalArgumentException e) {
             throw new EsewaException(
                     "Failed to decode eSewa Base64 callback data. " +

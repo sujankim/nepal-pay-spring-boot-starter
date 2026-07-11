@@ -508,6 +508,7 @@ public class FonepayService {
 
     // Blocking client — works fine in reactive apps
     private final FonepayClient fonepayClient;
+    private final OrderRepository orderRepo;   // ← declare injected repo
 
     public String buildRedirect(String orderId, double amountNPR) {
         String prn = "FP-" + orderId;
@@ -525,7 +526,7 @@ public class FonepayService {
     // Optional: wrap in Mono if needed for reactive pipeline
     public Mono&lt;Boolean&gt; verifyFonepay(
             FonepayCallbackResponse callback) {
-        return Mono.fromCallable(() ->
+        return Mono.fromCallable(() -&gt;
             fonepayClient.verifyCallback(callback)
                          .isPaymentSuccessful());
     }

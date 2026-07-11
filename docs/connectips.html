@@ -137,10 +137,11 @@
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
-                    The <strong>RSA private key is cached at startup</strong>
-                    from your CREDITOR.pfx file. If the .pfx is invalid or
-                    missing, the application fails fast at startup with a
-                    clear error — not silently at payment time.
+                    The <code>TOKEN</code> field contains the RSA-SHA256 digital
+                    signature generated from your CREDITOR.pfx private key.
+                    The signature is computed on your server and sent to the frontend
+                    as a form value — only the <strong>CREDITOR.pfx private key</strong>
+                    never leaves your server.
                 </p>
             </div>
         </section>
@@ -485,7 +486,7 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
     // so all errors are emitted as Mono.error() signals
     return connectIpsReactiveClient
         .validateTransaction(txnId, referenceId, txnAmt)
-        .flatMap(res -> {
+        .flatMap(res -&gt; {
             if (!res.isPaymentSuccessful()) {
                 return Mono.just(ResponseEntity.badRequest()
                     .body("Not confirmed: " + res.statusDesc()));
