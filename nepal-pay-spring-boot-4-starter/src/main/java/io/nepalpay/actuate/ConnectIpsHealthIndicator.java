@@ -8,7 +8,7 @@ import org.springframework.boot.health.contributor.HealthIndicator;
  * Spring Boot Actuator {@link HealthIndicator} for the ConnectIPS gateway.
  *
  * <p>Exposed at:
- * <pre>GET /actuator/health/nepalpayConnectIpsHealthIndicator</pre>
+ * <pre>GET /actuator/health/nepalpayConnectIps</pre>
  *
  * <p>Design decision — config-only, no HTTP ping.
  *

@@ -54,14 +54,14 @@ class KhaltiReactiveHealthIndicatorTest {
     }
 
     @Test
-    @DisplayName("health() is non-blocking — completes without blocking")
-    void health_isNonBlocking() {
-        // Mono.fromCallable completes immediately — no blocking
+    @DisplayName("health() completes and returns UP status via StepVerifier")
+    void health_completesAndReturnsUp() {
         KhaltiReactiveHealthIndicator indicator =
                 new KhaltiReactiveHealthIndicator(buildClient(true));
 
-        Health health = indicator.health().block();
-        assertThat(health).isNotNull();
-        assertThat(health.getStatus()).isEqualTo(Status.UP);
+        StepVerifier.create(indicator.health())
+                .assertNext(h ->
+                        assertThat(h.getStatus()).isEqualTo(Status.UP))
+                .verifyComplete();
     }
 }
