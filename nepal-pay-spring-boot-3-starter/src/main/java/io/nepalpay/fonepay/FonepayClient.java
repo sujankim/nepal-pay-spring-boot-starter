@@ -13,6 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
@@ -36,7 +37,7 @@ import java.util.HexFormat;
  * If this client is constructed with a {@link MeterRegistry}, event
  * counters are recorded — redirects built, callbacks verified, signature
  * failures. No Timers — Fonepay makes no server-side HTTP calls.
- * Full auto-configuration wiring is in v1.2.0.
+ * Metrics auto-configuration is active — wired via NepalPayMetricsAutoConfiguration.
  *
  * @author Sujan Lamichhane
  */
@@ -218,7 +219,6 @@ public final class FonepayClient {
         log.debug("[NepalPay] Fonepay redirect built | prn={} | amt={} | date={}",
                 prn, amtStr, date);
 
-        //  Increment redirect built counter if metrics available
         if (metrics != null) {
             metrics.incrementRedirectBuilt();
         }
@@ -235,7 +235,8 @@ public final class FonepayClient {
      * <p>This method:
      * <ol>
      *   <li>Re-computes HMAC-SHA512 from callback fields</li>
-     *   <li>Compares with the {@code DV} parameter from Fonepay</li>
+     *   <li>Compares with the {@code DV} parameter from Fonepay using
+     *       constant-time comparison to prevent timing attacks</li>
      *   <li>Checks payment status is "success" — only AFTER HMAC passes</li>
      * </ol>
      *
@@ -270,16 +271,18 @@ public final class FonepayClient {
                 + callback.ini()  + "," + callback.pAmt() + ","
                 + callback.rAmt();
 
-        String expectedDv = generateHmacSha512Hex(message, props.secretKey())
-                .toUpperCase();
-        String receivedDv = callback.dv() != null
-                ? callback.dv().toUpperCase() : "";
+        byte[] expectedBytes = generateHmacSha512Hex(
+                message, props.secretKey())
+                .toUpperCase()
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] receivedBytes = (callback.dv() != null
+                ? callback.dv().toUpperCase() : "")
+                .getBytes(StandardCharsets.UTF_8);
 
-        if (!expectedDv.equals(receivedDv)) {
+        if (!MessageDigest.isEqual(expectedBytes, receivedBytes)) {
             log.error("[NepalPay] Fonepay SIGNATURE MISMATCH — " +
                     "possible tampering! prn={}", callback.prn());
 
-            //  Increment signature failure counter
             if (metrics != null) {
                 metrics.incrementSignatureFailed();
             }
@@ -295,7 +298,6 @@ public final class FonepayClient {
                         " | ps={} | success={}",
                 callback.prn(), callback.ps(), paymentSuccess);
 
-        //  Increment success or failed counter
         if (metrics != null) {
             if (paymentSuccess) {
                 metrics.incrementCallbackSuccess();
@@ -363,7 +365,7 @@ public final class FonepayClient {
             mac.init(keySpec);
             byte[] rawHmac = mac.doFinal(
                     message.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(rawHmac); // Java 17+ HexFormat
+            return HexFormat.of().formatHex(rawHmac);
         } catch (Exception e) {
             throw new FonepayException(
                     "Failed to generate HMAC-SHA512 signature: "

@@ -88,8 +88,8 @@
                 <div class="hero-stat-l">Tests passing</div>
             </div>
             <div>
-                <div class="hero-stat-n">3+2</div>
-                <div class="hero-stat-l">Boot 3 · Boot 4 · Reactive</div>
+                <div class="hero-stat-n">3</div>
+                <div class="hero-stat-l">Starters</div>
             </div>
             <div>
                 <div class="hero-stat-n">0</div>
@@ -428,7 +428,7 @@ public class PaymentService {
         <div class="section-label">Retry with Exponential Backoff</div>
         <h2 class="section-title">Built-in retry — opt-in per gateway</h2>
         <p class="section-desc">
-            Retry is disabled by default. Enable it for any gateway with four YAML lines.
+            Retry is disabled by default. Enable it for any HTTP-backed gateway with four YAML lines.
         </p>
 
         <pre><code>nepalpay:
@@ -476,6 +476,10 @@ public class PaymentService {
         <p style="color:var(--text-3);font-size:0.875rem;margin-top:1rem">
             <strong>Retries:</strong> 5xx errors and network timeouts &nbsp;·&nbsp;
             <strong>No retries:</strong> 4xx errors and signature failures
+            &nbsp;·&nbsp;
+            <strong>Note:</strong> Refund retries require idempotency — verify
+            the refund status with <code>lookupPayment()</code> before retrying
+            to avoid double-refunds.
         </p>
     </div>
 </section>

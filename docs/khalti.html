@@ -209,9 +209,12 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String pidx) {
     KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
 
     if (!lookup.isPaymentSuccessful()) {
-        return ResponseEntity.badRequest()
-            .body("Not confirmed: " + lookup.status());
+        return ResponseEntity.badRequest().body("Not confirmed");
     }
+
+    // Load orderId from DB using the saved pidx mapping
+    String orderId = orderRepo.findOrderByPidx(pidx);
+    orderService.markAsPaid(orderId, lookup.transactionId());
 
     // ✅ Verify amount was not tampered
     long expectedPaisa = orderRepo.getAmount(pidx);
@@ -369,7 +372,7 @@ if (refund.isRefundSuccessful()) {
                     </thead>
                     <tbody>
                     <tr>
-                        <td><code>COMPLETED</code></td>
+                        <td><code>Completed</code></td>
                         <td><span class="pill pill-ok">true</span></td>
                         <td>—</td>
                         <td>—</td>
@@ -507,7 +510,7 @@ if (request.getParam("status").equals("Completed")) {
             .purchaseOrderName("Pro Plan")
             .build()
     )
-    .doOnNext(res -> orderRepo.savePidx(orderId, res.pidx()))
+    .doOnNext(res -&gt; orderRepo.savePidx(orderId, res.pidx()))
     .map(KhaltiInitiateResponse::paymentUrl);
 }</code></pre>
 
@@ -517,13 +520,18 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         @RequestParam String pidx) {
 
     return khaltiReactiveClient.lookupPayment(pidx)
-        .flatMap(lookup -> {
-            if (!lookup.isPaymentSuccessful()) {
-                return Mono.just(ResponseEntity.badRequest()
-                    .body("Not confirmed: " + lookup.status()));
-            }
-            return orderRepo.markPaid(pidx, lookup.transactionId())
-                .thenReturn(ResponseEntity.ok("Payment confirmed"));
+    .flatMap(lookup -&gt; {
+        if (!lookup.isPaymentSuccessful()) {
+            return Mono.just(ResponseEntity.badRequest()
+                .body("Not confirmed"));
+        }
+        long expectedPaisa = orderRepo.getAmountPaisa(orderId);
+        if (!lookup.isAmountValid(expectedPaisa)) {
+            return Mono.just(ResponseEntity.badRequest()
+                .body("Amount mismatch — possible tampering"));
+        }
+        return orderRepo.markPaid(orderId)
+            .thenReturn(ResponseEntity.ok("Payment confirmed"));
         });
 }</code></pre>
 

@@ -204,7 +204,7 @@ public Mono&lt;String&gt; pay() {
 public Mono&lt;ConnectIpsValidateResponse&gt; validateTransaction(
         String txnId, String referenceId, long txnAmtPaisa) {
 
-    return Mono.defer(() -> {
+    return Mono.defer(() -&gt; {
         // Validation inside defer — becomes Mono.error if invalid
         try {
             validatePaymentInput(txnId, referenceId, txnAmtPaisa);
@@ -369,7 +369,7 @@ public class ReactivePaymentService {
             .build()
     )
     // IMPORTANT: save pidx BEFORE returning paymentUrl
-    .doOnNext(res -> orderRepo.savePidx(orderId, res.pidx()))
+    .doOnNext(res -&gt; orderRepo.savePidx(orderId, res.pidx()))
     .map(KhaltiInitiateResponse::paymentUrl);
 }</code></pre>
 
@@ -380,7 +380,7 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         @RequestParam String pidx) {
 
     return khaltiReactiveClient.lookupPayment(pidx)
-        .flatMap(lookup -> {
+        .flatMap(lookup -&gt; {
             if (!lookup.isPaymentSuccessful()) {
                 return Mono.just(ResponseEntity.badRequest()
                     .body("Not confirmed: " + lookup.status()));
@@ -440,7 +440,7 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         @RequestParam String data) {
 
     return esewaReactiveClient.verifyCallback(data)
-        .flatMap(result -> {
+        .flatMap(result -&gt; {
             if (!result.isPaymentSuccessful()) {
                 return Mono.just(ResponseEntity.badRequest()
                     .body("Not confirmed: "
@@ -505,7 +505,7 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
 
     return connectIpsReactiveClient
         .validateTransaction(txnId, referenceId, txnAmt)
-        .flatMap(res -> {
+        .flatMap(res -&gt; {
             if (!res.isPaymentSuccessful()) {
                 return Mono.just(ResponseEntity.badRequest()
                     .body("Not confirmed: " + res.statusDesc()));
@@ -555,7 +555,7 @@ public class FonepayService {
     // Wrap in Mono.fromCallable if needed in reactive pipeline
     public Mono&lt;Boolean&gt; verifyFonepay(
             FonepayCallbackResponse callback) {
-        return Mono.fromCallable(() ->
+        return Mono.fromCallable(() -&gt;
             fonepayClient.verifyCallback(callback)
                          .isPaymentSuccessful());
     }
@@ -668,7 +668,7 @@ public class FonepayService {
 
             <pre><code>// Handle specific gateway exceptions
 khaltiReactiveClient.initiatePayment(request)
-    .onErrorResume(KhaltiException.class, ex -> {
+    .onErrorResume(KhaltiException.class, ex -&gt; {
         log.error("Khalti initiation failed | status={} | body={}",
             ex.httpStatus(), ex.responseBody());
         return Mono.error(
@@ -677,7 +677,7 @@ khaltiReactiveClient.initiatePayment(request)
 
 // Handle all NepalPay exceptions in one place
 khaltiReactiveClient.lookupPayment(pidx)
-    .onErrorResume(NepalPayException.class, ex ->
+    .onErrorResume(NepalPayException.class, ex -&gt;
         Mono.just(fallbackResponse()));</code></pre>
 
             <h3>Exception hierarchy</h3>
@@ -752,7 +752,7 @@ void lookupPayment_completed_isSuccessful() {
 
     StepVerifier.create(
             khaltiReactiveClient.lookupPayment("bZQLD9"))
-        .expectNextMatches(res ->
+        .expectNextMatches(res -&gt;
             res.isPaymentSuccessful()
                 && res.totalAmount().equals(10000L))
         .verifyComplete();
@@ -763,7 +763,7 @@ void lookupPayment_completed_isSuccessful() {
 void lookupPayment_nullPidx_emitsError() {
     StepVerifier.create(
             khaltiReactiveClient.lookupPayment(null))
-        .expectErrorMatches(err ->
+        .expectErrorMatches(err -&gt;
             err instanceof KhaltiException
                 && err.getMessage().contains(
                     "pidx cannot be null"))

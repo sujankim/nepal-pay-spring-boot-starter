@@ -32,6 +32,24 @@ import org.springframework.context.annotation.Bean;
  *   <li>{@code nepalpay.health.enabled} is {@code true} (default)</li>
  * </ol>
  *
+ * <p>Health endpoint structure:
+ * <pre>
+ * GET /actuator/health
+ * {
+ *   "components": {
+ *     "nepalpayKhalti":     { "status": "UP", "details": { ... } },
+ *     "nepalpayEsewa":      { "status": "UP", "details": { ... } },
+ *     "nepalpayConnectIps": { "status": "UP", "details": { ... } },
+ *     "nepalpayFonepay":    { "status": "UP", "details": { ... } }
+ *   }
+ * }
+ * </pre>
+ *
+ * <p>Note: Spring Boot strips the {@code HealthIndicator} suffix from
+ * bean names when registering health components. Bean name
+ * {@code nepalpayKhaltiHealthIndicator} is exposed as
+ * {@code /actuator/health/nepalpayKhalti}.
+ *
  * <p>Disable health indicators:
  * <pre>
  * nepalpay:
@@ -48,14 +66,18 @@ import org.springframework.context.annotation.Bean;
 })
 @ConditionalOnClass(HealthIndicator.class)
 @ConditionalOnProperty(
-        prefix      = "nepalpay.health",
-        name        = "enabled",
-        havingValue = "true",
+        prefix         = "nepalpay.health",
+        name           = "enabled",
+        havingValue    = "true",
         matchIfMissing = true)
 public class NepalPayHealthAutoConfiguration {
 
     /**
      * Registers {@link KhaltiHealthIndicator}.
+     *
+     * <p>Bean name {@code nepalpayKhaltiHealthIndicator} — Spring Boot
+     * strips the suffix to expose at:
+     * <pre>GET /actuator/health/nepalpayKhalti</pre>
      *
      * @param khaltiClient auto-configured KhaltiClient bean
      * @return KhaltiHealthIndicator
@@ -67,12 +89,16 @@ public class NepalPayHealthAutoConfiguration {
             KhaltiClient khaltiClient) {
 
         log.info("[NepalPay Health] Registering KhaltiHealthIndicator" +
-                " → /actuator/health/nepalpayKhaltiHealthIndicator");
+                " → /actuator/health/nepalpayKhalti");
         return new KhaltiHealthIndicator(khaltiClient);
     }
 
     /**
      * Registers {@link EsewaHealthIndicator}.
+     *
+     * <p>Bean name {@code nepalpayEsewaHealthIndicator} — Spring Boot
+     * strips the suffix to expose at:
+     * <pre>GET /actuator/health/nepalpayEsewa</pre>
      *
      * @param esewaClient auto-configured EsewaClient bean
      * @return EsewaHealthIndicator
@@ -84,12 +110,20 @@ public class NepalPayHealthAutoConfiguration {
             EsewaClient esewaClient) {
 
         log.info("[NepalPay Health] Registering EsewaHealthIndicator" +
-                " → /actuator/health/nepalpayEsewaHealthIndicator");
+                " → /actuator/health/nepalpayEsewa");
         return new EsewaHealthIndicator(esewaClient);
     }
 
     /**
      * Registers {@link ConnectIpsHealthIndicator}.
+     *
+     * <p>Bean name {@code nepalpayConnectIpsHealthIndicator} — Spring Boot
+     * strips the suffix to expose at:
+     * <pre>GET /actuator/health/nepalpayConnectIps</pre>
+     *
+     * <p>If the .pfx was invalid, the {@link ConnectIpsClient} bean would
+     * not exist (fail-fast). So if this indicator is registered, the .pfx
+     * is confirmed loaded and valid.
      *
      * @param connectIpsClient auto-configured ConnectIpsClient bean
      * @return ConnectIpsHealthIndicator
@@ -101,12 +135,16 @@ public class NepalPayHealthAutoConfiguration {
             ConnectIpsClient connectIpsClient) {
 
         log.info("[NepalPay Health] Registering ConnectIpsHealthIndicator" +
-                " → /actuator/health/nepalpayConnectIpsHealthIndicator");
+                " → /actuator/health/nepalpayConnectIps");
         return new ConnectIpsHealthIndicator(connectIpsClient);
     }
 
     /**
      * Registers {@link FonepayHealthIndicator}.
+     *
+     * <p>Bean name {@code nepalpayFonepayHealthIndicator} — Spring Boot
+     * strips the suffix to expose at:
+     * <pre>GET /actuator/health/nepalpayFonepay</pre>
      *
      * @param fonepayClient auto-configured FonepayClient bean
      * @return FonepayHealthIndicator
@@ -118,7 +156,7 @@ public class NepalPayHealthAutoConfiguration {
             FonepayClient fonepayClient) {
 
         log.info("[NepalPay Health] Registering FonepayHealthIndicator" +
-                " → /actuator/health/nepalpayFonepayHealthIndicator");
+                " → /actuator/health/nepalpayFonepay");
         return new FonepayHealthIndicator(fonepayClient);
     }
 }

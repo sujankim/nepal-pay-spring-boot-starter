@@ -52,7 +52,7 @@ Works with **Spring Boot 3.2+**, **Spring Boot 4.x**, and **Spring WebFlux**.
 <dependency>
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -62,7 +62,7 @@ Works with **Spring Boot 3.2+**, **Spring Boot 4.x**, and **Spring WebFlux**.
 <dependency>
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-4-starter</artifactId>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -72,7 +72,7 @@ Works with **Spring Boot 3.2+**, **Spring Boot 4.x**, and **Spring WebFlux**.
 <dependency>
     <groupId>io.github.sujankim</groupId>
     <artifactId>nepal-pay-spring-boot-reactive-starter</artifactId>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -81,19 +81,19 @@ Works with **Spring Boot 3.2+**, **Spring Boot 4.x**, and **Spring WebFlux**.
 #### Blocking
 
 ```groovy
-implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.1.1'
+implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0'
 ```
 
 #### Reactive
 
 ```groovy
-implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.1'
+implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.2.0'
 ```
 
 ### Gradle (Kotlin)
 
 ```kotlin
-implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.1")
+implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.2.0")
 ```
 
 ---
@@ -517,9 +517,9 @@ Never:
 
 | Gateway | Status | Blocking | Reactive | Notes |
 |----------|--------|----------|----------|------|
-| Khalti | ✅ v0.5.0 | ✅ | ✅ v1.1.1 | Initiate, lookup, refunds |
-| eSewa | ✅ v0.1.0 | ✅ | ✅ v1.1.1 | Sandbox support |
-| ConnectIPS | ✅ v0.2.0 | ✅ | ✅ v1.1.1 | NCHL merchant required |
+| Khalti | ✅ v0.5.0 | ✅ | ✅ v1.2.0 | Initiate, lookup, refunds |
+| eSewa | ✅ v0.1.0 | ✅ | ✅ v1.2.0 | Sandbox support |
+| ConnectIPS | ✅ v0.2.0 | ✅ | ✅ v1.2.0 | NCHL merchant required |
 | Fonepay | ✅ v0.4.0 | ✅ | ✅ (blocking client) | Redirect only |
 
 ---

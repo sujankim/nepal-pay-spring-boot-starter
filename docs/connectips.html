@@ -50,7 +50,7 @@
 
     <div class="page-header-body">
         <div class="page-header-left">
-            <div class="page-version-pill">✅ v0.2.0</div>
+            <div class="page-version-pill">✅ v1.2.0</div>
             <h1>ConnectIPS Integration</h1>
             <p>RSA-SHA256 digital signatures via CREDITOR.pfx —
                 bank-to-bank payments through NCHL.</p>
@@ -307,7 +307,9 @@ initiateConnectIps(payload: ConnectIpsFormPayload): void {
                 <p>
                     The <code>TOKEN</code> field contains the RSA-SHA256 digital
                     signature generated from your CREDITOR.pfx private key.
-                    It is generated on your server — never exposed to the frontend.
+                    It is generated on your server using the CREDITOR.pfx private key,
+                    which never leaves your server. The signed token value is sent to
+                    the frontend as a read-only form field.
                 </p>
             </div>
         </section>
@@ -417,9 +419,10 @@ ConnectIpsValidateResponse res =
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
                 <p>
-                    The RSA token is generated entirely on your server.
-                    It never reaches the frontend. Only the signed token
-                    value is sent in the form field.
+                    The RSA token is generated entirely on your server using
+                    the CREDITOR.pfx private key, which never reaches the
+                    frontend. Only the resulting signed token value is sent
+                    in the form field.
                 </p>
             </div>
 
@@ -485,7 +488,7 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
     // so all errors are emitted as Mono.error() signals
     return connectIpsReactiveClient
         .validateTransaction(txnId, referenceId, txnAmt)
-        .flatMap(res -> {
+        .flatMap(res -&gt; {
             if (!res.isPaymentSuccessful()) {
                 return Mono.just(ResponseEntity.badRequest()
                     .body("Not confirmed: " + res.statusDesc()));
