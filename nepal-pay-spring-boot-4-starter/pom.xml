@@ -118,6 +118,20 @@
             <optional>true</optional>
         </dependency>
 
+        <!--
+        Spring Boot Actuator — optional.
+        Enables NepalPay health indicators (/actuator/health)
+        and Micrometer metrics when present on the classpath.
+        If Actuator is NOT on the classpath, NepalPay skips all
+        health and metrics auto-configuration automatically via
+        @ConditionalOnClass — zero impact on existing users.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

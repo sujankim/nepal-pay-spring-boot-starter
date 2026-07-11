@@ -75,6 +75,19 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
+        <!--
+        Spring Boot Actuator — optional.
+        Enables NepalPay reactive health indicators and Micrometer
+        metrics when present on the classpath.
+        Uses ReactiveHealthIndicator for non-blocking health checks.
+        @ConditionalOnClass guards — zero impact if Actuator absent.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
