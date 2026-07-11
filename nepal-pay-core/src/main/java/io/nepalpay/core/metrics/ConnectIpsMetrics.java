@@ -1,4 +1,4 @@
-package io.nepalpay.metrics;
+package io.nepalpay.core.metrics;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

@@ -13,9 +13,9 @@
 
     <name>NepalPay Core</name>
     <description>
-        Core models, exceptions, enums, and retry configuration for
-        NepalPay Spring Boot Starter. Zero Spring dependency.
-        Works in any Java 17+ project.
+        Core models, exceptions, enums, retry configuration, and Micrometer
+        metrics helpers for NepalPay Spring Boot Starter.
+        Zero Spring dependency. Works in any Java 17+ project.
     </description>
     <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
 
@@ -55,40 +55,61 @@
     </properties>
 
     <dependencies>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <version>2.20</version>
         </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>1.18.38</version>
             <optional>true</optional>
         </dependency>
+
+        <!--
+            Micrometer — optional.
+            Required only when metrics helper classes (KhaltiMetrics,
+            EsewaMetrics, ConnectIpsMetrics, FonepayMetrics) are used.
+            These classes live in nepal-pay-core so all starters can access
+            them without cross-module dependencies.
+            Consumers get Micrometer transitively via spring-boot-starter-actuator.
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <version>1.15.0</version>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.3</version>
+            <version>3.27.7</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
-
+            <!-- all existing plugins unchanged -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -174,7 +195,6 @@
                     <waitUntil>published</waitUntil>
                 </configuration>
             </plugin>
-
         </plugins>
     </build>
 

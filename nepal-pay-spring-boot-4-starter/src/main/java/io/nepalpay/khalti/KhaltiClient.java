@@ -7,7 +7,7 @@ import io.nepalpay.core.khalti.model.KhaltiInitiateResponse;
 import io.nepalpay.core.khalti.model.KhaltiLookupResponse;
 import io.nepalpay.core.khalti.model.KhaltiRefundResponse;
 import io.nepalpay.core.retry.RetryProperties;
-import io.nepalpay.metrics.KhaltiMetrics;
+import io.nepalpay.core.metrics.KhaltiMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Khalti Payment Gateway Client — Spring Boot 3.
+ * Khalti Payment Gateway Client — Spring Boot 4.
  *
  * <p>Provides three operations:
  * <ul>

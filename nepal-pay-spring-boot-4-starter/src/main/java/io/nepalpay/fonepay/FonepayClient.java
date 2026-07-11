@@ -6,7 +6,7 @@ import io.nepalpay.core.exception.FonepayException;
 import io.nepalpay.core.fonepay.model.FonepayCallbackResponse;
 import io.nepalpay.core.fonepay.model.FonepayPaymentRequest;
 import io.nepalpay.core.fonepay.model.FonepayRedirectParams;
-import io.nepalpay.metrics.FonepayMetrics;
+import io.nepalpay.core.metrics.FonepayMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 
 /**
- * Fonepay Payment Gateway Client for Spring Boot 3.
+ * Fonepay Payment Gateway Client for Spring Boot 4.
  *
  * <p>Fonepay uses a <strong>URL redirect model</strong>:
  * Your backend builds signed redirect parameters, constructs the redirect

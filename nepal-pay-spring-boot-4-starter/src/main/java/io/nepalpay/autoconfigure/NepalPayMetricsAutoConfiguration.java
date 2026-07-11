@@ -19,7 +19,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.web.client.RestClient;
 
 /**
- * NepalPay Metrics Auto-Configuration — Spring Boot 3.
+ * NepalPay Metrics Auto-Configuration — Spring Boot 4.
  *
  * <p>Activates only when <strong>both</strong> conditions are true:
  * <ol>

@@ -6,7 +6,7 @@ import io.nepalpay.core.exception.FonepayException;
 import io.nepalpay.core.fonepay.model.FonepayCallbackResponse;
 import io.nepalpay.core.fonepay.model.FonepayPaymentRequest;
 import io.nepalpay.core.fonepay.model.FonepayRedirectParams;
-import io.nepalpay.metrics.FonepayMetrics;
+import io.nepalpay.core.metrics.FonepayMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.util.UriComponentsBuilder;
 

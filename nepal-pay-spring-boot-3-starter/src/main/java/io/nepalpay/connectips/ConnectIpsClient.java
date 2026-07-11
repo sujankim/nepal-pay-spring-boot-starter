@@ -7,7 +7,7 @@ import io.nepalpay.core.connectips.model.ConnectIpsValidateRequest;
 import io.nepalpay.core.connectips.model.ConnectIpsValidateResponse;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.core.retry.RetryProperties;
-import io.nepalpay.metrics.ConnectIpsMetrics;
+import io.nepalpay.core.metrics.ConnectIpsMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;

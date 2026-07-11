@@ -21,10 +21,10 @@
     <name>NepalPay Spring Boot Reactive Starter</name>
     <description>
         Spring WebFlux reactive starter for Nepal payment gateways.
-        Returns Mono responses using WebClient — non-blocking, suitable
-        for Spring WebFlux applications. Supports Khalti, eSewa, and
-        ConnectIPS. Fonepay uses URL redirect and works in both blocking
-        and reactive apps. Spring Boot 3.2+ and Java 17+.
+        Returns Mono responses using WebClient — non-blocking, suitable for
+        Spring WebFlux applications. Supports Khalti, eSewa, and ConnectIPS.
+        Fonepay uses URL redirect and works in both blocking and reactive apps.
+        Spring Boot 3.2+ and Java 17+.
     </description>
     <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
 
@@ -64,33 +64,22 @@
 
     <dependencies>
 
+        <!-- NepalPay Core — models, exceptions, retry config -->
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
             <version>1.1.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
-        </dependency>
-
         <!--
-        Optional: Spring Boot Actuator.
-        NepalPay does not require Actuator, but when present on the
-        classpath it enables Micrometer-based observability.
-
-        Reactive clients accept an optional MeterRegistry constructor
-        argument — when provided, operation latency timers are recorded.
-
-        ReactiveHealthIndicator implementations and
-        @ConditionalOnClass auto-configuration are in progress
-        — coming in v1.2.0.
+            WebFlux — brings in:
+              - WebClient (non-blocking HTTP client)
+              - Reactor Core (Mono, Flux)
+              - Netty (the non-blocking server/client runtime)
         -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-            <optional>true</optional>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
         <dependency>
@@ -117,17 +106,35 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Jackson 2 — same as Boot 3 starter -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!--
+            Optional: Spring Boot Actuator.
+            Enables Micrometer observability and ReactiveHealthIndicators
+            when present on the classpath.
+            @ConditionalOnClass guards — zero impact if Actuator absent.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
 
+        <!--
+            okhttp3 MockWebServer — works with WebClient because WebClient
+            makes real HTTP calls to whatever URL you point it at.
+        -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -135,16 +142,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!--
+            reactor-test — provides StepVerifier for testing Mono/Flux.
+        -->
         <dependency>
             <groupId>io.projectreactor</groupId>
             <artifactId>reactor-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.github.sujankim</groupId>
-            <artifactId>nepal-pay-spring-boot-3-starter</artifactId>
-            <version>1.1.1</version>
-            <scope>compile</scope>
         </dependency>
 
     </dependencies>

@@ -5,7 +5,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Root configuration properties for NepalPay Spring Boot Starter.
  *
  * <p>Add to your {@code application.yml}:
  * <pre>
@@ -51,8 +50,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param esewa      eSewa payment gateway configuration
  * @param connectips ConnectIPS payment gateway configuration
  * @param fonepay    Fonepay payment gateway configuration
- * @param metrics    Micrometer metrics configuration
- * @param health     Actuator health indicator configuration
+ * @param metrics    Micrometer metrics configuration (null = enabled by default)
+ * @param health     Actuator health indicator configuration (null = enabled by default)
  */
 @ConfigurationProperties(prefix = "nepalpay")
 public record NepalPayProperties(
@@ -188,15 +187,11 @@ public record NepalPayProperties(
      * Micrometer metrics configuration.
      *
      * <p>Metrics are opt-out — enabled by default when Actuator is on
-     * the classpath. Set {@code nepalpay.metrics.enabled=false} to disable
-     * all NepalPay Micrometer timers and counters.
+     * the classpath. Set {@code nepalpay.metrics.enabled=false} to disable.
      *
-     * <p>YAML:
-     * <pre>
-     * nepalpay:
-     *   metrics:
-     *     enabled: false
-     * </pre>
+     * <p><strong>Note:</strong> This record component is {@code null} when
+     * the {@code nepalpay.metrics:} block is absent from YAML entirely.
+     * Use {@link NepalPayProperties#isMetricsEnabled()} for null-safe access.
      *
      * @param enabled true (default) = record metrics when Actuator present
      */
@@ -213,12 +208,9 @@ public record NepalPayProperties(
      * is on the classpath. Set {@code nepalpay.health.enabled=false} to
      * disable all NepalPay {@code /actuator/health} indicators.
      *
-     * <p>YAML:
-     * <pre>
-     * nepalpay:
-     *   health:
-     *     enabled: false
-     * </pre>
+     * <p><strong>Note:</strong> This record component is {@code null} when
+     * the {@code nepalpay.health:} block is absent from YAML entirely.
+     * Use {@link NepalPayProperties#isHealthEnabled()} for null-safe access.
      *
      * @param enabled true (default) = register health indicators
      */
@@ -226,20 +218,11 @@ public record NepalPayProperties(
             @DefaultValue("true") boolean enabled
     ) {}
 
-    // ── Null-safe accessors ───────────────────────────────────────────────
-
     /**
      * Returns true if Micrometer metrics are enabled.
      *
-     * <p><strong>Why this exists:</strong>
-     * Spring Boot record binding returns {@code null} for the
-     * {@code metrics} component when the {@code nepalpay.metrics:} block
-     * is absent from {@code application.yml} entirely.
-     * {@code @DefaultValue("true")} on the {@code enabled} field only
-     * applies when the block IS present but the field is omitted.
-     * This method handles the absent-block case safely.
-     *
-     * <p>Use this instead of {@code metrics().enabled()} directly.
+     * <p>Safe to call even when the {@code nepalpay.metrics:} block is
+     * absent from {@code application.yml} — returns {@code true} in that case.
      *
      * @return true if metrics should be recorded (default when block absent)
      */
@@ -250,13 +233,8 @@ public record NepalPayProperties(
     /**
      * Returns true if Actuator health indicators are enabled.
      *
-     * <p><strong>Why this exists:</strong>
-     * Spring Boot record binding returns {@code null} for the
-     * {@code health} component when the {@code nepalpay.health:} block
-     * is absent from {@code application.yml} entirely.
-     * This method handles the absent-block case safely.
-     *
-     * <p>Use this instead of {@code health().enabled()} directly.
+     * <p>Safe to call even when the {@code nepalpay.health:} block is
+     * absent from {@code application.yml} — returns {@code true} in that case.
      *
      * @return true if health indicators should be registered (default when absent)
      */

@@ -7,7 +7,7 @@ import io.nepalpay.core.connectips.model.ConnectIpsValidateRequest;
 import io.nepalpay.core.connectips.model.ConnectIpsValidateResponse;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.core.retry.RetryProperties;
-import io.nepalpay.metrics.ConnectIpsMetrics;
+import io.nepalpay.core.metrics.ConnectIpsMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -26,7 +26,7 @@ import java.util.Base64;
 import java.util.function.Supplier;
 
 /**
- * ConnectIPS Payment Gateway Client — Spring Boot 3.
+ * ConnectIPS Payment Gateway Client — Spring Boot 4.
  *
  * <p>ConnectIPS is operated by Nepal Clearing House Ltd (NCHL).
  * Requires merchant registration — contact connectips@nchl.com.np.

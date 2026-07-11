@@ -7,7 +7,7 @@ import io.nepalpay.core.esewa.model.EsewaFormPayload;
 import io.nepalpay.core.esewa.model.EsewaStatusResponse;
 import io.nepalpay.core.exception.EsewaException;
 import io.nepalpay.core.retry.RetryProperties;
-import io.nepalpay.metrics.EsewaMetrics;
+import io.nepalpay.core.metrics.EsewaMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
