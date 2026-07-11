@@ -1,18 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Getting Started — NepalPay</title>
     <link rel="stylesheet" href="./css/styles.css">
+    <script>
+        (function () {
+            try {
+                var s = localStorage.getItem('np-theme');
+                var d = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', s || d);
+            } catch (e) {}
+        }());
+    </script>
 </head>
 <body>
 
-<div class="page-hero">
+<!-- ═══ PAGE HERO (inner pages use this — not dark hero) ═══ -->
+<div class="page-hero page-nav">
+
     <nav class="topnav">
         <div class="topnav-inner">
             <a class="nav-brand" href="index.html">
-                <span class="nav-brand-flag">🇳🇵</span> NepalPay
+                <span class="nav-brand-flag">🇳🇵</span>
+                <span class="nav-brand-name">NepalPay</span>
             </a>
             <div class="nav-links">
                 <a href="getting-started.html" class="active">Getting Started</a>
@@ -24,46 +36,65 @@
                 <a href="configuration.html">Config</a>
                 <a href="security.html">Security</a>
             </div>
-            <a class="nav-github"
-               href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
-               target="_blank">GitHub ↗</a>
+            <div class="nav-right">
+                <button class="theme-toggle"
+                        onclick="toggleTheme()"
+                        aria-label="Toggle dark mode">
+                    <span class="i-moon">🌙</span>
+                    <span class="i-sun">☀️</span>
+                </button>
+                <a class="nav-cta"
+                   href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+                   target="_blank" rel="noopener">GitHub ↗</a>
+            </div>
         </div>
     </nav>
+
     <div class="page-header-body">
         <div class="page-header-left">
-            <div class="page-version-pill">v1.1.1</div>
+            <div class="page-version-pill">v1.2.0</div>
             <h1>Getting Started</h1>
             <p>Install NepalPay and accept Nepal payments in under 5 minutes.
                 Supports blocking (RestClient) and reactive (WebClient).</p>
         </div>
     </div>
+
 </div>
 
+<!-- ═══ DOCS LAYOUT ══════════════════════════════════════ -->
 <div class="docs-wrapper">
+
+    <!-- Sidebar -->
     <aside class="sidebar">
         <nav class="sidebar-nav">
+
             <div class="sidebar-group-label">Setup</div>
             <a href="#requirements">Requirements</a>
             <a href="#choose">Choose a Starter</a>
             <a href="#install">Install</a>
             <a href="#configure">Configure</a>
+
             <div class="sidebar-group-label">Quickstart</div>
             <a href="#khalti-qs">Khalti</a>
             <a href="#esewa-qs">eSewa</a>
             <a href="#fonepay-qs">Fonepay</a>
             <a href="#connectips-qs">ConnectIPS</a>
             <a href="#reactive-qs">Reactive (WebFlux)</a>
+
             <div class="sidebar-group-label">Reference</div>
             <a href="#sandbox-creds">Sandbox Credentials</a>
             <a href="#amounts">Amount Units</a>
+
         </nav>
     </aside>
 
+    <!-- Content -->
     <article class="docs-content">
 
-        <!-- ── Requirements ──────────────────────────────────────────── -->
+        <!-- Requirements -->
         <section id="requirements">
             <h2>Requirements</h2>
+
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -98,19 +129,17 @@
             </div>
         </section>
 
-        <!-- ── Choose a Starter ──────────────────────────────────────── -->
+        <!-- Choose a Starter -->
         <section id="choose">
             <h2>Choose a Starter</h2>
 
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
-                    <strong>Not sure which to pick?</strong>
                     Use the <strong>blocking starter</strong> if your app uses
-                    Spring MVC (<code>@RestController</code>).
+                    Spring MVC (<code>@RestController</code> returning values directly).
                     Use the <strong>reactive starter</strong> if your app uses
-                    Spring WebFlux (<code>RouterFunction</code> or reactive
-                    <code>@RestController</code> returning <code>Mono</code>).
+                    Spring WebFlux (controllers returning <code>Mono</code>).
                 </p>
             </div>
 
@@ -143,25 +172,21 @@
                 <span class="callout-icon">✅</span>
                 <p>
                     The <strong>same <code>application.yml</code></strong>
-                    works for all three starters. Same
-                    <code>nepalpay.*</code> properties, same sandbox/production
-                    behaviour. Only the artifact name and injected bean types
-                    differ.
+                    works for all three starters. Same <code>nepalpay.*</code>
+                    properties, same sandbox/production behaviour.
+                    Only the artifact name and injected bean types differ.
                 </p>
             </div>
         </section>
 
-        <!-- ── Install ───────────────────────────────────────────────── -->
+        <!-- Install -->
         <section id="install">
             <h2>Install</h2>
 
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
-                <p>
-                    <strong>Available on Maven Central.</strong>
-                    No <code>&lt;repositories&gt;</code> block needed
-                    in your <code>pom.xml</code> or <code>build.gradle</code>.
-                </p>
+                <p><strong>Available on Maven Central.</strong>
+                    No <code>&lt;repositories&gt;</code> block needed.</p>
             </div>
 
             <div class="tabs">
@@ -178,55 +203,57 @@
                 <pre><code>&lt;dependency&gt;
     &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
-    &lt;version&gt;1.1.1&lt;/version&gt;
+    &lt;version&gt;1.2.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
 
                 <p><strong>Spring Boot 4.x — Blocking:</strong></p>
                 <pre><code>&lt;dependency&gt;
     &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-4-starter&lt;/artifactId&gt;
-    &lt;version&gt;1.1.1&lt;/version&gt;
+    &lt;version&gt;1.2.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
 
                 <p><strong>Spring WebFlux — Reactive (Boot 3.2+):</strong></p>
                 <pre><code>&lt;dependency&gt;
     &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-reactive-starter&lt;/artifactId&gt;
-    &lt;version&gt;1.1.1&lt;/version&gt;
+    &lt;version&gt;1.2.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
             </div>
 
             <div id="tab-gradle" class="tab-pane">
-                <p><strong>Spring Boot 3.2+ — Blocking:</strong></p>
-                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.1.1'</code></pre>
+                <p><strong>Spring Boot 3.2+:</strong></p>
+                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0'</code></pre>
 
-                <p><strong>Spring Boot 4.x — Blocking:</strong></p>
-                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.1.1'</code></pre>
+                <p><strong>Spring Boot 4.x:</strong></p>
+                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.2.0'</code></pre>
 
                 <p><strong>Spring WebFlux — Reactive:</strong></p>
-                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.1'</code></pre>
+                <pre><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.2.0'</code></pre>
             </div>
 
             <div id="tab-kts" class="tab-pane">
-                <p><strong>Spring Boot 3.2+ — Blocking:</strong></p>
-                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-3-starter:1.1.1")</code></pre>
+                <p><strong>Spring Boot 3.2+:</strong></p>
+                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0")</code></pre>
 
-                <p><strong>Spring Boot 4.x — Blocking:</strong></p>
-                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.1.1")</code></pre>
+                <p><strong>Spring Boot 4.x:</strong></p>
+                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.2.0")</code></pre>
 
                 <p><strong>Spring WebFlux — Reactive:</strong></p>
-                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.1.1")</code></pre>
+                <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.2.0")</code></pre>
             </div>
         </section>
 
-        <!-- ── Configure ─────────────────────────────────────────────── -->
+        <!-- Configure -->
         <section id="configure">
             <h2>Configure</h2>
+
             <p>
-                Add to <code>application.yml</code>. Only configure the
-                gateways you use — beans are created conditionally.
+                Add to <code>application.yml</code>. Only configure the gateways
+                you use — beans are created conditionally when keys are present.
                 The same YAML works for blocking and reactive starters.
             </p>
+
             <pre><code>nepalpay:
 
   khalti:
@@ -272,17 +299,26 @@
       initial-delay-ms: 500
       multiplier: 2.0
       max-delay-ms: 5000</code></pre>
+
+            <h3>Optional — Observability (v1.2.0)</h3>
             <p>
-                Retry works identically in both blocking and reactive starters.
-                See the
-                <a href="configuration.html#retry">retry configuration
-                    reference →</a>
+                Add <code>spring-boot-starter-actuator</code> to your project —
+                NepalPay automatically registers Micrometer timers, counters,
+                and health indicators per gateway.
             </p>
+            <pre><code>nepalpay:
+  metrics:
+    enabled: true    # opt-out: set false to disable all Micrometer metrics
+  health:
+    enabled: true    # opt-out: set false to disable /actuator/health indicators</code></pre>
+
+            <p>See the <a href="configuration.html#retry">retry configuration reference →</a></p>
         </section>
 
-        <!-- ── Khalti Quickstart ─────────────────────────────────────── -->
+        <!-- Khalti Quickstart -->
         <section id="khalti-qs">
             <h2>Khalti Quickstart</h2>
+
             <pre><code>@Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -315,12 +351,23 @@ public class PaymentService {
         return refund.isRefundSuccessful();
     }
 }</code></pre>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <strong>Amount is in Paisa, not NPR.</strong>
+                    NPR 100 → send <code>10000L</code>.
+                    Minimum payment is NPR 10 = <code>1000L</code> paisa.
+                </p>
+            </div>
+
             <p>See the full <a href="khalti.html">Khalti guide →</a></p>
         </section>
 
-        <!-- ── eSewa Quickstart ──────────────────────────────────────── -->
+        <!-- eSewa Quickstart -->
         <section id="esewa-qs">
             <h2>eSewa Quickstart</h2>
+
             <pre><code>@Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -341,12 +388,23 @@ public class PaymentService {
                           .isPaymentSuccessful();
     }
 }</code></pre>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <strong>eSewa uses NPR directly — not paisa.</strong>
+                    NPR 100 → send <code>new BigDecimal("100.00")</code>.
+                    This is the opposite of Khalti which uses paisa.
+                </p>
+            </div>
+
             <p>See the full <a href="esewa.html">eSewa guide →</a></p>
         </section>
 
-        <!-- ── Fonepay Quickstart ────────────────────────────────────── -->
+        <!-- Fonepay Quickstart -->
         <section id="fonepay-qs">
             <h2>Fonepay Quickstart</h2>
+
             <pre><code>@Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -372,23 +430,25 @@ public class PaymentService {
                             .isPaymentSuccessful();
     }
 }</code></pre>
+
             <p>See the full <a href="fonepay.html">Fonepay guide →</a></p>
         </section>
 
-        <!-- ── ConnectIPS Quickstart ─────────────────────────────────── -->
+        <!-- ConnectIPS Quickstart -->
         <section id="connectips-qs">
             <h2>ConnectIPS Quickstart</h2>
+
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
                 <p>Requires NCHL merchant registration.
-                    Contact <a href="mailto:connectips@nchl.com.np">
-                        connectips@nchl.com.np</a>.</p>
+                    Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.</p>
             </div>
+
             <pre><code>// Step 1: Build RSA-signed form payload
 ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
     ConnectIpsPaymentRequest.builder()
         .txnId("TXN-" + orderId)
-        .amountNPR(100L)      // auto-converts to paisa
+        .amountNPR(100L)      // auto-converts to paisa (×100)
         .referenceId(orderId)
         .build()
 );
@@ -397,12 +457,15 @@ ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
 // Step 2: Validate after callback
 ConnectIpsValidateResponse res =
     connectIpsClient.validateTransaction(txnId, referenceId, txnAmtPaisa);
-if (res.isPaymentSuccessful()) { /* mark as paid */ }</code></pre>
-            <p>See the full
-                <a href="connectips.html">ConnectIPS guide →</a></p>
+
+if (res.isPaymentSuccessful()) {
+    // mark order as paid
+}</code></pre>
+
+            <p>See the full <a href="connectips.html">ConnectIPS guide →</a></p>
         </section>
 
-        <!-- ── Reactive Quickstart ───────────────────────────────────── -->
+        <!-- Reactive Quickstart -->
         <section id="reactive-qs">
             <h2>Reactive (WebFlux) Quickstart</h2>
 
@@ -410,10 +473,9 @@ if (res.isPaymentSuccessful()) { /* mark as paid */ }</code></pre>
                 <span class="callout-icon">ℹ️</span>
                 <p>
                     The reactive starter returns <code>Mono&lt;T&gt;</code>
-                    for all HTTP-calling methods. Use
-                    <code>StepVerifier</code> in tests.
+                    for all HTTP-calling methods.
                     <code>buildFormPayload()</code> methods are
-                    synchronous — no <code>Mono</code> needed.
+                    synchronous — no <code>Mono</code> needed there.
                 </p>
             </div>
 
@@ -467,31 +529,10 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
                 ::isPaymentSuccessful);
 }</code></pre>
 
-            <h3>ConnectIPS — Reactive</h3>
-            <pre><code>// Step 1: Build payload — synchronous (RSA signing, no HTTP)
-public ConnectIpsFormPayload startConnectIps(String orderId) {
-    return connectIpsReactiveClient.buildFormPayload(
-        ConnectIpsPaymentRequest.builder()
-            .txnId("TXN-" + orderId)
-            .amountNPR(100L)
-            .referenceId(orderId)
-            .build()
-    );
-}
-
-// Step 2: Validate — reactive
-public Mono&lt;Boolean&gt; validateConnectIps(
-        String txnId, String refId, long amt) {
-    return connectIpsReactiveClient
-        .validateTransaction(txnId, refId, amt)
-        .map(ConnectIpsValidateResponse::isPaymentSuccessful);
-}</code></pre>
-
-            <p>See the full
-                <a href="reactive.html">Reactive guide →</a></p>
+            <p>See the full <a href="reactive.html">Reactive guide →</a></p>
         </section>
 
-        <!-- ── Sandbox Credentials ───────────────────────────────────── -->
+        <!-- Sandbox Credentials -->
         <section id="sandbox-creds">
             <h2>Sandbox Credentials</h2>
 
@@ -502,65 +543,42 @@ public Mono&lt;Boolean&gt; validateConnectIps(
                     <tr><th>Field</th><th>Value</th></tr>
                     </thead>
                     <tbody>
-                    <tr>
-                        <td>eSewa ID</td>
-                        <td><code>9806800001</code></td>
-                    </tr>
-                    <tr>
-                        <td>Password</td>
-                        <td><code>Nepal@123</code></td>
-                    </tr>
-                    <tr>
-                        <td>MPIN</td>
-                        <td><code>1122</code></td>
-                    </tr>
-                    <tr>
-                        <td>Token</td>
-                        <td><code>123456</code></td>
-                    </tr>
-                    <tr>
-                        <td>Secret Key</td>
-                        <td><code>8gBm/:&amp;EnhH.1/q</code></td>
-                    </tr>
-                    <tr>
-                        <td>Product Code</td>
-                        <td><code>EPAYTEST</code></td>
-                    </tr>
+                    <tr><td>eSewa ID</td><td><code>9806800001</code></td></tr>
+                    <tr><td>Password</td><td><code>Nepal@123</code></td></tr>
+                    <tr><td>MPIN</td><td><code>1122</code></td></tr>
+                    <tr><td>Token</td><td><code>123456</code></td></tr>
+                    <tr><td>Secret Key</td><td><code>8gBm/:&amp;EnhH.1/q</code></td></tr>
+                    <tr><td>Product Code</td><td><code>EPAYTEST</code></td></tr>
                     </tbody>
                 </table>
             </div>
 
             <h3>Khalti Sandbox</h3>
             <p>Get your test secret key from
-                <a href="https://test-admin.khalti.com"
-                   target="_blank">test-admin.khalti.com</a>.</p>
+                <a href="https://test-admin.khalti.com" target="_blank" rel="noopener">test-admin.khalti.com</a>.
+            </p>
 
             <h3>Fonepay Sandbox</h3>
             <p>
-                Sandbox gateway:
-                <code>https://dev.fonepay.com/api/merchantRequest</code><br>
-                Credentials are provided after registration with Fonepay
-                via your bank.
+                Sandbox gateway: <code>https://dev.fonepay.com/api/merchantRequest</code><br>
+                Credentials are provided after registration with Fonepay via your bank.
             </p>
 
             <h3>ConnectIPS Sandbox</h3>
             <p>
-                UAT gateway:
-                <code>https://uat.connectips.com</code><br>
+                UAT gateway: <code>https://uat.connectips.com</code><br>
                 Requires NCHL merchant registration.
-                Contact
-                <a href="mailto:connectips@nchl.com.np">
-                    connectips@nchl.com.np
-                </a>.
+                Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.
             </p>
         </section>
 
-        <!-- ── Amount Units ──────────────────────────────────────────── -->
+        <!-- Amount Units -->
         <section id="amounts">
             <h2>Amount Units Per Gateway</h2>
+
             <p>
-                This is the most common source of confusion.
-                Each gateway uses different units.
+                This is the most common source of bugs when integrating Nepal
+                payment gateways. Each gateway uses different units.
                 The same units apply for both blocking and reactive clients.
             </p>
 
@@ -591,26 +609,38 @@ public Mono&lt;Boolean&gt; validateConnectIps(
     </article>
 </div>
 
+<!-- ═══ FOOTER ═══════════════════════════════════════ -->
 <footer class="footer">
     <div class="footer-inner">
-        <div class="footer-brand">🇳🇵 NepalPay</div>
+        <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
             <a href="reactive.html">Reactive</a>
+            <a href="configuration.html">Config</a>
+            <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
-               target="_blank">GitHub</a>
-            <a href="https://sujanlamichhane.com.np" target="_blank">Author</a>
+               target="_blank" rel="noopener">GitHub</a>
+            <a href="https://sujanlamichhane.com.np"
+               target="_blank" rel="noopener">Author</a>
         </div>
-        <p class="footer-copy">MIT License</p>
+        <p class="footer-copy">MIT © 2026 · Built for Nepal's developers 🇳🇵</p>
     </div>
 </footer>
 
 <script>
+    function toggleTheme() {
+        var r = document.documentElement;
+        var c = r.getAttribute('data-theme') || 'light';
+        var n = c === 'dark' ? 'light' : 'dark';
+        r.setAttribute('data-theme', n);
+        try { localStorage.setItem('np-theme', n); } catch (e) {}
+    }
+
     function showTab(name, btn) {
-        document.querySelectorAll('.tab-pane')
-            .forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn')
-            .forEach(b  => b.classList.remove('active'));
+        var ps = document.querySelectorAll('.tab-pane');
+        var bs = document.querySelectorAll('.tab-btn');
+        for (var i = 0; i < ps.length; i++) ps[i].classList.remove('active');
+        for (var j = 0; j < bs.length; j++) bs[j].classList.remove('active');
         document.getElementById('tab-' + name).classList.add('active');
         btn.classList.add('active');
     }
