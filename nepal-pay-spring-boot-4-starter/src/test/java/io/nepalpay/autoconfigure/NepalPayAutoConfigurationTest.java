@@ -531,6 +531,72 @@ class NepalPayAutoConfigurationTest {
                         assertThat(context).doesNotHaveBean(ConnectIpsClient.class);
                     });
         }
-    }
 
+        @Nested
+        @DisplayName("MetricsProperties and HealthProperties")
+        class MetricsAndHealthPropertiesTests {
+
+            @Test
+            @DisplayName("isMetricsEnabled() returns true by default")
+            void isMetricsEnabled_trueByDefault() {
+                contextRunner
+                        .withPropertyValues(
+                                "nepalpay.khalti.secret-key=test_key",
+                                "nepalpay.khalti.return-url=https://example.com/cb"
+                        )
+                        .run(context -> {
+                            NepalPayProperties props =
+                                    context.getBean(NepalPayProperties.class);
+                            assertThat(props.isMetricsEnabled()).isTrue();
+                        });
+            }
+
+            @Test
+            @DisplayName("isHealthEnabled() returns true by default")
+            void isHealthEnabled_trueByDefault() {
+                contextRunner
+                        .withPropertyValues(
+                                "nepalpay.khalti.secret-key=test_key",
+                                "nepalpay.khalti.return-url=https://example.com/cb"
+                        )
+                        .run(context -> {
+                            NepalPayProperties props =
+                                    context.getBean(NepalPayProperties.class);
+                            assertThat(props.isHealthEnabled()).isTrue();
+                        });
+            }
+
+            @Test
+            @DisplayName("isMetricsEnabled() returns false when disabled")
+            void isMetricsEnabled_falseWhenDisabled() {
+                contextRunner
+                        .withPropertyValues(
+                                "nepalpay.khalti.secret-key=test_key",
+                                "nepalpay.khalti.return-url=https://example.com/cb",
+                                "nepalpay.metrics.enabled=false"
+                        )
+                        .run(context -> {
+                            NepalPayProperties props =
+                                    context.getBean(NepalPayProperties.class);
+                            assertThat(props.isMetricsEnabled()).isFalse();
+                        });
+            }
+
+            @Test
+            @DisplayName("isHealthEnabled() returns false when disabled")
+            void isHealthEnabled_falseWhenDisabled() {
+                contextRunner
+                        .withPropertyValues(
+                                "nepalpay.khalti.secret-key=test_key",
+                                "nepalpay.khalti.return-url=https://example.com/cb",
+                                "nepalpay.health.enabled=false"
+                        )
+                        .run(context -> {
+                            NepalPayProperties props =
+                                    context.getBean(NepalPayProperties.class);
+                            assertThat(props.isHealthEnabled()).isFalse();
+                        });
+            }
+        }
+    }
 }

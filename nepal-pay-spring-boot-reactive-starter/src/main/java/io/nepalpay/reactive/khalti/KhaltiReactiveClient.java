@@ -31,7 +31,8 @@ import java.util.Map;
  * <p><strong>Metrics:</strong>
  * If constructed with a {@link MeterRegistry}, all three HTTP operations
  * are timed using {@link Timer.Sample} with reactive
- * {@code doOnSuccess}/{@code doOnError}. Retry attempts are counted.
+ * {@code doOnSuccess}/{@code doOnError}. Retry attempts are counted
+ * per operation — initiate, lookup, and refund each have their own counter.
  * When no {@link MeterRegistry} is provided, metrics are silently skipped.
  *
  * @author Sujan Lamichhane
@@ -188,7 +189,6 @@ public final class KhaltiReactiveClient {
             KhaltiInitiateRequest request) {
 
         return Mono.defer(() -> {
-            // Validation inside Mono.defer — errors are reactive signals
             try {
                 validateInitiateRequest(request);
             } catch (KhaltiException e) {
@@ -237,7 +237,8 @@ public final class KhaltiReactiveClient {
                                     " | pidx={} | orderId={}",
                             res.pidx(), finalRequest.purchaseOrderId()));
 
-            return timedInitiate(mono.transform(this::withRetry));
+            return timedInitiate(mono.transform(m -> withRetry(m,
+                    metrics != null ? metrics::incrementInitiateRetry : null)));
         });
     }
 
@@ -288,7 +289,8 @@ public final class KhaltiReactiveClient {
                         res.pidx(), res.status(),
                         res.isPaymentSuccessful()));
 
-        return timedLookup(mono.transform(this::withRetry));
+        return timedLookup(mono.transform(m -> withRetry(m,
+                metrics != null ? metrics::incrementLookupRetry : null)));
     }
 
     /**
@@ -386,62 +388,41 @@ public final class KhaltiReactiveClient {
                                 " | txnId={} | success={}",
                         transactionId, res.isRefundSuccessful()));
 
-        return timedRefund(mono.transform(this::withRetry));
+        return timedRefund(mono.transform(m -> withRetry(m,
+                metrics != null ? metrics::incrementRefundRetry : null)));
     }
 
     // ─────────────────────────────────────────────────────────────────────
     // PRIVATE — Reactive timer helpers
-    //
-    // Uses Timer.Sample + doOnSuccess/doOnError — correct reactive pattern.
-    // Supplier<T> is BLOCKING — never use it in a reactive pipeline.
-    // Timer accessors come from KhaltiMetrics (not this class).
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Wraps a Mono with initiatePayment timing.
-     * No-op when metrics is null.
-     */
     private <T> Mono<T> timedInitiate(Mono<T> source) {
         if (metrics == null) return source;
         return Mono.defer(() -> {
             Timer.Sample sample = Timer.start();
             return source
-                    .doOnSuccess(v -> sample.stop(
-                            metrics.initiateSuccessTimer()))
-                    .doOnError(e -> sample.stop(
-                            metrics.initiateErrorTimer()));
+                    .doOnSuccess(v -> sample.stop(metrics.initiateSuccessTimer()))
+                    .doOnError(e -> sample.stop(metrics.initiateErrorTimer()));
         });
     }
 
-    /**
-     * Wraps a Mono with lookupPayment timing.
-     * No-op when metrics is null.
-     */
     private <T> Mono<T> timedLookup(Mono<T> source) {
         if (metrics == null) return source;
         return Mono.defer(() -> {
             Timer.Sample sample = Timer.start();
             return source
-                    .doOnSuccess(v -> sample.stop(
-                            metrics.lookupSuccessTimer()))
-                    .doOnError(e -> sample.stop(
-                            metrics.lookupErrorTimer()));
+                    .doOnSuccess(v -> sample.stop(metrics.lookupSuccessTimer()))
+                    .doOnError(e -> sample.stop(metrics.lookupErrorTimer()));
         });
     }
 
-    /**
-     * Wraps a Mono with refundPayment timing.
-     * No-op when metrics is null.
-     */
     private <T> Mono<T> timedRefund(Mono<T> source) {
         if (metrics == null) return source;
         return Mono.defer(() -> {
             Timer.Sample sample = Timer.start();
             return source
-                    .doOnSuccess(v -> sample.stop(
-                            metrics.refundSuccessTimer()))
-                    .doOnError(e -> sample.stop(
-                            metrics.refundErrorTimer()));
+                    .doOnSuccess(v -> sample.stop(metrics.refundSuccessTimer()))
+                    .doOnError(e -> sample.stop(metrics.refundErrorTimer()));
         });
     }
 
@@ -451,16 +432,22 @@ public final class KhaltiReactiveClient {
 
     /**
      * Applies Reactor retry with exponential backoff.
-     * Increments KhaltiMetrics retry counter on each attempt.
+     *
+     * <p><strong>Fix (D-53):</strong> Accepts a per-call-site
+     * {@code retryIncrement} so initiate/lookup/refund retries each
+     * increment their own counter instead of always incrementing initiate.
      *
      * <p>Retries on:
      * <ul>
      *   <li>{@link WebClientRequestException} — network failures</li>
-     *   <li>{@link KhaltiException} with httpStatus=0 or >=500</li>
+     *   <li>{@link KhaltiException} with httpStatus = 0 or >= 500</li>
      * </ul>
      * Never retries 4xx.
+     *
+     * @param source          the Mono to apply retry to
+     * @param retryIncrement  per-operation retry counter — null = no counter
      */
-    private <T> Mono<T> withRetry(Mono<T> source) {
+    private <T> Mono<T> withRetry(Mono<T> source, Runnable retryIncrement) {
         if (!retryProps.isActive()) return source;
 
         return source.retryWhen(
@@ -479,9 +466,8 @@ public final class KhaltiReactiveClient {
                                             " attempt {} | cause={}",
                                     signal.totalRetries() + 1,
                                     signal.failure().getMessage());
-                            // ✅ Increment retry counter per attempt
-                            if (metrics != null) {
-                                metrics.incrementInitiateRetry();
+                            if (retryIncrement != null) {
+                                retryIncrement.run();
                             }
                         })
         ).onErrorMap(

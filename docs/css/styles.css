@@ -566,7 +566,6 @@ pre code { background: none; border: none; padding: 0; color: inherit; font-size
    ══════════════════════════════════════════════════════ */
 .code-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 
-.code-compare-block {}
 
 .code-compare-label {
     display: inline-flex; align-items: center; gap: 6px;

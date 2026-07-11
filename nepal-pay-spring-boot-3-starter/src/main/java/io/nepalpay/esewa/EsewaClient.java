@@ -42,7 +42,7 @@ import java.util.function.Supplier;
  * HTTP operations are timed and signature failures counted via
  * {@link EsewaMetrics}. When no {@link MeterRegistry} is provided,
  * all metric recording is silently skipped — zero impact on existing
- * users without Actuator. Full auto-configuration wiring is in v1.2.0.
+ * users without Actuator.
  *
  * <p>Official eSewa docs: https://developer.esewa.com.np/pages/Epay-V2
  *
@@ -115,13 +115,10 @@ public final class EsewaClient {
      *
      * <p>Used in tests to point the client at {@code MockWebServer}.
      *
-     * <p><strong>NOTE (CodeRabbit fix):</strong>
+     * <p><strong>NOTE:</strong>
      * A separate {@code EsewaClient(props, builder, MeterRegistry)} overload
-     * was removed because it was ambiguous with this constructor at the call
-     * site when {@code null} was passed. Use the 4-arg constructor
-     * {@link #EsewaClient(NepalPayProperties.EsewaProperties,
-     * RestClient.Builder, String, MeterRegistry)} to inject a
-     * {@link MeterRegistry} instead.
+     * was removed because it was ambiguous with this constructor when
+     * {@code null} was passed. Use the 4-arg constructor to inject metrics.
      *
      * @param props                 eSewa properties
      * @param restClientBuilder     RestClient builder
@@ -150,9 +147,7 @@ public final class EsewaClient {
      *
      * @param props                 eSewa properties from application.yml
      * @param restClientBuilder     Spring Boot RestClient builder
-     * @param statusBaseUrlOverride Status API base URL — pass
-     *   {@code props.sandbox() ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL}
-     *   for production use, or a {@code MockWebServer} URL in tests
+     * @param statusBaseUrlOverride Status API base URL
      * @param meterRegistry         Micrometer registry — null = no metrics
      */
     public EsewaClient(
@@ -204,7 +199,7 @@ public final class EsewaClient {
      * @param serviceCharge   Service charge in NPR ({@code null} = zero)
      * @param deliveryCharge  Delivery charge in NPR ({@code null} = zero)
      * @return Signed form payload to return to frontend
-     * @throws EsewaException if signature generation fails
+     * @throws EsewaException if validation or signature generation fails
      */
     public EsewaFormPayload buildFormPayload(
             BigDecimal amount,
@@ -218,6 +213,11 @@ public final class EsewaClient {
         BigDecimal tax      = taxAmount      != null ? taxAmount      : BigDecimal.ZERO;
         BigDecimal service  = serviceCharge  != null ? serviceCharge  : BigDecimal.ZERO;
         BigDecimal delivery = deliveryCharge != null ? deliveryCharge : BigDecimal.ZERO;
+
+        if (tax.signum() < 0 || service.signum() < 0 || delivery.signum() < 0) {
+            throw new EsewaException(
+                    "Charge components (tax, service, delivery) cannot be negative");
+        }
 
         BigDecimal total = amount.add(tax).add(service).add(delivery)
                 .setScale(2, RoundingMode.HALF_UP);
@@ -275,7 +275,7 @@ public final class EsewaClient {
      * <ol>
      *   <li>Decodes Base64 callback data</li>
      *   <li>Verifies HMAC-SHA256 signature</li>
-     *   <li>Calls eSewa status API (with retry if configured)</li>
+     *   <li>Calls eSewa status API — timed separately (C-12 fix)</li>
      * </ol>
      *
      * <p>Records {@code nepalpay.esewa.callback.verify.duration} timer
@@ -374,15 +374,20 @@ public final class EsewaClient {
 
     /**
      * Inner verifyCallback logic — wrapped by metrics timer in public method.
+     *
+     * <p><strong>Fix (C-12):</strong> Routes the status check through
+     * {@link #checkStatus} so it is timed by
+     * {@code nepalpay.esewa.status.check.duration} even when called from
+     * inside verifyCallback. Previously {@code doCheckStatus} was called
+     * directly, bypassing the metrics timer.
      */
     private EsewaVerificationResult doVerifyCallback(String encodedData) {
         EsewaCallbackData callbackData = decodeCallbackData(encodedData);
         verifyCallbackSignature(callbackData);
 
-        EsewaStatusResponse statusResponse =
-                doCheckStatus(
-                        callbackData.transactionUuid(),
-                        callbackData.totalAmount());
+        EsewaStatusResponse statusResponse = checkStatus(
+                callbackData.transactionUuid(),
+                callbackData.totalAmount());
 
         boolean verified = statusResponse.isPaymentSuccessful();
 
@@ -397,7 +402,6 @@ public final class EsewaClient {
 
     /**
      * Inner checkStatus logic — wrapped by metrics timer in public method.
-     * Also called from doVerifyCallback (already under verify timer).
      */
     private EsewaStatusResponse doCheckStatus(
             String transactionUuid, String totalAmount) {
@@ -490,7 +494,6 @@ public final class EsewaClient {
                     throw e;
                 }
 
-                // Increment Micrometer retry counter if metrics available
                 if (retryIncrement != null) {
                     retryIncrement.run();
                 }
@@ -531,8 +534,7 @@ public final class EsewaClient {
                     .decode(encodedData.trim());
             String jsonString = new String(
                     decodedBytes, StandardCharsets.UTF_8);
-            log.debug("[NepalPay] eSewa decoded callback JSON: {}",
-                    jsonString);
+
             return OBJECT_MAPPER.readValue(jsonString, EsewaCallbackData.class);
         } catch (IllegalArgumentException e) {
             throw new EsewaException(
@@ -571,7 +573,6 @@ public final class EsewaClient {
                                 "possible tampering! uuid={}",
                         data.transactionUuid());
 
-                // Increment signature failure counter if metrics available
                 if (metrics != null) {
                     metrics.incrementSignatureFailed();
                 }

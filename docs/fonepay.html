@@ -318,7 +318,7 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
             <pre><code>// Angular
 initiatePayment(orderId: string, amount: number): void {
     this.paymentService.startFonepay(orderId, amount).subscribe(res => {
-        window.location.href = res.redirect_url;
+        window.location.href = res.redirectUrl;
     });
 }
 
@@ -350,7 +350,7 @@ fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
             </p>
 
             <pre><code>@GetMapping("/fonepay/callback")
-public ResponseEntity&lt;String&gt; callback(
+public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
         @RequestParam String PRN,
         @RequestParam String PID,
         @RequestParam String PS,

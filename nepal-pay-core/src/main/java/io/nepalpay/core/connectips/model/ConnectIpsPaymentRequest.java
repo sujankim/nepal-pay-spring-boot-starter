@@ -10,7 +10,7 @@ package io.nepalpay.core.connectips.model;
  * <pre>{@code
  * ConnectIpsPaymentRequest request = ConnectIpsPaymentRequest.builder()
  *     .txnId("TXN-ORD-001")
- *     .txnAmtNPR(100L)
+ *     .amountNPR(100L)           // NPR → auto-converts to paisa (×100)
  *     .referenceId("ORD-001")
  *     .remarks("Order payment")
  *     .particulars("NepalPay Demo")

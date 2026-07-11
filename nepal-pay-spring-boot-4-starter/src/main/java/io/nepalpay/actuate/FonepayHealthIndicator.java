@@ -8,7 +8,7 @@ import org.springframework.boot.health.contributor.HealthIndicator;
  * Spring Boot Actuator {@link HealthIndicator} for the Fonepay gateway.
  *
  * <p>Exposed at:
- * <pre>GET /actuator/health/nepalpayFonepayHealthIndicator</pre>
+ * <pre>GET /actuator/health/nepalpayFonepay</pre>
  *
  * <p>Design decision — config-only, no HTTP ping.
  * Fonepay makes no server-side HTTP calls — URL redirect only.

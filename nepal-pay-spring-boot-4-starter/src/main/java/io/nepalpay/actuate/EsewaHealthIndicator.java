@@ -8,7 +8,7 @@ import org.springframework.boot.health.contributor.HealthIndicator;
  * Spring Boot Actuator {@link HealthIndicator} for the eSewa gateway.
  *
  * <p>Exposed at:
- * <pre>GET /actuator/health/nepalpayEsewaHealthIndicator</pre>
+ * <pre>GET /actuator/health/nepalpayEsewa</pre>
  *
  * <p>Design decision — config-only, no HTTP ping.
  *
