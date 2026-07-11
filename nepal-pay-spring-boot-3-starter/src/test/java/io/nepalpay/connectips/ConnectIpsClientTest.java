@@ -54,17 +54,18 @@ class ConnectIpsClientTest {
     /**
      * Generate a throwaway RSA key pair once for the entire test class.
      *
-     * <p>512-bit is intentionally weak — this key is only used to satisfy
-     * {@code Signature.initSign()} in tests. It provides no real security
-     * and is discarded after the test run.
+     * <p><strong>Fix (D-38):</strong> Upgraded from 512-bit to 2048-bit
+     * per the CONTRIBUTING.md mandate and to match
+     * {@code ConnectIpsReactiveClientTest}.
+     * 512-bit keys trigger JVM security deprecation warnings on modern JVMs.
      *
-     * <p>{@code @BeforeAll} means this runs once, not before every test,
-     * keeping the test suite fast.
+     * <p>{@code @BeforeAll} runs once — the ~100ms cost of 2048-bit
+     * generation is paid once per test class, not per test method.
      */
     @BeforeAll
     static void generateTestKey() throws Exception {
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(512);
+        keyGen.initialize(2048);
         TEST_PRIVATE_KEY = keyGen.generateKeyPair().getPrivate();
     }
 

@@ -318,14 +318,14 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
             <pre><code>// Angular
 initiatePayment(orderId: string, amount: number): void {
     this.paymentService.startFonepay(orderId, amount).subscribe(res => {
-        window.location.href = res.redirect_url;
+        window.location.href = res.redirectUrl;
     });
 }
 
 // Plain JavaScript
 fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
   .then(res => res.json())
-  .then(data => window.location.href = data.redirect_url);</code></pre>
+  .then(data => window.location.href = data.redirectUrl);</code></pre>
 
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
@@ -349,8 +349,9 @@ fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
                 trusting <code>PS=success</code>.
             </p>
 
+            <!-- FIXED: Changed ResponseEntity<String> to ResponseEntity<Map<String, Object>> -->
             <pre><code>@GetMapping("/fonepay/callback")
-public ResponseEntity&lt;String&gt; callback(
+public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
         @RequestParam String PRN,
         @RequestParam String PID,
         @RequestParam String PS,
@@ -454,7 +455,7 @@ public ResponseEntity&lt;String&gt; callback(
                 </p>
             </div>
 
-            <pre><code>// ✅ Correct flow
+            <pre><code> // ✅ Correct flow
 String prn = "FP-" + orderId;
 orderRepo.savePrn(orderId, prn);        // SAVE FIRST
 FonepayRedirectParams params =

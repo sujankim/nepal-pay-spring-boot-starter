@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Enumeration;   // <-- ADDED for alias iteration
 import java.util.function.Supplier;
 
 /**
@@ -268,7 +269,14 @@ public final class ConnectIpsClient {
 
     /**
      * Load and extract RSA PrivateKey from a PKCS12 (.pfx) file.
-     * Fails fast at construction time — better than failing at payment time.
+     *
+     * <p><strong>Fix (D-34):</strong> Iterates all KeyStore aliases and
+     * checks {@code isKeyEntry()} before selecting — matches the fix already
+     * applied to {@code ConnectIpsReactiveClient}. The previous implementation
+     * used {@code nextElement()} blindly which could grab a certificate alias
+     * instead of the key entry, causing RSA signing to fail at runtime.
+     *
+     * <p>Fails fast at construction time — better than failing at payment time.
      */
     private static PrivateKey loadPrivateKey(
             byte[] pfxBytes, String pfxPassword) {
@@ -289,9 +297,22 @@ public final class ConnectIpsClient {
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
             keyStore.load(new ByteArrayInputStream(pfxBytes),
                     pfxPassword.toCharArray());
-            String alias = keyStore.aliases().nextElement();
-            return (PrivateKey) keyStore.getKey(
-                    alias, pfxPassword.toCharArray());
+
+            // ✅ Iterate all aliases and select the first isKeyEntry()
+            // Matches ConnectIpsReactiveClient fix — avoids grabbing
+            // a certificate alias that has no associated private key.
+            Enumeration<String> aliases = keyStore.aliases();
+            while (aliases.hasMoreElements()) {
+                String alias = aliases.nextElement();
+                if (!keyStore.isKeyEntry(alias)) continue;
+                Object key = keyStore.getKey(alias, pfxPassword.toCharArray());
+                if (key instanceof PrivateKey pk) return pk;
+            }
+
+            throw new ConnectIpsException(
+                    "ConnectIPS .pfx does not contain a private key entry. " +
+                            "Ensure the .pfx file was issued by NCHL and is valid.");
+
         } catch (ConnectIpsException e) {
             throw e;
         } catch (Exception e) {
