@@ -76,11 +76,16 @@
         </dependency>
 
         <!--
-        Spring Boot Actuator — optional.
-        Enables NepalPay reactive health indicators and Micrometer
-        metrics when present on the classpath.
-        Uses ReactiveHealthIndicator for non-blocking health checks.
-        @ConditionalOnClass guards — zero impact if Actuator absent.
+        Optional: Spring Boot Actuator.
+        NepalPay does not require Actuator, but when present on the
+        classpath it enables Micrometer-based observability.
+
+        Reactive clients accept an optional MeterRegistry constructor
+        argument — when provided, operation latency timers are recorded.
+
+        ReactiveHealthIndicator implementations and
+        @ConditionalOnClass auto-configuration are in progress
+        — coming in v1.2.0.
         -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

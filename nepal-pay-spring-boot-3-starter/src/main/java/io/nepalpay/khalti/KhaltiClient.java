@@ -106,12 +106,19 @@ public final class KhaltiClient {
     }
 
     /**
-     * Production constructor WITH metrics.
-     * Used by auto-configuration when Actuator + MeterRegistry are available.
+     * Constructor that accepts an optional {@link MeterRegistry}.
+     *
+     * <p>When {@code meterRegistry} is non-null, all HTTP operations
+     * are timed and retry attempts are counted via {@link KhaltiMetrics}.
+     * When null, behaviour is identical to the no-metrics constructor.
+     *
+     * <p>This constructor will be used by
+     * {@code NepalPayMetricsAutoConfiguration} (coming in Step 12)
+     * to wire metrics automatically when Actuator is on the classpath.
      *
      * @param props             Khalti properties from application.yml
      * @param restClientBuilder Spring Boot RestClient builder
-     * @param meterRegistry     Micrometer registry — may be null
+     * @param meterRegistry     Micrometer registry — null means no metrics
      */
     public KhaltiClient(
             NepalPayProperties.KhaltiProperties props,

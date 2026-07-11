@@ -14,18 +14,14 @@ import java.util.function.Supplier;
  *
  * <p><strong>Timers (latency + throughput):</strong>
  * <ul>
- *   <li>{@code nepalpay.khalti.payment.initiate.duration}
- *       — latency of {@code initiatePayment()}</li>
- *   <li>{@code nepalpay.khalti.payment.lookup.duration}
- *       — latency of {@code lookupPayment()}</li>
- *   <li>{@code nepalpay.khalti.payment.refund.duration}
- *       — latency of {@code refundPayment()}</li>
+ *   <li>{@code nepalpay.khalti.payment.initiate.duration}</li>
+ *   <li>{@code nepalpay.khalti.payment.lookup.duration}</li>
+ *   <li>{@code nepalpay.khalti.payment.refund.duration}</li>
  * </ul>
  *
  * <p><strong>Counters (events):</strong>
  * <ul>
- *   <li>{@code nepalpay.khalti.retry.attempts}
- *       — number of retry attempts per operation</li>
+ *   <li>{@code nepalpay.khalti.retry.attempts}</li>
  * </ul>
  *
  * <p><strong>Tags applied to all metrics:</strong>
@@ -33,11 +29,14 @@ import java.util.function.Supplier;
  *   <li>{@code gateway=khalti}</li>
  *   <li>{@code sandbox=true|false}</li>
  *   <li>{@code status=success|error} (on timers)</li>
+ *   <li>{@code operation=initiate|lookup|refund}</li>
  * </ul>
  *
- * <p>All metrics are opt-out — recorded automatically when
- * {@code spring-boot-starter-actuator} is on the classpath.
- * Disable via {@code nepalpay.metrics.enabled=false}.
+ * <p>Metrics are recorded when this helper is constructed with a
+ * {@link io.micrometer.core.instrument.MeterRegistry} — typically
+ * injected via Spring Boot Actuator. When no {@code MeterRegistry}
+ * is provided, this class is not instantiated and no metrics are
+ * recorded. Full auto-configuration wiring is coming in v1.2.0.
  *
  * @author Sujan Lamichhane
  */
