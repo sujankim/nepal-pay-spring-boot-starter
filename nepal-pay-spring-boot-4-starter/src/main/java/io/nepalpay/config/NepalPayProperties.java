@@ -220,21 +220,47 @@ public record NepalPayProperties(
      *     enabled: false
      * </pre>
      *
-     * <p>To see health details in the response, also add:
-     * <pre>
-     * management:
-     *   endpoint:
-     *     health:
-     *       show-details: always
-     *   endpoints:
-     *     web:
-     *       exposure:
-     *         include: health
-     * </pre>
-     *
      * @param enabled true (default) = register health indicators
      */
     public record HealthProperties(
             @DefaultValue("true") boolean enabled
     ) {}
+
+    // ── Null-safe accessors ───────────────────────────────────────────────
+
+    /**
+     * Returns true if Micrometer metrics are enabled.
+     *
+     * <p><strong>Why this exists:</strong>
+     * Spring Boot record binding returns {@code null} for the
+     * {@code metrics} component when the {@code nepalpay.metrics:} block
+     * is absent from {@code application.yml} entirely.
+     * {@code @DefaultValue("true")} on the {@code enabled} field only
+     * applies when the block IS present but the field is omitted.
+     * This method handles the absent-block case safely.
+     *
+     * <p>Use this instead of {@code metrics().enabled()} directly.
+     *
+     * @return true if metrics should be recorded (default when block absent)
+     */
+    public boolean isMetricsEnabled() {
+        return metrics == null || metrics.enabled();
+    }
+
+    /**
+     * Returns true if Actuator health indicators are enabled.
+     *
+     * <p><strong>Why this exists:</strong>
+     * Spring Boot record binding returns {@code null} for the
+     * {@code health} component when the {@code nepalpay.health:} block
+     * is absent from {@code application.yml} entirely.
+     * This method handles the absent-block case safely.
+     *
+     * <p>Use this instead of {@code health().enabled()} directly.
+     *
+     * @return true if health indicators should be registered (default when absent)
+     */
+    public boolean isHealthEnabled() {
+        return health == null || health.enabled();
+    }
 }
