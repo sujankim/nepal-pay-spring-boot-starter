@@ -26,34 +26,13 @@ import org.springframework.web.client.RestClient;
  *   <li>{@code spring-boot-starter-actuator} is on the classpath
  *       ({@code @ConditionalOnClass(MeterRegistry.class)})</li>
  *   <li>{@code nepalpay.metrics.enabled} is {@code true}
- *       (defaults to {@code true} — opt-out behaviour)</li>
+ *       (defaults to {@code true} — opt-out behavior)</li>
  * </ol>
  *
- * <p>When active, this class replaces the plain gateway client beans
- * (created by {@link NepalPayAutoConfiguration}) with metrics-enabled
- * versions that record Micrometer timers and counters automatically.
- *
- * <p><strong>How it works:</strong>
- * {@link NepalPayAutoConfiguration} registers plain clients using
- * {@code @ConditionalOnMissingBean}. This class runs AFTER
- * {@link NepalPayAutoConfiguration} (via {@code @AutoConfiguration(after = ...)})
- * and overrides those beans by also using {@code @ConditionalOnMissingBean}
- * — but since it runs later and injects a {@link MeterRegistry},
- * the metrics-enabled beans take precedence.
- *
- * <p>Wait — if both use {@code @ConditionalOnMissingBean}, how does
- * this one win? The answer is ordering:
- * <ul>
- *   <li>{@link NepalPayAutoConfiguration} runs first → registers plain bean</li>
- *   <li>This class runs AFTER → its {@code @ConditionalOnMissingBean} sees
- *       the plain bean already registered → so its bean definition is SKIPPED</li>
- * </ul>
- *
- * <p>The correct approach is: this class runs BEFORE
- * {@link NepalPayAutoConfiguration} using
- * {@code @AutoConfiguration(before = NepalPayAutoConfiguration.class)}.
- * When metrics auto-config creates the bean first with a MeterRegistry,
- * the plain auto-config sees the bean already exists and skips it.
+ * <p>When active, this class creates metrics-enabled gateway client
+ * beans BEFORE {@link NepalPayAutoConfiguration} runs. The plain
+ * auto-configuration then sees each bean already registered via
+ * {@code @ConditionalOnMissingBean} and skips its own definitions.
  *
  * <p><strong>Disable metrics entirely:</strong>
  * <pre>
@@ -70,13 +49,13 @@ import org.springframework.web.client.RestClient;
 @AutoConfiguration(before = NepalPayAutoConfiguration.class)
 @ConditionalOnClass(MeterRegistry.class)
 @ConditionalOnProperty(
-        prefix  = "nepalpay.metrics",
-        name    = "enabled",
-        havingValue = "true",
+        prefix         = "nepalpay.metrics",
+        name           = "enabled",
+        havingValue    = "true",
         matchIfMissing = true)   // opt-out — active by default
 public class NepalPayMetricsAutoConfiguration {
 
-    // ── Khalti ───────────────────────────────────────────────────────────
+    // ── Khalti ────────────────────────────────────────────────────────────
 
     /**
      * Auto-configures {@link KhaltiClient} WITH Micrometer metrics.
@@ -89,7 +68,7 @@ public class NepalPayMetricsAutoConfiguration {
      * <p>Only created when:
      * <ul>
      *   <li>{@code nepalpay.khalti.secret-key} is present</li>
-     *   <li>{@code MeterRegistry} bean exists in context</li>
+     *   <li>A {@link MeterRegistry} bean exists in context</li>
      *   <li>No existing {@code KhaltiClient} bean (developer override wins)</li>
      * </ul>
      *
@@ -112,6 +91,8 @@ public class NepalPayMetricsAutoConfiguration {
                 properties.khalti().sandbox(),
                 properties.khalti().retryOrDefault().summary());
 
+        // KhaltiClient(props, builder, MeterRegistry) constructor
+        // is unambiguous — no String overload exists at same arity
         return new KhaltiClient(
                 properties.khalti(),
                 restClientBuilder,
@@ -126,9 +107,17 @@ public class NepalPayMetricsAutoConfiguration {
      * <p>Only created when:
      * <ul>
      *   <li>{@code nepalpay.esewa.secret-key} is present</li>
-     *   <li>{@code MeterRegistry} bean exists in context</li>
+     *   <li>A {@link MeterRegistry} bean exists in context</li>
      *   <li>No existing {@code EsewaClient} bean</li>
      * </ul>
+     *
+     * <p><strong>Constructor note:</strong>
+     * Uses the 4-arg constructor
+     * {@code EsewaClient(props, builder, statusBaseUrl, meterRegistry)}
+     * with an explicit {@code statusBaseUrl}. The 3-arg
+     * {@code EsewaClient(props, builder, MeterRegistry)} overload was
+     * removed because it was ambiguous with the String test constructor
+     * when {@code null} was passed.
      *
      * @param properties        bound NepalPay configuration
      * @param restClientBuilder Spring Boot RestClient builder
@@ -149,9 +138,14 @@ public class NepalPayMetricsAutoConfiguration {
                 properties.esewa().sandbox(),
                 properties.esewa().retryOrDefault().summary());
 
+        String statusBaseUrl = properties.esewa().sandbox()
+                ? "https://rc.esewa.com.np"
+                : "https://esewa.com.np";
+
         return new EsewaClient(
                 properties.esewa(),
                 restClientBuilder,
+                statusBaseUrl,          // ← explicit URL — no ambiguity
                 meterRegistry);
     }
 
@@ -168,7 +162,7 @@ public class NepalPayMetricsAutoConfiguration {
      * <p>Only created when:
      * <ul>
      *   <li>{@code nepalpay.connectips.merchant-id} is present</li>
-     *   <li>{@code MeterRegistry} bean exists in context</li>
+     *   <li>A {@link MeterRegistry} bean exists in context</li>
      *   <li>No existing {@code ConnectIpsClient} bean</li>
      * </ul>
      *
@@ -201,6 +195,7 @@ public class NepalPayMetricsAutoConfiguration {
                 props.merchantId(),
                 props.retryOrDefault().summary());
 
+        // ConnectIpsClient 10-arg + MeterRegistry constructor
         return new ConnectIpsClient(
                 props.merchantId(),
                 props.appId(),
@@ -226,9 +221,17 @@ public class NepalPayMetricsAutoConfiguration {
      * <p>Only created when:
      * <ul>
      *   <li>{@code nepalpay.fonepay.secret-key} is present</li>
-     *   <li>{@code MeterRegistry} bean exists in context</li>
+     *   <li>A {@link MeterRegistry} bean exists in context</li>
      *   <li>No existing {@code FonepayClient} bean</li>
      * </ul>
+     *
+     * <p><strong>Constructor note:</strong>
+     * Uses the 3-arg constructor
+     * {@code FonepayClient(props, gatewayUrl, meterRegistry)}
+     * with an explicit {@code gatewayUrl}. The 2-arg
+     * {@code FonepayClient(props, MeterRegistry)} overload was
+     * removed because it was ambiguous with the String test constructor
+     * when {@code null} was passed.
      *
      * @param properties    bound NepalPay configuration
      * @param meterRegistry Micrometer registry from Actuator
@@ -247,8 +250,16 @@ public class NepalPayMetricsAutoConfiguration {
                 properties.fonepay().sandbox() ? "SANDBOX" : "PRODUCTION",
                 properties.fonepay().merchantCode());
 
+        // ✅ FIX: use 3-arg constructor (props, gatewayUrl, registry)
+        // The 2-arg (props, MeterRegistry) was removed — ambiguous
+        // with (props, String) test constructor when null was passed.
+        String gatewayUrl = properties.fonepay().sandbox()
+                ? "https://dev.fonepay.com/api/merchantRequest"
+                : "https://fonepay.com/api/merchantRequest";
+
         return new FonepayClient(
                 properties.fonepay(),
+                gatewayUrl,             // ← explicit URL — no ambiguity
                 meterRegistry);
     }
 
@@ -257,12 +268,9 @@ public class NepalPayMetricsAutoConfiguration {
     /**
      * Load .pfx file bytes from a Spring Resource path.
      *
-     * <p>Identical to the helper in {@link NepalPayAutoConfiguration} —
-     * duplicated intentionally so each auto-configuration class is
-     * self-contained and does not depend on each other at the method level.
-     *
      * <p>Fails fast at startup with a clear error if the file is missing.
-     * Uses try-with-resources to prevent InputStream file descriptor leaks.
+     * Uses try-with-resources to prevent InputStream file descriptor leaks
+     * (Bug #13 fix).
      *
      * @param pfxPath        path to the .pfx file (Spring Resource format)
      * @param resourceLoader Spring ResourceLoader

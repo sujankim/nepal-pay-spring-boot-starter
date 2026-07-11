@@ -38,10 +38,11 @@ import java.util.function.Supplier;
  * </ul>
  *
  * <p><strong>Metrics:</strong>
- * When {@code spring-boot-starter-actuator} is on the classpath and a
- * {@link MeterRegistry} is injected, all HTTP operations are timed and
- * signature failures are counted automatically. If no {@link MeterRegistry}
- * is available, all metric recording is silently skipped.
+ * If this client is constructed with a {@link MeterRegistry},
+ * HTTP operations are timed and signature failures counted via
+ * {@link EsewaMetrics}. When no {@link MeterRegistry} is provided,
+ * all metric recording is silently skipped — zero impact on existing
+ * users without Actuator. Full auto-configuration wiring is in v1.2.0.
  *
  * <p>Official eSewa docs: https://developer.esewa.com.np/pages/Epay-V2
  *
@@ -67,7 +68,13 @@ public final class EsewaClient {
     private static final String SIGNED_FIELD_NAMES =
             "total_amount,transaction_uuid,product_code";
 
-    // ── Shared singleton ObjectMapper — thread-safe after construction ─────
+    /**
+     * Shared ObjectMapper instance for decoding eSewa Base64 callback data.
+     *
+     * <p>ObjectMapper is thread-safe after configuration and expensive to
+     * construct. Using a static singleton avoids creating and discarding a
+     * new instance on every payment callback.
+     */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     // ── Fields ────────────────────────────────────────────────────────────
@@ -87,8 +94,11 @@ public final class EsewaClient {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Production constructor — used by auto-configuration.
-     * No metrics.
+     * Production constructor — no metrics.
+     * Used by auto-configuration when Actuator is absent.
+     *
+     * @param props             eSewa properties from application.yml
+     * @param restClientBuilder Spring Boot RestClient builder
      */
     public EsewaClient(
             NepalPayProperties.EsewaProperties props,
@@ -101,27 +111,21 @@ public final class EsewaClient {
     }
 
     /**
-     * Production constructor WITH metrics.
-     * Used by auto-configuration when Actuator + MeterRegistry are available.
+     * Test constructor — custom status API base URL, no metrics.
      *
-     * @param props             eSewa properties from application.yml
-     * @param restClientBuilder Spring Boot RestClient builder
-     * @param meterRegistry     Micrometer registry — may be null
-     */
-    public EsewaClient(
-            NepalPayProperties.EsewaProperties props,
-            RestClient.Builder restClientBuilder,
-            MeterRegistry meterRegistry) {
-
-        this(props, restClientBuilder,
-                props.sandbox()
-                        ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL,
-                meterRegistry);
-    }
-
-    /**
-     * Test constructor — allows injecting a custom status API base URL.
-     * No metrics.
+     * <p>Used in tests to point the client at {@code MockWebServer}.
+     *
+     * <p><strong>NOTE (CodeRabbit fix):</strong>
+     * A separate {@code EsewaClient(props, builder, MeterRegistry)} overload
+     * was removed because it was ambiguous with this constructor at the call
+     * site when {@code null} was passed. Use the 4-arg constructor
+     * {@link #EsewaClient(NepalPayProperties.EsewaProperties,
+     * RestClient.Builder, String, MeterRegistry)} to inject a
+     * {@link MeterRegistry} instead.
+     *
+     * @param props                 eSewa properties
+     * @param restClientBuilder     RestClient builder
+     * @param statusBaseUrlOverride Custom base URL (MockWebServer URL)
      */
     public EsewaClient(
             NepalPayProperties.EsewaProperties props,
@@ -132,9 +136,26 @@ public final class EsewaClient {
     }
 
     /**
-     * Core private constructor — single point of initialization.
+     * Full constructor — custom status URL + optional metrics.
+     *
+     * <p>Used by {@code NepalPayMetricsAutoConfiguration} to inject a
+     * {@link MeterRegistry} when Actuator is on the classpath.
+     * Exposed as {@code public} to avoid constructor ambiguity — passing
+     * {@code null} for {@code meterRegistry} is safe and disables metrics.
+     *
+     * <p>This replaces the removed
+     * {@code EsewaClient(props, builder, MeterRegistry)} 3-arg overload
+     * which was ambiguous with the String test constructor when {@code null}
+     * was passed.
+     *
+     * @param props                 eSewa properties from application.yml
+     * @param restClientBuilder     Spring Boot RestClient builder
+     * @param statusBaseUrlOverride Status API base URL — pass
+     *   {@code props.sandbox() ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL}
+     *   for production use, or a {@code MockWebServer} URL in tests
+     * @param meterRegistry         Micrometer registry — null = no metrics
      */
-    private EsewaClient(
+    public EsewaClient(
             NepalPayProperties.EsewaProperties props,
             RestClient.Builder restClientBuilder,
             String statusBaseUrlOverride,
@@ -235,10 +256,15 @@ public final class EsewaClient {
     /**
      * Build a signed eSewa form payload — simple overload.
      * Tax, service charge, and delivery charge default to zero.
+     *
+     * @param amount          Transaction amount in NPR
+     * @param transactionUuid Your unique transaction ID (store in DB!)
+     * @return Signed form payload
      */
     public EsewaFormPayload buildFormPayload(
             BigDecimal amount, String transactionUuid) {
-        return buildFormPayload(amount, BigDecimal.ZERO, transactionUuid,
+        return buildFormPayload(
+                amount, BigDecimal.ZERO, transactionUuid,
                 BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
@@ -252,7 +278,8 @@ public final class EsewaClient {
      *   <li>Calls eSewa status API (with retry if configured)</li>
      * </ol>
      *
-     * <p>Records {@code nepalpay.esewa.callback.verify.duration} timer.
+     * <p>Records {@code nepalpay.esewa.callback.verify.duration} timer
+     * when Micrometer is available.
      * Records {@code nepalpay.esewa.callback.signature.failed} counter
      * when HMAC verification fails.
      *
@@ -268,7 +295,6 @@ public final class EsewaClient {
 
         log.debug("[NepalPay] eSewa verifying callback");
 
-        // ✅ Wrap verifyCallback with metrics timer if available
         if (metrics != null) {
             return metrics.recordVerify(() -> doVerifyCallback(encodedData));
         }
@@ -278,7 +304,8 @@ public final class EsewaClient {
     /**
      * Directly check eSewa transaction status via the status API.
      *
-     * <p>Records {@code nepalpay.esewa.status.check.duration} timer.
+     * <p>Records {@code nepalpay.esewa.status.check.duration} timer
+     * when Micrometer is available.
      *
      * @param transactionUuid Your original transaction UUID
      * @param totalAmount     The exact total amount (must match original)
@@ -289,15 +316,16 @@ public final class EsewaClient {
             String transactionUuid, String totalAmount) {
 
         if (transactionUuid == null || transactionUuid.isBlank()) {
-            throw new EsewaException("transactionUuid cannot be null or blank");
+            throw new EsewaException(
+                    "transactionUuid cannot be null or blank");
         }
         if (totalAmount == null || totalAmount.isBlank()) {
-            throw new EsewaException("totalAmount cannot be null or blank");
+            throw new EsewaException(
+                    "totalAmount cannot be null or blank");
         }
 
         log.debug("[NepalPay] eSewa status check | uuid={}", transactionUuid);
 
-        // ✅ Wrap checkStatus with metrics timer if available
         if (metrics != null) {
             return metrics.recordStatus(
                     () -> doCheckStatus(transactionUuid, totalAmount));
@@ -341,7 +369,7 @@ public final class EsewaClient {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PRIVATE — HTTP execution methods
+    // PRIVATE — HTTP execution
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -363,17 +391,19 @@ public final class EsewaClient {
                 callbackData.transactionUuid(),
                 statusResponse.status(), verified);
 
-        return new EsewaVerificationResult(callbackData, statusResponse, verified);
+        return new EsewaVerificationResult(
+                callbackData, statusResponse, verified);
     }
 
     /**
      * Inner checkStatus logic — wrapped by metrics timer in public method.
-     * Also called directly from doVerifyCallback (already timed by verify timer).
+     * Also called from doVerifyCallback (already under verify timer).
      */
     private EsewaStatusResponse doCheckStatus(
             String transactionUuid, String totalAmount) {
 
-        return executeWithRetry("eSewa status check",
+        return executeWithRetry(
+                "eSewa status check",
                 metrics != null ? metrics::incrementStatusRetry : null,
                 () -> {
                     EsewaStatusResponse response = restClient.get()
@@ -460,7 +490,7 @@ public final class EsewaClient {
                     throw e;
                 }
 
-                // ✅ Increment Micrometer retry counter if metrics available
+                // Increment Micrometer retry counter if metrics available
                 if (retryIncrement != null) {
                     retryIncrement.run();
                 }
@@ -499,8 +529,10 @@ public final class EsewaClient {
         try {
             byte[] decodedBytes = Base64.getDecoder()
                     .decode(encodedData.trim());
-            String jsonString = new String(decodedBytes, StandardCharsets.UTF_8);
-            log.debug("[NepalPay] eSewa decoded callback JSON: {}", jsonString);
+            String jsonString = new String(
+                    decodedBytes, StandardCharsets.UTF_8);
+            log.debug("[NepalPay] eSewa decoded callback JSON: {}",
+                    jsonString);
             return OBJECT_MAPPER.readValue(jsonString, EsewaCallbackData.class);
         } catch (IllegalArgumentException e) {
             throw new EsewaException(
@@ -539,7 +571,7 @@ public final class EsewaClient {
                                 "possible tampering! uuid={}",
                         data.transactionUuid());
 
-                // ✅ Increment signature failure counter if metrics available
+                // Increment signature failure counter if metrics available
                 if (metrics != null) {
                     metrics.incrementSignatureFailed();
                 }
@@ -594,8 +626,8 @@ public final class EsewaClient {
             case "product_code"       -> nullToEmpty(data.productCode());
             case "signed_field_names" -> nullToEmpty(data.signedFieldNames());
             default -> {
-                log.warn("[NepalPay] Unknown signed field in eSewa callback: {}",
-                        fieldName);
+                log.warn("[NepalPay] Unknown signed field in eSewa" +
+                        " callback: {}", fieldName);
                 yield "";
             }
         };
