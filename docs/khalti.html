@@ -525,12 +525,13 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
             return Mono.just(ResponseEntity.badRequest()
                 .body("Not confirmed"));
         }
+        String orderId = orderRepo.findOrderByPidx(pidx);
         long expectedPaisa = orderRepo.getAmountPaisa(orderId);
         if (!lookup.isAmountValid(expectedPaisa)) {
             return Mono.just(ResponseEntity.badRequest()
                 .body("Amount mismatch — possible tampering"));
         }
-        return orderRepo.markPaid(orderId)
+        return orderRepo.markPaid(orderId, lookup.transactionId())
             .thenReturn(ResponseEntity.ok("Payment confirmed"));
         });
 }</code></pre>

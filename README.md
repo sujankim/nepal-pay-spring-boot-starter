@@ -84,6 +84,10 @@ Works with **Spring Boot 3.2+**, **Spring Boot 4.x**, and **Spring WebFlux**.
 implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0'
 ```
 
+```groovy
+implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.2.0'
+```
+
 #### Reactive
 
 ```groovy
