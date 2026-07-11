@@ -20,7 +20,7 @@
 
     <name>NepalPay Consumer Demo</name>
     <description>
-        Example Spring Boot 4 application demonstrating NepalPay v1.1.0.
+        Example Spring Boot 4 application demonstrating NepalPay v1.2.0.
         Shows blocking and reactive payment integration for Khalti, eSewa,
         ConnectIPS, and Fonepay. Includes refund and retry support.
     </description>
