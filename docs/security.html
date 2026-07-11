@@ -1,17 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Security — NepalPay</title>
     <link rel="stylesheet" href="./css/styles.css">
+    <script>
+        (function () {
+            try {
+                var s = localStorage.getItem('np-theme');
+                var d = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', s || d);
+            } catch (e) {}
+        }());
+    </script>
 </head>
 <body>
 
-<div class="page-hero">
+<div class="page-hero page-nav">
     <nav class="topnav">
         <div class="topnav-inner">
-            <a class="nav-brand" href="index.html"><span class="nav-brand-flag">🇳🇵</span> NepalPay</a>
+            <a class="nav-brand" href="index.html">
+                <span class="nav-brand-flag">🇳🇵</span>
+                <span class="nav-brand-name">NepalPay</span>
+            </a>
             <div class="nav-links">
                 <a href="getting-started.html">Getting Started</a>
                 <a href="khalti.html">Khalti</a>
@@ -22,7 +34,17 @@
                 <a href="configuration.html">Config</a>
                 <a href="security.html" class="active">Security</a>
             </div>
-            <a class="nav-github" href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
+            <div class="nav-right">
+                <button class="theme-toggle"
+                        onclick="toggleTheme()"
+                        aria-label="Toggle dark mode">
+                    <span class="i-moon">🌙</span>
+                    <span class="i-sun">☀️</span>
+                </button>
+                <a class="nav-cta"
+                   href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+                   target="_blank" rel="noopener">GitHub ↗</a>
+            </div>
         </div>
     </nav>
     <div class="page-header-body">
@@ -36,11 +58,13 @@
 <div class="docs-wrapper">
     <aside class="sidebar">
         <nav class="sidebar-nav">
+            <div class="sidebar-group-label">Rules</div>
             <a href="#rule1">Verify Server-Side</a>
             <a href="#rule2">Store Before Redirect</a>
             <a href="#rule3">Verify Amount</a>
             <a href="#rule4">Environment Variables</a>
             <a href="#rule5">Protect .pfx File</a>
+            <div class="sidebar-group-label">Reference</div>
             <a href="#never-do">Never Do These</a>
             <a href="#how-nepalpay">How NepalPay Helps</a>
             <a href="#checklist">Pre-Launch Checklist</a>
@@ -275,14 +299,26 @@ nepalpay:
 
 <footer class="footer">
     <div class="footer-inner">
-        <div class="footer-brand">🇳🇵 NepalPay</div>
+        <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub</a>
-            <a href="https://sujanlamichhane.com.np" target="_blank">Author</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub</a>
+            <a href="https://sujanlamichhane.com.np"
+               target="_blank" rel="noopener">Author</a>
         </div>
-        <p class="footer-copy">MIT License · Built for Nepal's developer community 🇳🇵</p>
+        <p class="footer-copy">MIT © 2026 · Built for Nepal's developers 🇳🇵</p>
     </div>
 </footer>
+
+<script>
+    function toggleTheme() {
+        var r = document.documentElement;
+        var c = r.getAttribute('data-theme') || 'light';
+        var n = c === 'dark' ? 'light' : 'dark';
+        r.setAttribute('data-theme', n);
+        try { localStorage.setItem('np-theme', n); } catch (e) {}
+    }
+</script>
 </body>
 </html>

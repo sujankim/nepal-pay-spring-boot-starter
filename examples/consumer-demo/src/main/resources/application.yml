@@ -6,7 +6,7 @@ server:
   port: 8080
 
 # ══════════════════════════════════════════════════════════════════════════
-# NepalPay Configuration — v1.1.0
+# NepalPay Configuration — v1.2.0
 #
 # Includes: Khalti refund + Retry + Reactive (WebFlux) support
 #

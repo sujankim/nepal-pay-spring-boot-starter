@@ -1,17 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuration — NepalPay</title>
     <link rel="stylesheet" href="./css/styles.css">
+    <script>
+        (function () {
+            try {
+                var s = localStorage.getItem('np-theme');
+                var d = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', s || d);
+            } catch (e) {}
+        }());
+    </script>
 </head>
 <body>
 
-<div class="page-hero">
+<div class="page-hero page-nav">
     <nav class="topnav">
         <div class="topnav-inner">
-            <a class="nav-brand" href="index.html"><span class="nav-brand-flag">🇳🇵</span> NepalPay</a>
+            <a class="nav-brand" href="index.html">
+                <span class="nav-brand-flag">🇳🇵</span>
+                <span class="nav-brand-name">NepalPay</span>
+            </a>
             <div class="nav-links">
                 <a href="getting-started.html">Getting Started</a>
                 <a href="khalti.html">Khalti</a>
@@ -22,7 +34,17 @@
                 <a href="configuration.html" class="active">Config</a>
                 <a href="security.html">Security</a>
             </div>
-            <a class="nav-github" href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
+            <div class="nav-right">
+                <button class="theme-toggle"
+                        onclick="toggleTheme()"
+                        aria-label="Toggle dark mode">
+                    <span class="i-moon">🌙</span>
+                    <span class="i-sun">☀️</span>
+                </button>
+                <a class="nav-cta"
+                   href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+                   target="_blank" rel="noopener">GitHub ↗</a>
+            </div>
         </div>
     </nav>
     <div class="page-header-body">
@@ -157,11 +179,11 @@
                 <table>
                     <thead><tr><th>Scenario</th><th>Retried?</th><th>Reason</th></tr></thead>
                     <tbody>
-                    <tr><td>5xx server errors</td><td><span class="pill pill-green">✅ Yes</span></td><td>Gateway temporarily down — may recover</td></tr>
-                    <tr><td>Network timeout / connection reset</td><td><span class="pill pill-green">✅ Yes</span></td><td>Transient network issue</td></tr>
-                    <tr><td>400 Bad Request</td><td><span class="pill pill-red">❌ No</span></td><td>Invalid request — retrying won't help</td></tr>
-                    <tr><td>401 Unauthorized</td><td><span class="pill pill-red">❌ No</span></td><td>Wrong key — retrying won't help</td></tr>
-                    <tr><td>Signature failure</td><td><span class="pill pill-red">❌ No</span></td><td>Security alert — must not retry</td></tr>
+                    <tr><td>5xx server errors</td><td><span class="pill pill-ok">✅ Yes</span></td><td>Gateway temporarily down — may recover</td></tr>
+                    <tr><td>Network timeout / connection reset</td><td><span class="pill pill-ok">✅ Yes</span></td><td>Transient network issue</td></tr>
+                    <tr><td>400 Bad Request</td><td><span class="pill pill-bad">❌ No</span></td><td>Invalid request — retrying won't help</td></tr>
+                    <tr><td>401 Unauthorized</td><td><span class="pill pill-bad">❌ No</span></td><td>Wrong key — retrying won't help</td></tr>
+                    <tr><td>Signature failure</td><td><span class="pill pill-bad">❌ No</span></td><td>Security alert — must not retry</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -171,9 +193,9 @@
                 <table>
                     <thead><tr><th>Gateway</th><th>Methods</th><th>Retry?</th></tr></thead>
                     <tbody>
-                    <tr><td>Khalti</td><td><code>initiatePayment()</code>, <code>lookupPayment()</code>, <code>refundPayment()</code></td><td><span class="pill pill-green">✅ Yes</span></td></tr>
-                    <tr><td>eSewa</td><td><code>checkStatus()</code> (inside <code>verifyCallback()</code>)</td><td><span class="pill pill-green">✅ Yes</span></td></tr>
-                    <tr><td>ConnectIPS</td><td><code>validateTransaction()</code></td><td><span class="pill pill-green">✅ Yes</span></td></tr>
+                    <tr><td>Khalti</td><td><code>initiatePayment()</code>, <code>lookupPayment()</code>, <code>refundPayment()</code></td><td><span class="pill pill-ok">✅ Yes</span></td></tr>
+                    <tr><td>eSewa</td><td><code>checkStatus()</code> (inside <code>verifyCallback()</code>)</td><td><span class="pill pill-ok">✅ Yes</span></td></tr>
+                    <tr><td>ConnectIPS</td><td><code>validateTransaction()</code></td><td><span class="pill pill-ok">✅ Yes</span></td></tr>
                     <tr><td>Fonepay</td><td>All methods</td><td><span class="pill pill-gray">❌ N/A</span></td></tr>
                     </tbody>
                 </table>
@@ -335,13 +357,24 @@ public class MyPaymentConfig {
 
 <footer class="footer">
     <div class="footer-inner">
-        <div class="footer-brand">🇳🇵 NepalPay</div>
+        <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub</a>
         </div>
-        <p class="footer-copy">MIT License</p>
+        <p class="footer-copy">MIT © 2026 · Built for Nepal's developers 🇳🇵</p>
     </div>
 </footer>
+
+<script>
+    function toggleTheme() {
+        var r = document.documentElement;
+        var c = r.getAttribute('data-theme') || 'light';
+        var n = c === 'dark' ? 'light' : 'dark';
+        r.setAttribute('data-theme', n);
+        try { localStorage.setItem('np-theme', n); } catch (e) {}
+    }
+</script>
 </body>
 </html>

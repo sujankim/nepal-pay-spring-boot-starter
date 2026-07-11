@@ -1,17 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Khalti Integration — NepalPay</title>
     <link rel="stylesheet" href="./css/styles.css">
+    <script>
+        (function () {
+            try {
+                var s = localStorage.getItem('np-theme');
+                var d = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', s || d);
+            } catch (e) {}
+        }());
+    </script>
 </head>
 <body>
 
-<div class="page-hero">
+<div class="page-hero page-nav">
     <nav class="topnav">
         <div class="topnav-inner">
-            <a class="nav-brand" href="index.html"><span class="nav-brand-flag">🇳🇵</span> NepalPay</a>
+            <a class="nav-brand" href="index.html">
+                <span class="nav-brand-flag">🇳🇵</span>
+                <span class="nav-brand-name">NepalPay</span>
+            </a>
             <div class="nav-links">
                 <a href="getting-started.html">Getting Started</a>
                 <a href="khalti.html" class="active">Khalti</a>
@@ -22,37 +34,57 @@
                 <a href="configuration.html">Config</a>
                 <a href="security.html">Security</a>
             </div>
-            <a class="nav-github" href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub ↗</a>
+            <div class="nav-right">
+                <button class="theme-toggle"
+                        onclick="toggleTheme()"
+                        aria-label="Toggle dark mode">
+                    <span class="i-moon">🌙</span>
+                    <span class="i-sun">☀️</span>
+                </button>
+                <a class="nav-cta"
+                   href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+                   target="_blank" rel="noopener">GitHub ↗</a>
+            </div>
         </div>
     </nav>
+
     <div class="page-header-body">
         <div class="page-header-left">
             <div class="page-version-pill">✅ v0.5.0</div>
             <h1>Khalti Integration</h1>
-            <p>Initiate payments, verify server-side, and process full or partial refunds.</p>
+            <p>Initiate payments, verify server-side, and process
+                full or partial refunds.</p>
         </div>
     </div>
 </div>
 
 <div class="docs-wrapper">
+
     <aside class="sidebar">
         <nav class="sidebar-nav">
+            <div class="sidebar-group-label">Guide</div>
             <a href="#how-it-works">How It Works</a>
             <a href="#initiate">initiatePayment()</a>
             <a href="#lookup">lookupPayment()</a>
             <a href="#refund">refundPayment()</a>
             <a href="#statuses">Payment Statuses</a>
             <a href="#security">Security Rules</a>
+            <div class="sidebar-group-label">Reactive</div>
+            <a href="#reactive">Reactive Usage</a>
         </nav>
     </aside>
 
     <article class="docs-content">
 
+        <!-- How It Works -->
         <section id="how-it-works">
             <h2>How Khalti Works</h2>
+
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
-                <p>Khalti uses an <strong>API-first model</strong> — your backend calls Khalti's API directly to initiate a payment, then verifies the result server-side after the user returns.</p>
+                <p>Khalti uses an <strong>API-first model</strong> — your backend
+                    calls Khalti's API directly to initiate a payment, then verifies
+                    the result server-side after the user returns.</p>
             </div>
 
             <div class="flow">Your Backend ─── POST ───▶ Khalti API (/epayment/initiate/)
@@ -65,7 +97,7 @@
                 User pays on Khalti
                 │
                 Khalti redirects to your returnUrl
-                (?pidx=xxx&status=Completed)
+                (?pidx=xxx&amp;status=Completed)
                 │
                 ⚠️  NEVER trust redirect params alone!
                 │
@@ -75,8 +107,10 @@
                 ✅ mark order as paid</div>
         </section>
 
+        <!-- initiatePayment -->
         <section id="initiate">
             <h2>initiatePayment()</h2>
+
             <pre><code>KhaltiInitiateResponse res = khaltiClient.initiatePayment(
     KhaltiInitiateRequest.builder()
         .amount(10000L)               // ⚠️ PAISA not NPR — NPR 100 = 10000
@@ -99,12 +133,74 @@ return res.paymentUrl();</code></pre>
 
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
-                <p><strong>Amount is in Paisa, not NPR.</strong> NPR 100 → send <code>10000L</code>. Minimum payment is NPR 10 = <code>1000L</code> paisa.</p>
+                <p><strong>Amount is in Paisa, not NPR.</strong>
+                    NPR 100 → send <code>10000L</code>.
+                    Minimum payment is NPR 10 = <code>1000L</code> paisa.</p>
+            </div>
+
+            <h3>Request fields</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Required</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><code>amount</code></td>
+                        <td><span class="pill pill-bad">Required</span></td>
+                        <td><code>long</code></td>
+                        <td>Amount in <strong>paisa</strong> (NPR × 100)</td>
+                    </tr>
+                    <tr>
+                        <td><code>purchaseOrderId</code></td>
+                        <td><span class="pill pill-bad">Required</span></td>
+                        <td><code>String</code></td>
+                        <td>Your unique order identifier</td>
+                    </tr>
+                    <tr>
+                        <td><code>purchaseOrderName</code></td>
+                        <td><span class="pill pill-bad">Required</span></td>
+                        <td><code>String</code></td>
+                        <td>Human-readable name shown on payment page</td>
+                    </tr>
+                    <tr>
+                        <td><code>returnUrl</code></td>
+                        <td><span class="pill pill-gray">Optional</span></td>
+                        <td><code>String</code></td>
+                        <td>Overrides <code>nepalpay.khalti.return-url</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>websiteUrl</code></td>
+                        <td><span class="pill pill-gray">Optional</span></td>
+                        <td><code>String</code></td>
+                        <td>Overrides <code>nepalpay.khalti.website-url</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>customerInfo</code></td>
+                        <td><span class="pill pill-gray">Optional</span></td>
+                        <td><code>CustomerInfo</code></td>
+                        <td>Name, email, phone — shown in dashboard</td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
+        <!-- lookupPayment -->
         <section id="lookup">
             <h2>lookupPayment()</h2>
+
+            <p>
+                Called at your <code>returnUrl</code> after the user completes
+                payment. <strong>Always call this</strong> — never trust the
+                redirect parameters alone.
+            </p>
+
             <pre><code>// Called at your returnUrl after user completes payment
 @GetMapping("/khalti/callback")
 public ResponseEntity&lt;String&gt; callback(@RequestParam String pidx) {
@@ -114,7 +210,7 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String pidx) {
 
     if (!lookup.isPaymentSuccessful()) {
         return ResponseEntity.badRequest()
-            .body("Payment not confirmed: " + lookup.status());
+            .body("Not confirmed: " + lookup.status());
     }
 
     // ✅ Verify amount was not tampered
@@ -128,14 +224,70 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String pidx) {
     orderRepo.markPaid(orderId, lookup.transactionId());
     return ResponseEntity.ok("Payment confirmed");
 }</code></pre>
+
+            <h3>Response fields</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><code>pidx</code></td>
+                        <td><code>String</code></td>
+                        <td>Payment identifier from initiate</td>
+                    </tr>
+                    <tr>
+                        <td><code>status</code></td>
+                        <td><code>String</code></td>
+                        <td>Raw status string from Khalti API</td>
+                    </tr>
+                    <tr>
+                        <td><code>totalAmount</code></td>
+                        <td><code>Long</code></td>
+                        <td>Amount paid in paisa — verify this!</td>
+                    </tr>
+                    <tr>
+                        <td><code>transactionId</code></td>
+                        <td><code>String</code></td>
+                        <td>Khalti's internal transaction ID — needed for refunds</td>
+                    </tr>
+                    <tr>
+                        <td><code>isPaymentSuccessful()</code></td>
+                        <td><code>boolean</code></td>
+                        <td><code>true</code> only when status is <code>Completed</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>isAmountValid(long)</code></td>
+                        <td><code>boolean</code></td>
+                        <td>Checks <code>totalAmount</code> matches your expected paisa</td>
+                    </tr>
+                    <tr>
+                        <td><code>isRefunded()</code></td>
+                        <td><code>boolean</code></td>
+                        <td><code>true</code> when status is <code>Refunded</code></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
+        <!-- refundPayment -->
         <section id="refund">
             <h2>refundPayment()</h2>
 
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
-                <p><strong>Refund uses <code>transactionId</code>, NOT <code>pidx</code>.</strong> Get <code>transactionId</code> from <code>lookupPayment(pidx).transactionId()</code>. It is only non-null after a payment reaches <code>Completed</code> status.</p>
+                <p>
+                    <strong>Refund uses <code>transactionId</code>, NOT <code>pidx</code>.</strong>
+                    Get <code>transactionId</code> from
+                    <code>lookupPayment(pidx).transactionId()</code>.
+                    It is only non-null after a payment reaches <code>Completed</code> status.
+                </p>
             </div>
 
             <h3>Full refund</h3>
@@ -166,58 +318,236 @@ if (refund.isRefundSuccessful()) {
             <h3>Refund rules</h3>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Rule</th><th>Detail</th></tr></thead>
+                    <thead>
+                    <tr><th>Rule</th><th>Detail</th></tr>
+                    </thead>
                     <tbody>
-                    <tr><td>Use <code>transactionId</code></td><td>From <code>lookupPayment(pidx).transactionId()</code> — not pidx</td></tr>
-                    <tr><td>Only completed payments</td><td>Pending / Expired / Canceled → 400 error from Khalti</td></tr>
-                    <tr><td>Partial amount in paisa</td><td>NPR 50 → <code>5000L</code></td></tr>
-                    <tr><td>Full refund</td><td><code>refundPayment(transactionId)</code> — no amount arg</td></tr>
+                    <tr>
+                        <td>Use <code>transactionId</code></td>
+                        <td>From <code>lookupPayment(pidx).transactionId()</code> — not pidx</td>
+                    </tr>
+                    <tr>
+                        <td>Only completed payments</td>
+                        <td>Pending / Expired / Canceled → 400 error from Khalti</td>
+                    </tr>
+                    <tr>
+                        <td>Partial amount in paisa</td>
+                        <td>NPR 50 → <code>5000L</code></td>
+                    </tr>
+                    <tr>
+                        <td>Full refund</td>
+                        <td><code>refundPayment(transactionId)</code> — no amount arg</td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Do not pass <code>pidx</code> into <code>refundPayment()</code>.</strong> It expects <code>transactionId</code>. Passing pidx will always fail with a 400 error from Khalti.</p>
+                <p>
+                    <strong>Do not pass <code>pidx</code> to <code>refundPayment()</code>.</strong>
+                    It expects <code>transactionId</code>. Passing pidx will always
+                    fail with a 400 error from Khalti.
+                </p>
             </div>
         </section>
 
+        <!-- Payment Statuses -->
         <section id="statuses">
             <h2>Payment Statuses</h2>
+
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Status</th><th>isSuccess()</th><th>isRefunded()</th><th>isTerminalFailure()</th><th>Action</th></tr></thead>
+                    <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>isSuccess()</th>
+                        <th>isRefunded()</th>
+                        <th>isTerminalFailure()</th>
+                        <th>Action</th>
+                    </tr>
+                    </thead>
                     <tbody>
-                    <tr><td><code>COMPLETED</code></td><td><span class="pill pill-green">true</span></td><td>—</td><td>—</td><td>Mark order as paid</td></tr>
-                    <tr><td><code>REFUNDED</code></td><td>—</td><td><span class="pill pill-blue">true</span></td><td>—</td><td>Mark order as refunded</td></tr>
-                    <tr><td><code>PENDING</code></td><td>—</td><td>—</td><td>—</td><td>Poll again later</td></tr>
-                    <tr><td><code>USER_CANCELED</code></td><td>—</td><td>—</td><td><span class="pill pill-yellow">true</span></td><td>Offer retry</td></tr>
-                    <tr><td><code>CANCELED</code></td><td>—</td><td>—</td><td><span class="pill pill-yellow">true</span></td><td>Offer retry</td></tr>
-                    <tr><td><code>EXPIRED</code></td><td>—</td><td>—</td><td><span class="pill pill-yellow">true</span></td><td>New payment link</td></tr>
-                    <tr><td><code>FAILED</code></td><td>—</td><td>—</td><td><span class="pill pill-yellow">true</span></td><td>Offer retry</td></tr>
-                    <tr><td><code>UNKNOWN</code></td><td>—</td><td>—</td><td>—</td><td>Contact Khalti support</td></tr>
+                    <tr>
+                        <td><code>COMPLETED</code></td>
+                        <td><span class="pill pill-ok">true</span></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>Mark order as paid</td>
+                    </tr>
+                    <tr>
+                        <td><code>REFUNDED</code></td>
+                        <td>—</td>
+                        <td><span class="pill pill-brand">true</span></td>
+                        <td>—</td>
+                        <td>Mark order as refunded</td>
+                    </tr>
+                    <tr>
+                        <td><code>PENDING</code></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>Poll again later</td>
+                    </tr>
+                    <tr>
+                        <td><code>USER_CANCELED</code></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td><span class="pill pill-warn">true</span></td>
+                        <td>Offer retry</td>
+                    </tr>
+                    <tr>
+                        <td><code>CANCELED</code></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td><span class="pill pill-warn">true</span></td>
+                        <td>Offer retry</td>
+                    </tr>
+                    <tr>
+                        <td><code>EXPIRED</code></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td><span class="pill pill-warn">true</span></td>
+                        <td>New payment link</td>
+                    </tr>
+                    <tr>
+                        <td><code>FAILED</code></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td><span class="pill pill-warn">true</span></td>
+                        <td>Offer retry</td>
+                    </tr>
+                    <tr>
+                        <td><code>UNKNOWN</code></td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>Contact Khalti support</td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
+
+            <p>
+                A <code>REFUNDED</code> payment was once successful — it is not a failure.
+                Use <code>isRefunded()</code> to detect this case separately from failures.
+            </p>
         </section>
 
+        <!-- Security Rules -->
         <section id="security">
             <h2>Security Rules</h2>
+
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Never trust redirect URL parameters alone.</strong> Always call <code>lookupPayment(pidx)</code> to confirm.</p>
+                <p>
+                    <strong>Never trust redirect URL parameters alone.</strong>
+                    Always call <code>lookupPayment(pidx)</code> to confirm.
+                </p>
             </div>
+
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Always verify the amount.</strong> Call <code>lookup.isAmountValid(expectedPaisa)</code> to detect tampered amounts.</p>
+                <p>
+                    <strong>Always verify the amount.</strong>
+                    Call <code>lookup.isAmountValid(expectedPaisa)</code>
+                    to detect tampered amounts.
+                </p>
             </div>
+
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
-                <p>Save <code>pidx</code> to your database <strong>before</strong> redirecting the user to the payment page.</p>
+                <p>
+                    Save <code>pidx</code> to your database
+                    <strong>before</strong> redirecting the user to the payment page.
+                </p>
             </div>
+
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
-                <p>For refunds, save <code>transactionId</code> from the lookup response to your database.</p>
+                <p>
+                    For refunds, save <code>transactionId</code> from the
+                    lookup response to your database.
+                </p>
+            </div>
+
+            <pre><code>// ✅ Correct flow
+KhaltiInitiateResponse res = khaltiClient.initiatePayment(request);
+orderRepo.savePidx(orderId, res.pidx());   // SAVE FIRST
+return res.paymentUrl();                    // THEN redirect
+
+// ✅ Correct verification
+KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
+if (!lookup.isPaymentSuccessful()) { /* handle */ }
+if (!lookup.isAmountValid(expectedPaisa)) { /* handle tampering */ }
+orderRepo.markPaid(orderId, lookup.transactionId());
+
+// ❌ NEVER do this
+if (request.getParam("status").equals("Completed")) {
+    orderRepo.markPaid(orderId); // DANGEROUS — easily faked
+}</code></pre>
+        </section>
+
+        <!-- Reactive -->
+        <section id="reactive">
+            <h2>Reactive Usage</h2>
+
+            <p>
+                Use <code>KhaltiReactiveClient</code> from
+                <code>nepal-pay-spring-boot-reactive-starter</code>
+                for non-blocking WebFlux applications.
+            </p>
+
+            <h3>Initiate payment — reactive</h3>
+            <pre><code>public Mono&lt;String&gt; startKhalti(String orderId, long amountNPR) {
+    return khaltiReactiveClient.initiatePayment(
+        KhaltiInitiateRequest.builder()
+            .amount(amountNPR * 100L)
+            .purchaseOrderId(orderId)
+            .purchaseOrderName("Pro Plan")
+            .build()
+    )
+    .doOnNext(res -> orderRepo.savePidx(orderId, res.pidx()))
+    .map(KhaltiInitiateResponse::paymentUrl);
+}</code></pre>
+
+            <h3>Verify after callback — reactive</h3>
+            <pre><code>@GetMapping("/khalti/callback")
+public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
+        @RequestParam String pidx) {
+
+    return khaltiReactiveClient.lookupPayment(pidx)
+        .flatMap(lookup -> {
+            if (!lookup.isPaymentSuccessful()) {
+                return Mono.just(ResponseEntity.badRequest()
+                    .body("Not confirmed: " + lookup.status()));
+            }
+            return orderRepo.markPaid(pidx, lookup.transactionId())
+                .thenReturn(ResponseEntity.ok("Payment confirmed"));
+        });
+}</code></pre>
+
+            <h3>Refund — reactive</h3>
+            <pre><code>// Full refund
+public Mono&lt;Boolean&gt; refundKhalti(String transactionId) {
+    return khaltiReactiveClient.refundPayment(transactionId)
+        .map(KhaltiRefundResponse::isRefundSuccessful);
+}
+
+// Partial refund — NPR 50 = 5000 paisa
+public Mono&lt;Boolean&gt; partialRefund(String transactionId) {
+    return khaltiReactiveClient.refundPayment(transactionId, 5000L)
+        .map(KhaltiRefundResponse::isRefundSuccessful);
+}</code></pre>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    All validation errors in reactive clients are emitted as
+                    <code>Mono.error()</code> signals — never thrown directly.
+                    Handle them with <code>onErrorResume</code> or
+                    <code>StepVerifier.expectError()</code> in tests.
+                </p>
             </div>
         </section>
 
@@ -226,13 +556,27 @@ if (refund.isRefundSuccessful()) {
 
 <footer class="footer">
     <div class="footer-inner">
-        <div class="footer-brand">🇳🇵 NepalPay</div>
+        <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
-            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter" target="_blank">GitHub</a>
+            <a href="getting-started.html">Getting Started</a>
+            <a href="esewa.html">eSewa</a>
+            <a href="reactive.html">Reactive</a>
+            <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
+               target="_blank" rel="noopener">GitHub</a>
         </div>
-        <p class="footer-copy">MIT License</p>
+        <p class="footer-copy">MIT © 2026 · Built for Nepal's developers 🇳🇵</p>
     </div>
 </footer>
+
+<script>
+    function toggleTheme() {
+        var r = document.documentElement;
+        var c = r.getAttribute('data-theme') || 'light';
+        var n = c === 'dark' ? 'light' : 'dark';
+        r.setAttribute('data-theme', n);
+        try { localStorage.setItem('np-theme', n); } catch (e) {}
+    }
+</script>
 </body>
 </html>

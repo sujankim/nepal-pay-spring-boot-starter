@@ -1,6 +1,6 @@
 # NepalPay Consumer Demo
 
-A minimal Spring Boot 4 application demonstrating **NepalPay v1.1.0** —
+A minimal Spring Boot 4 application demonstrating **NepalPay v1.2.0** —
 
 **Khalti, eSewa, ConnectIPS, and Fonepay payments with blocking and reactive (WebFlux) support, refund, and retry.**
 

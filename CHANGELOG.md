@@ -1,7 +1,317 @@
 # Changelog
 
-All notable changes to NepalPay Spring Boot Starter.
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+All notable changes to **NepalPay Spring Boot Starter**.
+
+This project follows the **[Keep a Changelog](https://keepachangelog.com/en/1.0.0/)** format.
+
+---
+
+## [v1.2.0] - 2026-07-12
+
+### Added
+
+## 📊 Micrometer Metrics (All 4 Gateways)
+
+Micrometer timers and counters are now recorded automatically whenever
+`spring-boot-starter-actuator` is present on the classpath.
+
+Metrics are **enabled by default (opt-out)**.
+
+Disable them with:
+
+```yaml
+nepalpay:
+  metrics:
+    enabled: false
+```
+
+Metrics classes (moved to `nepal-pay-core` under `io.nepalpay.core.metrics`):
+
+| Gateway | Metrics |
+|---------|---------|
+| **Khalti** | Timers: `initiate`, `lookup`, `refund`<br>Counter: `retry.attempts` |
+| **eSewa** | Timers: `verify`, `status`<br>Counters: `signature.failed`, `retry.attempts` |
+| **ConnectIPS** | Timer: `validate`<br>Counter: `retry.attempts` |
+| **Fonepay** | Counters: `redirect.built`, `callback.verified`, `signature.failed` |
+
+Reactive timing uses `Timer.Sample` together with `doOnSuccess()` and
+`doOnError()` so no blocking is introduced.
+
+Blocking clients are timed using a `Supplier<T>` wrapper.
+
+### Example Grafana Queries
+
+```text
+# Khalti initiation latency (P99)
+
+histogram_quantile(
+  0.99,
+  rate(nepalpay_khalti_payment_initiate_duration_seconds_bucket[5m])
+)
+
+# eSewa signature failures (fraud alert)
+
+rate(nepalpay_esewa_callback_signature_failed_total[5m]) > 5
+
+# ConnectIPS retry rate
+
+rate(nepalpay_connectips_retry_attempts_total[5m])
+```
+
+---
+
+## ❤️ Actuator Health Indicators
+
+Each configured gateway now exposes its own Actuator health indicator.
+
+Design decision:
+
+- Configuration-only validation
+- No outbound HTTP ping
+- Avoids false `DOWN` states caused by sandbox rate limits
+
+Disable with:
+
+```yaml
+nepalpay:
+  health:
+    enabled: false
+```
+
+### Spring Boot 3
+
+Package:
+
+```text
+org.springframework.boot.actuate.health
+```
+
+Health indicators:
+
+- `nepalpayKhalti`
+- `nepalpayEsewa`
+- `nepalpayConnectIps`
+- `nepalpayFonepay`
+
+Details include:
+
+- gateway
+- mode
+- configured
+- gateway URL / form URL
+- PFX loaded status (ConnectIPS)
+
+### Spring Boot 4
+
+Package:
+
+```text
+org.springframework.boot.health.contributor
+```
+
+Same four indicators using the new Spring Boot 4.1.0 health API.
+
+### Reactive Support
+
+Reactive starters expose `ReactiveHealthIndicator`
+returning `Mono<Health>`.
+
+Available for:
+
+- `nepalpayKhalti`
+- `nepalpayEsewa`
+- `nepalpayConnectIps`
+
+`Fonepay` remains blocking and therefore does not expose a reactive indicator.
+
+### Example Response
+
+```json
+GET /actuator/health
+
+{
+  "status": "UP",
+  "components": {
+    "nepalpayKhalti": {
+      "status": "UP",
+      "details": {
+        "gateway": "Khalti",
+        "mode": "SANDBOX"
+      }
+    },
+    "nepalpayEsewa": {
+      "status": "UP",
+      "details": {
+        "gateway": "eSewa",
+        "mode": "SANDBOX"
+      }
+    },
+    "nepalpayConnectIps": {
+      "status": "UP",
+      "details": {
+        "pfxLoaded": true
+      }
+    },
+    "nepalpayFonepay": {
+      "status": "UP",
+      "details": {
+        "note": "URL redirect — no HTTP calls"
+      }
+    }
+  }
+}
+```
+
+---
+
+## ⚙️ New Configuration Properties
+
+```yaml
+nepalpay:
+  metrics:
+    enabled: true
+
+  health:
+    enabled: true
+```
+
+Both features are enabled by default.
+
+`NepalPayProperties` now provides two null-safe accessors:
+
+- `isMetricsEnabled()`
+- `isHealthEnabled()`
+
+When the configuration block is absent, both methods return `true`.
+
+---
+
+## 🧩 Auto-Configuration
+
+### Spring Boot 3 & Spring Boot 4
+
+- `NepalPayMetricsAutoConfiguration`
+  - Injects `MeterRegistry` into all gateway clients
+  - `@AutoConfiguration(before = NepalPayAutoConfiguration)`
+
+- `NepalPayHealthAutoConfiguration`
+  - Registers health indicators after client creation
+  - `@AutoConfiguration(after = NepalPayAutoConfiguration, NepalPayMetricsAutoConfiguration)`
+
+### Reactive Starters
+
+- `NepalPayReactiveMetricsAutoConfiguration`
+- `NepalPayReactiveHealthAutoConfiguration`
+
+---
+
+## ✅ Tests
+
+More than **100 new tests** were added.
+
+### Metrics
+
+- `KhaltiMetricsTest`
+- `EsewaMetricsTest`
+- `ConnectIpsMetricsTest`
+- `FonepayMetricsTest`
+
+### Health Indicators
+
+- `KhaltiHealthIndicatorTest`
+- `KhaltiReactiveHealthIndicatorTest`
+
+### Auto Configuration
+
+- `NepalPayMetricsAutoConfigurationTest`
+- Approximately **30 tests per starter**
+
+---
+
+### Fixed
+
+## 📦 Metrics Moved to `nepal-pay-core`
+
+Metrics classes were moved from:
+
+```text
+nepal-pay-spring-boot-3-starter
+```
+
+to:
+
+```text
+nepal-pay-core
+```
+
+Package:
+
+```text
+io.nepalpay.core.metrics
+```
+
+### Reason
+
+The reactive starter required metrics at compile time.
+
+Adding the Boot 3 starter as a dependency caused:
+
+```text
+Duplicated prefix 'nepalpay'
+```
+
+because both modules contained `@ConfigurationProperties`
+with the same prefix.
+
+Moving the shared metrics into `nepal-pay-core` eliminates the cross-module dependency while keeping all starters compatible.
+
+---
+
+## 🩺 Spring Boot 4.1.0 Health API Changes
+
+Spring Boot 4.1.0 moved the health API from:
+
+```text
+org.springframework.boot.actuate.health
+```
+
+to:
+
+```text
+org.springframework.boot.health.contributor
+```
+
+Changes:
+
+- Added explicit `spring-boot-health` dependency
+- Updated all Boot 4 health indicators to use the new package
+
+---
+
+## ⚙️ NepalPayProperties Constructor Fix
+
+`@ConfigurationProperties` records must expose exactly one constructor—the canonical record constructor.
+
+Adding additional constructors caused:
+
+```text
+UnsatisfiedDependencyException
+```
+
+Instead of extra constructors, two helper methods were introduced:
+
+- `isMetricsEnabled()`
+- `isHealthEnabled()`
+
+---
+
+### Breaking Changes
+
+**None.**
+
+All metrics and health functionality is additive and opt-out.
+
+Projects that do not include Spring Boot Actuator remain completely unaffected.
 
 ---
 
