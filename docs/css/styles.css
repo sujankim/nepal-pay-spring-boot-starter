@@ -3,7 +3,7 @@
    Same structure as v1 · New identity
    ═══════════════════════════════════════════════════ */
 
-@import 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap';
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ── Light tokens ─────────────────────────────────── */
 :root {
@@ -113,7 +113,7 @@ a { color: var(--brand); text-decoration: none; }
 a:hover { color: var(--brand-h); text-decoration: underline; }
 
 /* ── Type ─────────────────────────────────────────── */
-h1, h2, h3 { font-family: Outfit, sans-serif; color: var(--text); }
+h1, h2, h3 { font-family: 'Outfit', sans-serif; color: var(--text); }
 h4          { font-family: Inter, sans-serif; }
 
 h1 { font-size: 3.25rem; font-weight: 900; line-height: 1.08; letter-spacing: -0.045em; }
@@ -198,7 +198,7 @@ pre code { background: none; border: none; padding: 0; color: inherit; font-size
 .nav-brand-flag { font-size: 1.2rem; line-height: 1; }
 
 .nav-brand-name {
-    font-family: Outfit, sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 1rem; font-weight: 800;
     color: white; letter-spacing: -0.02em;
 }
@@ -347,7 +347,7 @@ pre code { background: none; border: none; padding: 0; color: inherit; font-size
 }
 
 .hero-stat-n {
-    font-family: Outfit, sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 1.875rem; font-weight: 900;
     color: white; letter-spacing: -0.04em; line-height: 1;
     margin-bottom: 4px;
@@ -360,7 +360,7 @@ pre code { background: none; border: none; padding: 0; color: inherit; font-size
 .btn {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 10px 20px; border-radius: var(--r2);
-    font-family: Outfit, sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 0.9375rem; font-weight: 700;
     cursor: pointer; border: none;
     text-decoration: none !important;
@@ -479,7 +479,7 @@ pre code { background: none; border: none; padding: 0; color: inherit; font-size
 }
 
 .section-title {
-    font-family: Outfit, sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 2.25rem; font-weight: 700;
     letter-spacing: -0.03em; margin-bottom: 0.75rem;
     line-height: 1.2;
@@ -627,7 +627,7 @@ pre code { background: none; border: none; padding: 0; color: inherit; font-size
 }
 .amount-card:hover { border-color: var(--brand); }
 
-.amount-gateway { font-family: Outfit, sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 0.5rem; }
+.amount-gateway { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem; margin-bottom: 0.5rem; }
 .amount-unit    { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; color: var(--brand); margin-bottom: 4px; }
 .amount-example { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-4); }
 
@@ -784,6 +784,7 @@ tr:hover td { background: var(--bg-2); }
     justify-content: space-between; gap: 2rem;
 }
 
+.page-header-left {}
 
 .page-version-pill {
     display: inline-flex; align-items: center; gap: 4px;
@@ -813,7 +814,7 @@ tr:hover td { background: var(--bg-2); }
 }
 
 .footer-brand {
-    font-family: Outfit, sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 1rem; font-weight: 800;
     color: var(--text); letter-spacing: -0.02em;
     text-decoration: none !important;

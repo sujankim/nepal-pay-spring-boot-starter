@@ -325,7 +325,7 @@ initiatePayment(orderId: string, amount: number): void {
 // Plain JavaScript
 fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
   .then(res => res.json())
-  .then(data => window.location.href = data.redirectUrl);</code></pre>
+  .then(data => window.location.href = data.redirect_url);</code></pre>
 
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
@@ -349,7 +349,6 @@ fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
                 trusting <code>PS=success</code>.
             </p>
 
-            <!-- FIXED: Changed ResponseEntity<String> to ResponseEntity<Map<String, Object>> -->
             <pre><code>@GetMapping("/fonepay/callback")
 public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
         @RequestParam String PRN,
@@ -455,7 +454,7 @@ public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
                 </p>
             </div>
 
-            <pre><code> // ✅ Correct flow
+            <pre><code>// ✅ Correct flow
 String prn = "FP-" + orderId;
 orderRepo.savePrn(orderId, prn);        // SAVE FIRST
 FonepayRedirectParams params =
@@ -509,7 +508,6 @@ public class FonepayService {
 
     // Blocking client — works fine in reactive apps
     private final FonepayClient fonepayClient;
-    private final OrderRepository orderRepo;   // ← declare injected repo
 
     public String buildRedirect(String orderId, double amountNPR) {
         String prn = "FP-" + orderId;
@@ -527,7 +525,7 @@ public class FonepayService {
     // Optional: wrap in Mono if needed for reactive pipeline
     public Mono&lt;Boolean&gt; verifyFonepay(
             FonepayCallbackResponse callback) {
-        return Mono.fromCallable(() -&gt;
+        return Mono.fromCallable(() ->
             fonepayClient.verifyCallback(callback)
                          .isPaymentSuccessful());
     }

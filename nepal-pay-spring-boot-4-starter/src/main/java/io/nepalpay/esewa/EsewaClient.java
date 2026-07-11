@@ -29,6 +29,8 @@ import java.util.function.Supplier;
  *
  * <p>Uses Jackson 3 ({@code tools.jackson.databind.json.JsonMapper})
  * for Base64 callback decoding.
+ * This is the only difference from the Boot 3 variant which uses
+ * {@code com.fasterxml.jackson.databind.ObjectMapper} (Jackson 2).
  *
  * <p>This client provides:
  * <ul>
