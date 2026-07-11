@@ -7,18 +7,20 @@ import io.nepalpay.core.khalti.model.KhaltiInitiateResponse;
 import io.nepalpay.core.khalti.model.KhaltiLookupResponse;
 import io.nepalpay.core.khalti.model.KhaltiRefundResponse;
 import io.nepalpay.core.retry.RetryProperties;
+import io.nepalpay.metrics.KhaltiMetrics;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.web.client.RestClient;
-import java.time.Duration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Khalti Payment Gateway Client — Spring Boot 4.
+ * Khalti Payment Gateway Client — Spring Boot 3.
  *
  * <p>Provides three operations:
  * <ul>
@@ -38,6 +40,13 @@ import java.util.function.Supplier;
  * The refund path has no {@code /api/v2} segment.
  * We handle this via a separate {@code baseDomain} field.
  *
+ * <p><strong>Metrics:</strong>
+ * When {@code spring-boot-starter-actuator} is on the classpath and a
+ * {@link MeterRegistry} is injected, all three operations are timed and
+ * retry attempts are counted automatically. If no {@link MeterRegistry}
+ * is available, all metric recording is silently skipped — zero impact
+ * on existing users without Actuator.
+ *
  * <p><strong>Retry:</strong>
  * All HTTP methods are wrapped with exponential backoff retry.
  * Retry is disabled by default — enable via
@@ -48,35 +57,40 @@ import java.util.function.Supplier;
 @Slf4j
 public final class KhaltiClient {
 
-    // ── Official Khalti API base URLs ─────────────────────────────────────────
-    private static final String SANDBOX_BASE_URL    = "https://dev.khalti.com/api/v2";
-    private static final String PRODUCTION_BASE_URL = "https://khalti.com/api/v2";
+    // ── Official Khalti API base URLs ─────────────────────────────────────
+    private static final String SANDBOX_BASE_URL       = "https://dev.khalti.com/api/v2";
+    private static final String PRODUCTION_BASE_URL    = "https://khalti.com/api/v2";
 
-    // ── Base domains for building refund URL ──────────────────────────────────
-    // Refund path: /api/merchant-transaction/{id}/refund/
-    // Note: NO "/api/v2" in refund path — different API tree
+    // ── Base domains for building refund URL ──────────────────────────────
     private static final String SANDBOX_BASE_DOMAIN    = "https://dev.khalti.com";
     private static final String PRODUCTION_BASE_DOMAIN = "https://khalti.com";
 
-    // ── Endpoint paths ────────────────────────────────────────────────────────
-    private static final String INITIATE_PATH     = "/epayment/initiate/";
-    private static final String LOOKUP_PATH       = "/epayment/lookup/";
+    // ── Endpoint paths ────────────────────────────────────────────────────
+    private static final String INITIATE_PATH      = "/epayment/initiate/";
+    private static final String LOOKUP_PATH        = "/epayment/lookup/";
     private static final String REFUND_PATH_PREFIX = "/api/merchant-transaction/";
     private static final String REFUND_PATH_SUFFIX = "/refund/";
 
-    // ── Fields ────────────────────────────────────────────────────────────────
+    // ── Fields ────────────────────────────────────────────────────────────
     private final NepalPayProperties.KhaltiProperties props;
-    private final RestClient restClient;
-    private final String baseUrl;
-    private final String baseDomain;
+    private final RestClient      restClient;
+    private final String          baseUrl;
+    private final String          baseDomain;
     private final RetryProperties retryProps;
 
-    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Optional Micrometer metrics — null when Actuator not on classpath.
+     * All usages guarded with null check — no NPE possible.
+     */
+    private final KhaltiMetrics metrics;
+
+    // ─────────────────────────────────────────────────────────────────────
     // CONSTRUCTORS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Production constructor — used by auto-configuration.
+     * No metrics (Actuator not available or not configured).
      *
      * @param props             Khalti properties from application.yml
      * @param restClientBuilder Spring Boot RestClient builder
@@ -85,19 +99,34 @@ public final class KhaltiClient {
             NepalPayProperties.KhaltiProperties props,
             RestClient.Builder restClientBuilder) {
 
-        this(
-                props,
-                restClientBuilder,
+        this(props, restClientBuilder,
                 props.sandbox() ? SANDBOX_BASE_URL    : PRODUCTION_BASE_URL,
-                props.sandbox() ? SANDBOX_BASE_DOMAIN : PRODUCTION_BASE_DOMAIN
-        );
+                props.sandbox() ? SANDBOX_BASE_DOMAIN : PRODUCTION_BASE_DOMAIN,
+                null);
+    }
+
+    /**
+     * Production constructor WITH metrics.
+     * Used by auto-configuration when Actuator + MeterRegistry are available.
+     *
+     * @param props             Khalti properties from application.yml
+     * @param restClientBuilder Spring Boot RestClient builder
+     * @param meterRegistry     Micrometer registry — may be null
+     */
+    public KhaltiClient(
+            NepalPayProperties.KhaltiProperties props,
+            RestClient.Builder restClientBuilder,
+            MeterRegistry meterRegistry) {
+
+        this(props, restClientBuilder,
+                props.sandbox() ? SANDBOX_BASE_URL    : PRODUCTION_BASE_URL,
+                props.sandbox() ? SANDBOX_BASE_DOMAIN : PRODUCTION_BASE_DOMAIN,
+                meterRegistry);
     }
 
     /**
      * Test constructor — allows injecting a custom base URL.
-     *
-     * <p>Used in tests to point the client at {@code MockWebServer}.
-     * The override URL is used for both API calls and refund URL building.
+     * No metrics.
      *
      * @param props             Khalti properties
      * @param restClientBuilder RestClient builder
@@ -108,37 +137,46 @@ public final class KhaltiClient {
             RestClient.Builder restClientBuilder,
             String baseUrlOverride) {
 
-        this(
-                props,
-                restClientBuilder,
+        this(props, restClientBuilder,
                 baseUrlOverride,
-                // Strip trailing slash — prevents double-slash in refund URL
                 baseUrlOverride.endsWith("/")
                         ? baseUrlOverride.substring(0, baseUrlOverride.length() - 1)
-                        : baseUrlOverride
-        );
+                        : baseUrlOverride,
+                null);
     }
 
     /**
      * Core private constructor — single point of initialization.
+     *
+     * @param props             Khalti properties
+     * @param restClientBuilder RestClient builder
+     * @param baseUrl           API v2 base URL
+     * @param baseDomain        Base domain for refund URL construction
+     * @param meterRegistry     Micrometer registry — null means no metrics
      */
     private KhaltiClient(
             NepalPayProperties.KhaltiProperties props,
             RestClient.Builder restClientBuilder,
             String baseUrl,
-            String baseDomain) {
+            String baseDomain,
+            MeterRegistry meterRegistry) {
 
         this.props      = props;
         this.baseUrl    = baseUrl;
         this.baseDomain = baseDomain;
         this.retryProps = props.retryOrDefault();
 
-        // Apply connect + read timeout from configuration.
-        // SimpleClientHttpRequestFactory is built into spring-web —
-        // no extra HTTP client dependency needed.
-        // Default: 10 seconds (via @DefaultValue on KhaltiProperties).
-        // Without this, RestClient has NO timeout and can hang forever.
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        // ── Metrics — optional ────────────────────────────────────────────
+        // KhaltiMetrics is null when no MeterRegistry is available.
+        // All metric recording below is guarded with null checks —
+        // zero NPE risk, zero impact on users without Actuator.
+        this.metrics = (meterRegistry != null)
+                ? new KhaltiMetrics(meterRegistry, props.sandbox())
+                : null;
+
+        // ── HTTP client ───────────────────────────────────────────────────
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(props.timeoutSeconds()));
         factory.setReadTimeout(Duration.ofSeconds(props.timeoutSeconds()));
 
@@ -150,26 +188,30 @@ public final class KhaltiClient {
                 .build();
 
         log.info("[NepalPay] KhaltiClient initialized | mode={} | baseUrl={}" +
-                        " | baseDomain={} | timeout={}s | retry={}",
+                        " | baseDomain={} | timeout={}s | retry={} | metrics={}",
                 props.sandbox() ? "SANDBOX" : "PRODUCTION",
                 this.baseUrl,
                 this.baseDomain,
                 props.timeoutSeconds(),
-                this.retryProps.summary());
+                this.retryProps.summary(),
+                metrics != null ? "enabled" : "disabled");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // PUBLIC API
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Initiate a Khalti payment.
      *
      * <p>Store {@code pidx} in your database BEFORE redirecting the user.
      *
+     * <p>Records {@code nepalpay.khalti.payment.initiate.duration} timer
+     * when Micrometer is available.
+     *
      * @param request Payment details — use {@link KhaltiInitiateRequest#builder()}
      * @return Response with {@code pidx} and {@code paymentUrl}
-     * @throws KhaltiException if validation fails or Khalti API returns an error
+     * @throws KhaltiException if validation fails or Khalti API returns error
      */
     public KhaltiInitiateResponse initiatePayment(KhaltiInitiateRequest request) {
         validateInitiateRequest(request);
@@ -178,44 +220,22 @@ public final class KhaltiClient {
         log.debug("[NepalPay] Khalti initiate | orderId={} | amount={} paisa",
                 finalRequest.purchaseOrderId(), finalRequest.amount());
 
-        return executeWithRetry("Khalti initiate", () -> {
-            KhaltiInitiateResponse response = restClient.post()
-                    .uri(INITIATE_PATH)
-                    .body(finalRequest)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                        String body = readBodySafely(res);
-                        log.error("[NepalPay] Khalti initiate 4xx | status={} | body={}",
-                                res.getStatusCode().value(), body);
-                        throw new KhaltiException(
-                                "Khalti payment initiation failed — " +
-                                        "check your secret key or request",
-                                res.getStatusCode().value(), body);
-                    })
-                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-                        log.error("[NepalPay] Khalti initiate 5xx | status={}",
-                                res.getStatusCode().value());
-                        throw new KhaltiException(
-                                "Khalti server error — please try again later",
-                                res.getStatusCode().value(), null);
-                    })
-                    .body(KhaltiInitiateResponse.class);
-
-            if (response == null) {
-                throw new KhaltiException("Khalti returned empty response for initiate");
-            }
-
-            log.info("[NepalPay] Khalti payment initiated | pidx={} | orderId={}",
-                    response.pidx(), finalRequest.purchaseOrderId());
-            return response;
-        });
+        // ✅ Wrap with metrics timer if available — falls back to direct
+        // call if metrics is null (Actuator not on classpath)
+        if (metrics != null) {
+            return metrics.recordInitiate(
+                    () -> executeInitiate(finalRequest));
+        }
+        return executeInitiate(finalRequest);
     }
 
     /**
      * Lookup (verify) a Khalti payment by its {@code pidx}.
      *
      * <p>ALWAYS call this after receiving the callback redirect.
-     * The redirect URL alone can be faked.
+     *
+     * <p>Records {@code nepalpay.khalti.payment.lookup.duration} timer
+     * when Micrometer is available.
      *
      * @param pidx The payment identifier from {@link #initiatePayment}
      * @return Verified payment details including status and amount
@@ -228,43 +248,19 @@ public final class KhaltiClient {
 
         log.debug("[NepalPay] Khalti lookup | pidx={}", pidx);
 
-        return executeWithRetry("Khalti lookup", () -> {
-            KhaltiLookupResponse response = restClient.post()
-                    .uri(LOOKUP_PATH)
-                    .body(Map.of("pidx", pidx))
-                    .retrieve()
-                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                        String body = readBodySafely(res);
-                        log.error("[NepalPay] Khalti lookup 4xx | pidx={} | status={} | body={}",
-                                pidx, res.getStatusCode().value(), body);
-                        throw new KhaltiException(
-                                "Khalti lookup failed — invalid pidx or unauthorized",
-                                res.getStatusCode().value(), body);
-                    })
-                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-                        log.error("[NepalPay] Khalti lookup 5xx | pidx={} | status={}",
-                                pidx, res.getStatusCode().value());
-                        throw new KhaltiException(
-                                "Khalti server error during lookup — try again",
-                                res.getStatusCode().value(), null);
-                    })
-                    .body(KhaltiLookupResponse.class);
-
-            if (response == null) {
-                throw new KhaltiException(
-                        "Khalti returned empty response for lookup pidx=" + pidx);
-            }
-
-            log.info("[NepalPay] Khalti lookup result | pidx={} | status={} | success={}",
-                    response.pidx(), response.status(), response.isPaymentSuccessful());
-            return response;
-        });
+        if (metrics != null) {
+            return metrics.recordLookup(() -> executeLookup(pidx));
+        }
+        return executeLookup(pidx);
     }
 
     /**
      * Refund a completed Khalti payment — FULL refund.
      *
      * <p>Use {@code transactionId} from {@link #lookupPayment}, NOT pidx.
+     *
+     * <p>Records {@code nepalpay.khalti.payment.refund.duration} timer
+     * when Micrometer is available.
      *
      * @param transactionId Khalti's internal transaction ID
      * @return Refund confirmation response
@@ -286,7 +282,8 @@ public final class KhaltiClient {
         if (amountPaisa != null && amountPaisa <= 0) {
             throw new KhaltiException(
                     "amountPaisa must be greater than 0 for partial refund. Got: "
-                            + amountPaisa + ". Use refundPayment(transactionId) for full refund.");
+                            + amountPaisa
+                            + ". Use refundPayment(transactionId) for full refund.");
         }
         return executeRefundRequest(transactionId, amountPaisa);
     }
@@ -296,18 +293,14 @@ public final class KhaltiClient {
      *
      * @return true if sandbox mode is active
      */
-    public boolean isSandbox() {
-        return props.sandbox();
-    }
+    public boolean isSandbox() { return props.sandbox(); }
 
     /**
      * Returns the current active API v2 base URL.
      *
      * @return sandbox or production API v2 base URL
      */
-    public String baseUrl() {
-        return baseUrl;
-    }
+    public String baseUrl() { return baseUrl; }
 
     /**
      * Returns the current active base domain.
@@ -315,83 +308,218 @@ public final class KhaltiClient {
      *
      * @return sandbox or production base domain (no trailing slash)
      */
-    public String baseDomain() {
-        return baseDomain;
+    public String baseDomain() { return baseDomain; }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — HTTP execution methods
+    // (separated from public API so metrics wrap cleanly)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Executes the actual initiatePayment HTTP call with retry.
+     * Called by public {@link #initiatePayment} — either directly
+     * or wrapped inside a metrics timer.
+     */
+    private KhaltiInitiateResponse executeInitiate(
+            KhaltiInitiateRequest finalRequest) {
+
+        return executeWithRetry("Khalti initiate",
+                metrics != null ? metrics::incrementInitiateRetry : null,
+                () -> {
+                    KhaltiInitiateResponse response = restClient.post()
+                            .uri(INITIATE_PATH)
+                            .body(finalRequest)
+                            .retrieve()
+                            .onStatus(HttpStatusCode::is4xxClientError,
+                                    (req, res) -> {
+                                        String body = readBodySafely(res);
+                                        log.error("[NepalPay] Khalti initiate 4xx" +
+                                                        " | status={} | body={}",
+                                                res.getStatusCode().value(), body);
+                                        throw new KhaltiException(
+                                                "Khalti payment initiation failed — " +
+                                                        "check your secret key or request",
+                                                res.getStatusCode().value(), body);
+                                    })
+                            .onStatus(HttpStatusCode::is5xxServerError,
+                                    (req, res) -> {
+                                        log.error("[NepalPay] Khalti initiate 5xx" +
+                                                        " | status={}",
+                                                res.getStatusCode().value());
+                                        throw new KhaltiException(
+                                                "Khalti server error — please try again",
+                                                res.getStatusCode().value(), null);
+                                    })
+                            .body(KhaltiInitiateResponse.class);
+
+                    if (response == null) {
+                        throw new KhaltiException(
+                                "Khalti returned empty response for initiate");
+                    }
+
+                    log.info("[NepalPay] Khalti payment initiated" +
+                                    " | pidx={} | orderId={}",
+                            response.pidx(), finalRequest.purchaseOrderId());
+                    return response;
+                });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Executes the actual lookupPayment HTTP call with retry.
+     */
+    private KhaltiLookupResponse executeLookup(String pidx) {
+        return executeWithRetry("Khalti lookup",
+                metrics != null ? metrics::incrementLookupRetry : null,
+                () -> {
+                    KhaltiLookupResponse response = restClient.post()
+                            .uri(LOOKUP_PATH)
+                            .body(Map.of("pidx", pidx))
+                            .retrieve()
+                            .onStatus(HttpStatusCode::is4xxClientError,
+                                    (req, res) -> {
+                                        String body = readBodySafely(res);
+                                        log.error("[NepalPay] Khalti lookup 4xx" +
+                                                        " | pidx={} | status={} | body={}",
+                                                pidx,
+                                                res.getStatusCode().value(), body);
+                                        throw new KhaltiException(
+                                                "Khalti lookup failed — " +
+                                                        "invalid pidx or unauthorized",
+                                                res.getStatusCode().value(), body);
+                                    })
+                            .onStatus(HttpStatusCode::is5xxServerError,
+                                    (req, res) -> {
+                                        log.error("[NepalPay] Khalti lookup 5xx" +
+                                                        " | pidx={} | status={}",
+                                                pidx, res.getStatusCode().value());
+                                        throw new KhaltiException(
+                                                "Khalti server error during lookup",
+                                                res.getStatusCode().value(), null);
+                                    })
+                            .body(KhaltiLookupResponse.class);
 
+                    if (response == null) {
+                        throw new KhaltiException(
+                                "Khalti returned empty response for lookup pidx="
+                                        + pidx);
+                    }
+
+                    log.info("[NepalPay] Khalti lookup result | pidx={}" +
+                                    " | status={} | success={}",
+                            response.pidx(), response.status(),
+                            response.isPaymentSuccessful());
+                    return response;
+                });
+    }
+
+    /**
+     * Executes the actual refund HTTP call with retry.
+     */
     private KhaltiRefundResponse executeRefundRequest(
-            String transactionId,
-            Long amountPaisa) {
+            String transactionId, Long amountPaisa) {
 
         if (transactionId == null || transactionId.isBlank()) {
             throw new KhaltiException(
                     "transactionId cannot be null or blank. " +
-                            "Obtain transactionId from lookupPayment() after payment reaches Completed. " +
-                            "transactionId is null for Pending/Expired/Canceled payments.");
+                            "Obtain transactionId from lookupPayment() " +
+                            "after payment reaches Completed. " +
+                            "transactionId is null for Pending/Expired/Canceled.");
         }
 
-        String refundUrl = baseDomain + REFUND_PATH_PREFIX + transactionId + REFUND_PATH_SUFFIX;
-        Object requestBody = (amountPaisa != null) ? Map.of("amount", amountPaisa) : Map.of();
+        String refundUrl = baseDomain + REFUND_PATH_PREFIX
+                + transactionId + REFUND_PATH_SUFFIX;
+        Object requestBody = (amountPaisa != null)
+                ? Map.of("amount", amountPaisa) : Map.of();
 
-        log.debug("[NepalPay] Khalti refund request | txnId={} | type={} | url={}",
+        log.debug("[NepalPay] Khalti refund | txnId={} | type={} | url={}",
                 transactionId,
-                amountPaisa != null ? "PARTIAL (" + amountPaisa + " paisa)" : "FULL",
+                amountPaisa != null
+                        ? "PARTIAL (" + amountPaisa + " paisa)" : "FULL",
                 refundUrl);
 
-        return executeWithRetry("Khalti refund", () -> {
-            KhaltiRefundResponse response = restClient.post()
-                    .uri(refundUrl)
-                    .body(requestBody)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                        String body = readBodySafely(res);
-                        log.error("[NepalPay] Khalti refund 4xx | txnId={} | status={} | body={}",
-                                transactionId, res.getStatusCode().value(), body);
-                        throw new KhaltiException(
-                                "Khalti refund failed — payment may not be in a refundable state. " +
-                                        "Only Completed payments can be refunded.",
-                                res.getStatusCode().value(), body);
-                    })
-                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-                        log.error("[NepalPay] Khalti refund 5xx | txnId={} | status={}",
-                                transactionId, res.getStatusCode().value());
-                        throw new KhaltiException(
-                                "Khalti server error during refund — try again",
-                                res.getStatusCode().value(), null);
-                    })
-                    .body(KhaltiRefundResponse.class);
+        Runnable retryIncrement = (metrics != null)
+                ? metrics::incrementRefundRetry : null;
 
-            if (response == null) {
-                throw new KhaltiException(
-                        "Khalti returned empty response for refund txnId=" + transactionId);
-            }
-
-            log.info("[NepalPay] Khalti refund result | txnId={} | status={} | refunded={}",
-                    transactionId, response.status(), response.isRefundSuccessful());
-            return response;
-        });
+        if (metrics != null) {
+            return metrics.recordRefund(() ->
+                    executeWithRetry("Khalti refund", retryIncrement,
+                            () -> doRefund(transactionId, refundUrl, requestBody)));
+        }
+        return executeWithRetry("Khalti refund", null,
+                () -> doRefund(transactionId, refundUrl, requestBody));
     }
+
+    /**
+     * The actual HTTP call for refund — separated for metrics wrapping.
+     */
+    private KhaltiRefundResponse doRefund(
+            String transactionId, String refundUrl, Object requestBody) {
+
+        KhaltiRefundResponse response = restClient.post()
+                .uri(refundUrl)
+                .body(requestBody)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                    String body = readBodySafely(res);
+                    log.error("[NepalPay] Khalti refund 4xx | txnId={}" +
+                                    " | status={} | body={}",
+                            transactionId, res.getStatusCode().value(), body);
+                    throw new KhaltiException(
+                            "Khalti refund failed — payment may not be in a " +
+                                    "refundable state. " +
+                                    "Only Completed payments can be refunded.",
+                            res.getStatusCode().value(), body);
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                    log.error("[NepalPay] Khalti refund 5xx | txnId={}" +
+                                    " | status={}",
+                            transactionId, res.getStatusCode().value());
+                    throw new KhaltiException(
+                            "Khalti server error during refund — try again",
+                            res.getStatusCode().value(), null);
+                })
+                .body(KhaltiRefundResponse.class);
+
+        if (response == null) {
+            throw new KhaltiException(
+                    "Khalti returned empty response for refund txnId="
+                            + transactionId);
+        }
+
+        log.info("[NepalPay] Khalti refund result | txnId={}" +
+                        " | status={} | refunded={}",
+                transactionId, response.status(),
+                response.isRefundSuccessful());
+        return response;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — Retry
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Executes an API call with exponential backoff retry.
      *
-     * <p>Retry behavior:
-     * <ul>
-     *   <li>Disabled when {@code retryProps.isActive()} is false</li>
-     *   <li>Retries: httpStatus=0 (network), httpStatus>=500 (server error)</li>
-     *   <li>Never retries: httpStatus 400-499 (client errors)</li>
-     * </ul>
+     * <p>Updated to accept an optional {@code retryIncrement} runnable
+     * so the retry counter is incremented on each retry attempt when
+     * metrics are available.
+     *
+     * @param operationName  display name for log messages
+     * @param retryIncrement optional — increments retry counter per attempt
+     * @param operation      the HTTP call to execute and retry
+     * @param <T>            return type
+     * @return result from the operation
      */
-    private <T> T executeWithRetry(String operationName, Supplier<T> operation) {
+    private <T> T executeWithRetry(
+            String operationName,
+            Runnable retryIncrement,
+            Supplier<T> operation) {
+
         if (!retryProps.isActive()) {
             return operation.get();
         }
 
-        int attempt  = 0;
+        int  attempt = 0;
         long delayMs = retryProps.initialDelayMs();
 
         while (true) {
@@ -406,39 +534,34 @@ public final class KhaltiClient {
                 attempt++;
 
                 if (attempt > retryProps.maxAttempts()) {
-                    log.error("[NepalPay] {} failed after {} attempt(s) — no more retries" +
-                            " | lastStatus={}", operationName, attempt, e.httpStatus());
+                    log.error("[NepalPay] {} failed after {} attempt(s)" +
+                                    " — no more retries | lastStatus={}",
+                            operationName, attempt, e.httpStatus());
                     throw e;
+                }
+
+                // Increment Micrometer retry counter if metrics available
+                if (retryIncrement != null) {
+                    retryIncrement.run();
                 }
 
                 long waitMs = RetryProperties.jitter(delayMs);
                 log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={}" +
                                 " | retrying in {}ms",
-                        operationName, attempt, retryProps.maxAttempts(),
-                        e.httpStatus(), waitMs);
+                        operationName, attempt,
+                        retryProps.maxAttempts(), e.httpStatus(), waitMs);
 
-                sleepForRetry(waitMs, e);          // ← extracted method (see below)
+                sleepForRetry(waitMs, e);
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {
                 throw new KhaltiException(
-                        "Unexpected error during " + operationName + ": " + e.getMessage(), e);
+                        "Unexpected error during " + operationName
+                                + ": " + e.getMessage(), e);
             }
         }
     }
 
-    /**
-     * Sleeps for the given duration.
-     * Restores the interrupt flag and rethrows the original gateway exception
-     * if interrupted — the retry cannot continue without a working thread.
-     *
-     * <p>Extracted from the retry loop to avoid IntelliJ's "Thread.sleep in a loop"
-     * warning, which is a false positive here since we ARE waiting intentionally
-     * (exponential backoff), not busy-waiting.
-     *
-     * @param waitMs      milliseconds to sleep
-     * @param onInterrupt the exception to throw if interrupted
-     */
     private void sleepForRetry(long waitMs, KhaltiException onInterrupt) {
         try {
             Thread.sleep(waitMs);
@@ -455,19 +578,24 @@ public final class KhaltiClient {
         if (req.amount() <= 0) {
             throw new KhaltiException(
                     "Amount must be greater than 0 paisa. Got: " + req.amount() +
-                            ". Reminder: NPR x 100 = paisa (minimum NPR 10 = 1000 paisa)");
+                            ". Reminder: NPR × 100 = paisa " +
+                            "(minimum NPR 10 = 1000 paisa)");
         }
         if (req.purchaseOrderId() == null || req.purchaseOrderId().isBlank()) {
-            throw new KhaltiException("purchaseOrderId is required and cannot be blank");
+            throw new KhaltiException(
+                    "purchaseOrderId is required and cannot be blank");
         }
         if (req.purchaseOrderName() == null || req.purchaseOrderName().isBlank()) {
-            throw new KhaltiException("purchaseOrderName is required and cannot be blank");
+            throw new KhaltiException(
+                    "purchaseOrderName is required and cannot be blank");
         }
     }
 
     private KhaltiInitiateRequest withDefaults(KhaltiInitiateRequest req) {
-        String returnUrl  = (req.returnUrl()  != null) ? req.returnUrl()  : props.returnUrl();
-        String websiteUrl = (req.websiteUrl() != null) ? req.websiteUrl() : props.websiteUrl();
+        String returnUrl  = (req.returnUrl()  != null)
+                ? req.returnUrl()  : props.returnUrl();
+        String websiteUrl = (req.websiteUrl() != null)
+                ? req.websiteUrl() : props.websiteUrl();
 
         if (returnUrl == null || returnUrl.isBlank()) {
             throw new KhaltiException(
@@ -484,7 +612,8 @@ public final class KhaltiClient {
                 .build();
     }
 
-    private String readBodySafely(org.springframework.http.client.ClientHttpResponse res) {
+    private String readBodySafely(
+            org.springframework.http.client.ClientHttpResponse res) {
         try {
             return new String(res.getBody().readAllBytes());
         } catch (Exception ignored) {
