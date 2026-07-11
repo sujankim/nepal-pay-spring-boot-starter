@@ -1,12 +1,22 @@
 name: Publish to Maven Central
 
-# ── Action version note ──────────────────────────────────────────────────
-# actions/checkout@v5 and actions/setup-java@v5 require
-# Actions runner 2.327.1+ (Node.js 24).
+# ── Action runtime note ───────────────────────────────────────────────────
+# actions/checkout@v5 and actions/setup-java@v5 use Node.js 24 as their
+# internal ACTION RUNTIME (the engine that runs the action's own code).
+# This is NOT the Node.js version available to your workflow job steps.
 #
-# This is safe for NepalPay because ALL jobs use runs-on: ubuntu-latest
-# (GitHub-hosted runners) which are always kept up to date by GitHub.
-# See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20
+# What this means:
+#    Java build steps are completely unaffected
+#    No Node.js is exposed to the job environment by these actions
+#    If a job needs a specific Node.js version, use actions/setup-node
+#
+# Why v5 is safe here:
+#   All jobs use runs-on: ubuntu-latest (GitHub-hosted runners).
+#   GitHub-hosted runners already meet the minimum runner version
+#   2.327.1+ required by v5 actions.
+#
+# Reference:
+#   https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 # ─────────────────────────────────────────────────────────────────────────
 on:
   release:

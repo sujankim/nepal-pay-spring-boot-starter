@@ -1,12 +1,24 @@
 name: CI
 
-# ── Action version note ──────────────────────────────────────────────────
-# actions/checkout@v5 and actions/setup-java@v5 require
-# Actions runner 2.327.1+ (Node.js 24).
+# ── Action runtime note ───────────────────────────────────────────────────
+# actions/checkout@v5 and actions/setup-java@v5 use Node.js 24 as their
+# internal ACTION RUNTIME (the engine that runs the action's own code).
+# This is NOT the Node.js version available to your workflow job steps.
 #
-# This is safe for NepalPay because ALL jobs use runs-on: ubuntu-latest
-# (GitHub-hosted runners) which are always kept up to date by GitHub.
-# See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20
+# What this means:
+#    Java build steps are completely unaffected
+#    No Node.js is exposed to the job environment by these actions
+#    If a job needs a specific Node.js version, use actions/setup-node
+#
+# Why v5 is safe here:
+#   All jobs use runs-on: ubuntu-latest (GitHub-hosted runners).
+#   GitHub-hosted runners are always updated and already meet the
+#   minimum runner version 2.327.1+ required by v5 actions.
+#   This does NOT apply to self-hosted runners — those must be
+#   manually updated before using v5 actions.
+#
+# Reference:
+#   https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 # ─────────────────────────────────────────────────────────────────────────
 on:
   push:
@@ -22,14 +34,16 @@ jobs:
   # ── Step 1: Build and install core ──────────────────────────────────────
   build-core:
     name: Build and Install Core (Java 17)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest     # GitHub-hosted — runner 2.327.1+ guaranteed
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        # Node.js 24 = action runtime only — Java build is unaffected
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
+        # To use Node.js in a step, add actions/setup-node separately
         with:
           distribution: temurin
           java-version: 17
@@ -47,7 +61,7 @@ jobs:
   # ── Step 2a: Test Spring Boot 3 starter ─────────────────────────────────
   test-boot3:
     name: Test Spring Boot 3 Starter (Java 17)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest     # GitHub-hosted — runner 2.327.1+ guaranteed
     needs: build-core
 
     steps:
@@ -83,7 +97,7 @@ jobs:
   # ── Step 2b: Test Spring Boot 4 starter ─────────────────────────────────
   test-boot4:
     name: Test Spring Boot 4 Starter (Java 21)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest     # GitHub-hosted — runner 2.327.1+ guaranteed
     needs: build-core
 
     steps:
@@ -119,7 +133,7 @@ jobs:
   # ── Step 2c: Test Reactive starter ──────────────────────────────────────
   test-reactive:
     name: Test Reactive Starter (Java 17)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest     # GitHub-hosted — runner 2.327.1+ guaranteed
     needs: build-core
 
     steps:
