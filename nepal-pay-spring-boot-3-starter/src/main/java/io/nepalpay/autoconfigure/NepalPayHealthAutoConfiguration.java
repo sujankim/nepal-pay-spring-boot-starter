@@ -123,8 +123,7 @@ public class NepalPayHealthAutoConfiguration {
             KhaltiClient khaltiClient) {
 
         log.info("[NepalPay Health] Registering KhaltiHealthIndicator" +
-                " → /actuator/health/nepalpayKhaltiHealthIndicator");
-
+                " → /actuator/health/nepalpayKhalti");
         return new KhaltiHealthIndicator(khaltiClient);
     }
 
@@ -147,8 +146,7 @@ public class NepalPayHealthAutoConfiguration {
             EsewaClient esewaClient) {
 
         log.info("[NepalPay Health] Registering EsewaHealthIndicator" +
-                " → /actuator/health/nepalpayEsewaHealthIndicator");
-
+                " → /actuator/health/nepalpayEsewa");
         return new EsewaHealthIndicator(esewaClient);
     }
 
@@ -175,8 +173,7 @@ public class NepalPayHealthAutoConfiguration {
             ConnectIpsClient connectIpsClient) {
 
         log.info("[NepalPay Health] Registering ConnectIpsHealthIndicator" +
-                " → /actuator/health/nepalpayConnectIpsHealthIndicator");
-
+                " → /actuator/health/nepalpayConnectIps");
         return new ConnectIpsHealthIndicator(connectIpsClient);
     }
 
@@ -199,8 +196,7 @@ public class NepalPayHealthAutoConfiguration {
             FonepayClient fonepayClient) {
 
         log.info("[NepalPay Health] Registering FonepayHealthIndicator" +
-                " → /actuator/health/nepalpayFonepayHealthIndicator");
-
+                " → /actuator/health/nepalpayFonepay");
         return new FonepayHealthIndicator(fonepayClient);
     }
 }
