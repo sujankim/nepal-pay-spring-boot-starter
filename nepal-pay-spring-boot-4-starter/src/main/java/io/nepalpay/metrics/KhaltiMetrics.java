@@ -32,29 +32,27 @@ import java.util.function.Supplier;
  *   <li>{@code operation=initiate|lookup|refund}</li>
  * </ul>
  *
- * <p>Metrics are recorded when this helper is constructed with a
- * {@link io.micrometer.core.instrument.MeterRegistry} — typically
- * injected via Spring Boot Actuator. When no {@code MeterRegistry}
- * is provided, this class is not instantiated and no metrics are
- * recorded. Full auto-configuration wiring is coming in v1.2.0.
+ * <p>Metrics are recorded when constructed with a {@link MeterRegistry}.
  *
  * @author Sujan Lamichhane
  */
 public final class KhaltiMetrics {
 
     // ── Metric names ──────────────────────────────────────────────────────
-    public static final String INITIATE_TIMER = "nepalpay.khalti.payment.initiate.duration";
-    public static final String LOOKUP_TIMER   = "nepalpay.khalti.payment.lookup.duration";
-    public static final String REFUND_TIMER   = "nepalpay.khalti.payment.refund.duration";
-    public static final String RETRY_COUNTER  = "nepalpay.khalti.retry.attempts";
+    public static final String INITIATE_TIMER =
+            "nepalpay.khalti.payment.initiate.duration";
+    public static final String LOOKUP_TIMER   =
+            "nepalpay.khalti.payment.lookup.duration";
+    public static final String REFUND_TIMER   =
+            "nepalpay.khalti.payment.refund.duration";
+    public static final String RETRY_COUNTER  =
+            "nepalpay.khalti.retry.attempts";
 
     // ── Tag names ─────────────────────────────────────────────────────────
-    private static final String TAG_GATEWAY  = "gateway";
-    private static final String TAG_SANDBOX  = "sandbox";
-    private static final String TAG_STATUS   = "status";
-    private static final String TAG_OP       = "operation";
-
-    // ── Tag values ────────────────────────────────────────────────────────
+    private static final String TAG_GATEWAY   = "gateway";
+    private static final String TAG_SANDBOX   = "sandbox";
+    private static final String TAG_STATUS    = "status";
+    private static final String TAG_OP        = "operation";
     private static final String GATEWAY_VALUE = "khalti";
     private static final String STATUS_SUCCESS = "success";
     private static final String STATUS_ERROR   = "error";
@@ -63,14 +61,12 @@ public final class KhaltiMetrics {
     private final MeterRegistry registry;
     private final String        sandboxTag;
 
-    // ── Pre-built timers (success path) ───────────────────────────────────
+    // ── Pre-built timers ──────────────────────────────────────────────────
     private final Timer initiateSuccessTimer;
-    private final Timer lookupSuccessTimer;
-    private final Timer refundSuccessTimer;
-
-    // ── Pre-built timers (error path) ─────────────────────────────────────
     private final Timer initiateErrorTimer;
+    private final Timer lookupSuccessTimer;
     private final Timer lookupErrorTimer;
+    private final Timer refundSuccessTimer;
     private final Timer refundErrorTimer;
 
     // ── Pre-built retry counters ──────────────────────────────────────────
@@ -87,8 +83,7 @@ public final class KhaltiMetrics {
      *
      * <p>Pre-building timers and counters at construction time is the
      * Micrometer best practice — avoids per-call registry lookups and
-     * ensures metrics appear in the registry immediately at startup
-     * rather than only after first use.
+     * ensures metrics appear in the registry immediately at startup.
      *
      * @param registry MeterRegistry from Spring Boot Actuator
      * @param sandbox  true if operating in sandbox mode
@@ -134,17 +129,16 @@ public final class KhaltiMetrics {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PUBLIC API — record methods
+    // PUBLIC API — blocking record methods
+    // Used by blocking KhaltiClient via Supplier<T>
     // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Records the duration of a {@code initiatePayment()} call.
-     * Executes the supplier, records time, tags with success or error.
      *
      * @param operation the payment operation to time
      * @param <T>       return type
      * @return result from the operation
-     * @throws RuntimeException if the operation throws
      */
     public <T> T recordInitiate(Supplier<T> operation) {
         return record(operation, initiateSuccessTimer, initiateErrorTimer);
@@ -174,7 +168,6 @@ public final class KhaltiMetrics {
 
     /**
      * Increments the retry counter for {@code initiatePayment()}.
-     * Call once per retry attempt — not once per method call.
      */
     public void incrementInitiateRetry() {
         initiateRetryCounter.increment();
@@ -195,6 +188,57 @@ public final class KhaltiMetrics {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // PUBLIC API — Timer accessors for reactive timing
+    //
+    // Used by KhaltiReactiveClient via Timer.Sample + doOnSuccess/doOnError.
+    // Supplier<T> is BLOCKING — reactive clients use these accessors instead.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the Timer for successful {@code initiatePayment()} calls.
+     * Used by KhaltiReactiveClient with {@code Timer.Sample} + doOnSuccess.
+     *
+     * @return success Timer for initiate operations
+     */
+    public Timer initiateSuccessTimer() { return initiateSuccessTimer; }
+
+    /**
+     * Returns the Timer for failed {@code initiatePayment()} calls.
+     * Used by KhaltiReactiveClient with {@code Timer.Sample} + doOnError.
+     *
+     * @return error Timer for initiate operations
+     */
+    public Timer initiateErrorTimer()   { return initiateErrorTimer; }
+
+    /**
+     * Returns the Timer for successful {@code lookupPayment()} calls.
+     *
+     * @return success Timer for lookup operations
+     */
+    public Timer lookupSuccessTimer()   { return lookupSuccessTimer; }
+
+    /**
+     * Returns the Timer for failed {@code lookupPayment()} calls.
+     *
+     * @return error Timer for lookup operations
+     */
+    public Timer lookupErrorTimer()     { return lookupErrorTimer; }
+
+    /**
+     * Returns the Timer for successful {@code refundPayment()} calls.
+     *
+     * @return success Timer for refund operations
+     */
+    public Timer refundSuccessTimer()   { return refundSuccessTimer; }
+
+    /**
+     * Returns the Timer for failed {@code refundPayment()} calls.
+     *
+     * @return error Timer for refund operations
+     */
+    public Timer refundErrorTimer()     { return refundErrorTimer; }
+
+    // ─────────────────────────────────────────────────────────────────────
     // PRIVATE HELPERS
     // ─────────────────────────────────────────────────────────────────────
 
@@ -210,10 +254,12 @@ public final class KhaltiMetrics {
         long start = System.nanoTime();
         try {
             T result = operation.get();
-            successTimer.record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            successTimer.record(
+                    System.nanoTime() - start, TimeUnit.NANOSECONDS);
             return result;
         } catch (RuntimeException e) {
-            errorTimer.record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            errorTimer.record(
+                    System.nanoTime() - start, TimeUnit.NANOSECONDS);
             throw e;
         }
     }

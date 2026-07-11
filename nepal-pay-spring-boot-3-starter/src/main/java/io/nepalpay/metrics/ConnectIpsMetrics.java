@@ -14,19 +14,13 @@ import java.util.function.Supplier;
  *
  * <p><strong>Timers:</strong>
  * <ul>
- *   <li>{@code nepalpay.connectips.validate.duration}
- *       — latency of {@code validateTransaction()}</li>
+ *   <li>{@code nepalpay.connectips.validate.duration}</li>
  * </ul>
  *
  * <p><strong>Counters:</strong>
  * <ul>
- *   <li>{@code nepalpay.connectips.retry.attempts}
- *       — retry attempts on {@code validateTransaction()}</li>
+ *   <li>{@code nepalpay.connectips.retry.attempts}</li>
  * </ul>
- *
- * <p><strong>Tags:</strong>
- * {@code gateway=connectips}, {@code sandbox=true|false},
- * {@code status=success|error}
  *
  * @author Sujan Lamichhane
  */
@@ -93,7 +87,7 @@ public final class ConnectIpsMetrics {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PUBLIC API
+    // PUBLIC API — blocking record methods
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -123,4 +117,23 @@ public final class ConnectIpsMetrics {
     public void incrementValidateRetry() {
         validateRetryCounter.increment();
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PUBLIC API — Timer accessors for reactive timing
+    // Used by ConnectIpsReactiveClient via Timer.Sample + doOnSuccess/doOnError
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the Timer for successful {@code validateTransaction()} calls.
+     *
+     * @return success Timer for validate operations
+     */
+    public Timer validateSuccessTimer() { return validateSuccessTimer; }
+
+    /**
+     * Returns the Timer for failed {@code validateTransaction()} calls.
+     *
+     * @return error Timer for validate operations
+     */
+    public Timer validateErrorTimer()   { return validateErrorTimer; }
 }

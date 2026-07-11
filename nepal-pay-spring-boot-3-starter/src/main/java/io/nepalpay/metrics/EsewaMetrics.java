@@ -14,36 +14,28 @@ import java.util.function.Supplier;
  *
  * <p><strong>Timers:</strong>
  * <ul>
- *   <li>{@code nepalpay.esewa.callback.verify.duration}
- *       — latency of {@code verifyCallback()}</li>
- *   <li>{@code nepalpay.esewa.status.check.duration}
- *       — latency of {@code checkStatus()}</li>
+ *   <li>{@code nepalpay.esewa.callback.verify.duration}</li>
+ *   <li>{@code nepalpay.esewa.status.check.duration}</li>
  * </ul>
  *
  * <p><strong>Counters:</strong>
  * <ul>
- *   <li>{@code nepalpay.esewa.callback.signature.failed}
- *       — HMAC-SHA256 signature mismatches detected</li>
- *   <li>{@code nepalpay.esewa.retry.attempts}
- *       — retry attempts on {@code checkStatus()}</li>
+ *   <li>{@code nepalpay.esewa.callback.signature.failed}</li>
+ *   <li>{@code nepalpay.esewa.retry.attempts}</li>
  * </ul>
- *
- * <p><strong>Tags:</strong>
- * {@code gateway=esewa}, {@code sandbox=true|false},
- * {@code status=success|error}
  *
  * @author Sujan Lamichhane
  */
 public final class EsewaMetrics {
 
     // ── Metric names ──────────────────────────────────────────────────────
-    public static final String VERIFY_TIMER       =
+    public static final String VERIFY_TIMER    =
             "nepalpay.esewa.callback.verify.duration";
-    public static final String STATUS_TIMER        =
+    public static final String STATUS_TIMER    =
             "nepalpay.esewa.status.check.duration";
-    public static final String SIGNATURE_FAILED    =
+    public static final String SIGNATURE_FAILED =
             "nepalpay.esewa.callback.signature.failed";
-    public static final String RETRY_COUNTER       =
+    public static final String RETRY_COUNTER   =
             "nepalpay.esewa.retry.attempts";
 
     // ── Tag constants ─────────────────────────────────────────────────────
@@ -54,10 +46,6 @@ public final class EsewaMetrics {
     private static final String GATEWAY_VAL  = "esewa";
     private static final String SUCCESS      = "success";
     private static final String ERROR        = "error";
-
-    // ── Fields ────────────────────────────────────────────────────────────
-    private final MeterRegistry registry;
-    private final String        sandboxTag;
 
     // ── Pre-built meters ──────────────────────────────────────────────────
     private final Timer   verifySuccessTimer;
@@ -78,22 +66,39 @@ public final class EsewaMetrics {
      * @param sandbox  true if operating in sandbox mode
      */
     public EsewaMetrics(MeterRegistry registry, boolean sandbox) {
-        this.registry   = registry;
-        this.sandboxTag = String.valueOf(sandbox);
+        String sandboxTag = String.valueOf(sandbox);
 
-        this.verifySuccessTimer = buildTimer(
-                VERIFY_TIMER, "verify", SUCCESS,
-                "Time taken to verify an eSewa callback successfully");
-        this.verifyErrorTimer = buildTimer(
-                VERIFY_TIMER, "verify", ERROR,
-                "Time taken for a failed eSewa callback verification");
+        this.verifySuccessTimer = Timer.builder(VERIFY_TIMER)
+                .description("Time taken to verify an eSewa callback successfully")
+                .tag(TAG_GATEWAY, GATEWAY_VAL)
+                .tag(TAG_SANDBOX, sandboxTag)
+                .tag(TAG_OP,      "verify")
+                .tag(TAG_STATUS,  SUCCESS)
+                .register(registry);
 
-        this.statusSuccessTimer = buildTimer(
-                STATUS_TIMER, "status", SUCCESS,
-                "Time taken to check eSewa payment status successfully");
-        this.statusErrorTimer = buildTimer(
-                STATUS_TIMER, "status", ERROR,
-                "Time taken for a failed eSewa status check");
+        this.verifyErrorTimer = Timer.builder(VERIFY_TIMER)
+                .description("Time taken for a failed eSewa callback verification")
+                .tag(TAG_GATEWAY, GATEWAY_VAL)
+                .tag(TAG_SANDBOX, sandboxTag)
+                .tag(TAG_OP,      "verify")
+                .tag(TAG_STATUS,  ERROR)
+                .register(registry);
+
+        this.statusSuccessTimer = Timer.builder(STATUS_TIMER)
+                .description("Time taken to check eSewa status successfully")
+                .tag(TAG_GATEWAY, GATEWAY_VAL)
+                .tag(TAG_SANDBOX, sandboxTag)
+                .tag(TAG_OP,      "status")
+                .tag(TAG_STATUS,  SUCCESS)
+                .register(registry);
+
+        this.statusErrorTimer = Timer.builder(STATUS_TIMER)
+                .description("Time taken for a failed eSewa status check")
+                .tag(TAG_GATEWAY, GATEWAY_VAL)
+                .tag(TAG_SANDBOX, sandboxTag)
+                .tag(TAG_OP,      "status")
+                .tag(TAG_STATUS,  ERROR)
+                .register(registry);
 
         this.signatureFailedCounter = Counter.builder(SIGNATURE_FAILED)
                 .description(
@@ -104,8 +109,7 @@ public final class EsewaMetrics {
                 .register(registry);
 
         this.statusRetryCounter = Counter.builder(RETRY_COUNTER)
-                .description(
-                        "Number of retry attempts for eSewa checkStatus()")
+                .description("Number of retry attempts for eSewa checkStatus()")
                 .tag(TAG_GATEWAY, GATEWAY_VAL)
                 .tag(TAG_SANDBOX, sandboxTag)
                 .tag(TAG_OP,      "status")
@@ -113,7 +117,7 @@ public final class EsewaMetrics {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PUBLIC API
+    // PUBLIC API — blocking record methods
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -140,25 +144,54 @@ public final class EsewaMetrics {
 
     /**
      * Increments the signature failure counter.
-     * Call when HMAC-SHA256 verification fails in {@code verifyCallback()}.
-     *
-     * <p>A spike in this counter indicates a potential fraud attempt —
-     * configure an alert in Grafana:
-     * {@code rate(nepalpay_esewa_callback_signature_failed_total[5m]) > 5}
+     * Call when HMAC-SHA256 verification fails.
      */
     public void incrementSignatureFailed() {
         signatureFailedCounter.increment();
     }
 
     /**
-     * Increments the status check retry counter.
+     * Increments the status retry counter.
      */
     public void incrementStatusRetry() {
         statusRetryCounter.increment();
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PRIVATE HELPERS
+    // PUBLIC API — Timer accessors for reactive timing
+    // Used by EsewaReactiveClient via Timer.Sample + doOnSuccess/doOnError
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the Timer for successful {@code verifyCallback()} calls.
+     *
+     * @return success Timer for verify operations
+     */
+    public Timer verifySuccessTimer() { return verifySuccessTimer; }
+
+    /**
+     * Returns the Timer for failed {@code verifyCallback()} calls.
+     *
+     * @return error Timer for verify operations
+     */
+    public Timer verifyErrorTimer()   { return verifyErrorTimer; }
+
+    /**
+     * Returns the Timer for successful {@code checkStatus()} calls.
+     *
+     * @return success Timer for status check operations
+     */
+    public Timer statusSuccessTimer() { return statusSuccessTimer; }
+
+    /**
+     * Returns the Timer for failed {@code checkStatus()} calls.
+     *
+     * @return error Timer for status check operations
+     */
+    public Timer statusErrorTimer()   { return statusErrorTimer; }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE
     // ─────────────────────────────────────────────────────────────────────
 
     private <T> T record(
@@ -169,24 +202,13 @@ public final class EsewaMetrics {
         long start = System.nanoTime();
         try {
             T result = operation.get();
-            successTimer.record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            successTimer.record(
+                    System.nanoTime() - start, TimeUnit.NANOSECONDS);
             return result;
         } catch (RuntimeException e) {
-            errorTimer.record(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            errorTimer.record(
+                    System.nanoTime() - start, TimeUnit.NANOSECONDS);
             throw e;
         }
-    }
-
-    private Timer buildTimer(
-            String name, String operation,
-            String status, String description) {
-
-        return Timer.builder(name)
-                .description(description)
-                .tag(TAG_GATEWAY, GATEWAY_VAL)
-                .tag(TAG_SANDBOX, sandboxTag)
-                .tag(TAG_OP,      operation)
-                .tag(TAG_STATUS,  status)
-                .register(registry);
     }
 }
