@@ -1,11 +1,13 @@
 package io.nepalpay.connectips;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.core.connectips.model.ConnectIpsFormPayload;
 import io.nepalpay.core.connectips.model.ConnectIpsPaymentRequest;
 import io.nepalpay.core.connectips.model.ConnectIpsValidateRequest;
 import io.nepalpay.core.connectips.model.ConnectIpsValidateResponse;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.core.retry.RetryProperties;
+import io.nepalpay.metrics.ConnectIpsMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -24,7 +26,7 @@ import java.util.Base64;
 import java.util.function.Supplier;
 
 /**
- * ConnectIPS Payment Gateway Client — Spring Boot 4.
+ * ConnectIPS Payment Gateway Client — Spring Boot 3.
  *
  * <p>ConnectIPS is operated by Nepal Clearing House Ltd (NCHL).
  * Requires merchant registration — contact connectips@nchl.com.np.
@@ -36,18 +38,28 @@ import java.util.function.Supplier;
  *   <li>{@link #validateTransactionWithToken} — Test-friendly verification</li>
  * </ul>
  *
+ * <p><strong>Metrics:</strong>
+ * If this client is constructed with a
+ * {@link MeterRegistry}, {@code validateTransaction()} is timed
+ * and retry attempts are counted via {@link ConnectIpsMetrics}.
+ * When no {@link MeterRegistry} is provided, all metric recording is
+ * silently skipped — zero impact on existing users without Actuator.
+ * Full auto-configuration wiring is coming in v1.2.0.
+ *
  * @author Sujan Lamichhane
  */
 @Slf4j
 public final class ConnectIpsClient {
 
-    // ── Official ConnectIPS URLs ───────────────────────────────────────────
+    // ── Official ConnectIPS URLs ──────────────────────────────────────────
     private static final String UAT_GATEWAY_URL    =
             "https://uat.connectips.com/connectipswebgw/loginpage";
     private static final String PROD_GATEWAY_URL   =
             "https://connectips.com/connectipswebgw/loginpage";
-    private static final String UAT_VALIDATE_BASE  = "https://uat.connectips.com";
-    private static final String PROD_VALIDATE_BASE = "https://connectips.com";
+    private static final String UAT_VALIDATE_BASE  =
+            "https://uat.connectips.com";
+    private static final String PROD_VALIDATE_BASE =
+            "https://connectips.com";
     private static final String VALIDATE_PATH      =
             "/connectipswebws/api/creditor/validatetxn";
 
@@ -58,7 +70,7 @@ public final class ConnectIpsClient {
             DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     /**
-     * Default HTTP timeout for ConnectIPS API calls (connect + read).
+     * Default HTTP timeout for ConnectIPS API calls.
      *
      * <p>30 seconds is intentionally longer than Khalti/eSewa's 10s default.
      * ConnectIPS validates bank transfers via NCHL — bank systems can
@@ -70,41 +82,30 @@ public final class ConnectIpsClient {
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     // ── Fields ────────────────────────────────────────────────────────────
-    private final int          merchantId;
-    private final String       appId;
-    private final String       appName;
-    private final String       appPassword;
-    private final byte[]       pfxBytes;
-    private final String       pfxPassword;
-    private final boolean      sandbox;
-    private final String       formActionUrl;
-    private final RestClient   restClient;
+    private final int             merchantId;
+    private final String          appId;
+    private final String          appName;
+    private final String          appPassword;
+    private final byte[]          pfxBytes;
+    private final String          pfxPassword;
+    private final boolean         sandbox;
+    private final String          formActionUrl;
+    private final RestClient      restClient;
     private final RetryProperties retryProps;
+    private final PrivateKey      privateKey;
 
     /**
-     * RSA private key extracted from the CREDITOR.pfx file.
-     *
-     * <p>Loaded ONCE in the constructor instead of on every
-     * {@code buildFormPayload()} and {@code validateTransaction()} call.
-     *
-     * <p>KeyStore loading involves password-based key derivation (PBKDF),
-     * MAC verification, and ASN.1 parsing — all expensive cryptographic
-     * operations. Caching the extracted key eliminates this overhead from
-     * every payment operation.
-     *
-     * <p>{@code private final} (not static) because each ConnectIpsClient
-     * instance may use a different .pfx file — static would share one key
-     * across all instances, causing silent security bugs in multi-tenant use.
+     * Optional Micrometer metrics — null when Actuator not on classpath.
+     * All usages guarded with null check — no NPE possible.
      */
-    private final PrivateKey privateKey;
+    private final ConnectIpsMetrics metrics;
 
     // ─────────────────────────────────────────────────────────────────────
     // CONSTRUCTORS
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Production constructor (8-arg) — used by auto-configuration without retry.
-     * Delegates to 9-arg constructor with DEFAULT retry.
+     * Production constructor (8-arg) — no metrics, DEFAULT retry.
      */
     public ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -113,11 +114,12 @@ public final class ConnectIpsClient {
 
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
-                sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE);
+                sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
+                RetryProperties.DEFAULT, null);
     }
 
     /**
-     * Test constructor (9-arg) — custom validate API URL, DEFAULT retry.
+     * Test constructor (9-arg) — custom validate URL, DEFAULT retry, no metrics.
      */
     public ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -125,11 +127,12 @@ public final class ConnectIpsClient {
             RestClient.Builder builder, String validateBaseUrlOverride) {
 
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
-                sandbox, builder, validateBaseUrlOverride, RetryProperties.DEFAULT);
+                sandbox, builder, validateBaseUrlOverride,
+                RetryProperties.DEFAULT, null);
     }
 
     /**
-     * Production constructor with explicit retry (9-arg + retry).
+     * Production constructor with explicit retry — no metrics.
      * Used by auto-configuration when retry is configured.
      */
     public ConnectIpsClient(
@@ -140,11 +143,11 @@ public final class ConnectIpsClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                retry);
+                retry, null);
     }
 
     /**
-     * Full constructor (10-arg) — custom validate URL + explicit retry.
+     * Full constructor — custom validate URL + explicit retry. No metrics.
      * Used in retry tests.
      */
     public ConnectIpsClient(
@@ -152,6 +155,42 @@ public final class ConnectIpsClient {
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
             RestClient.Builder builder, String validateBaseUrlOverride,
             RetryProperties retry) {
+
+        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+                sandbox, builder, validateBaseUrlOverride, retry, null);
+    }
+
+    /**
+     * Constructor with explicit retry + optional metrics.
+     * Used by auto-configuration when Actuator + MeterRegistry available.
+     *
+     * <p>When {@code meterRegistry} is non-null, {@code validateTransaction()}
+     * is timed and retry attempts counted via {@link ConnectIpsMetrics}.
+     * Full auto-configuration wiring is coming in v1.2.0.
+     *
+     * @param meterRegistry Micrometer registry — null means no metrics
+     */
+    public ConnectIpsClient(
+            int merchantId, String appId, String appName, String appPassword,
+            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            RestClient.Builder builder, RetryProperties retry,
+            MeterRegistry meterRegistry) {
+
+        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+                sandbox, builder,
+                sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
+                retry, meterRegistry);
+    }
+
+    /**
+     * Core private constructor — single point of initialization.
+     * All other constructors delegate here.
+     */
+    private ConnectIpsClient(
+            int merchantId, String appId, String appName, String appPassword,
+            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            RestClient.Builder builder, String validateBaseUrlOverride,
+            RetryProperties retry, MeterRegistry meterRegistry) {
 
         this.merchantId    = merchantId;
         this.appId         = appId;
@@ -162,16 +201,15 @@ public final class ConnectIpsClient {
         this.sandbox       = sandbox;
         this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps    = (retry != null) ? retry : RetryProperties.DEFAULT;
+        this.privateKey    = loadPrivateKey(pfxBytes, pfxPassword);
 
-        // Extract private key ONCE at construction time.
-        // Fails fast with ConnectIpsException if .pfx is invalid —
-        // better to fail at startup than silently fail during payment.
-        this.privateKey = loadPrivateKey(pfxBytes, pfxPassword);
+        // ── Metrics — optional ────────────────────────────────────────────
+        this.metrics = (meterRegistry != null)
+                ? new ConnectIpsMetrics(meterRegistry, sandbox)
+                : null;
 
-        // Apply timeout — 30s for bank transfers (see DEFAULT_TIMEOUT_SECONDS).
-        // SimpleClientHttpRequestFactory is built into spring-web —
-        // no extra HTTP client dependency needed.
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
         factory.setReadTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
 
@@ -182,21 +220,17 @@ public final class ConnectIpsClient {
                 .build();
 
         log.info("[NepalPay] ConnectIpsClient initialized | mode={} | merchantId={}" +
-                        " | validateUrl={} | timeout={}s | retry={}",
+                        " | validateUrl={} | timeout={}s | retry={} | metrics={}",
                 sandbox ? "UAT" : "PRODUCTION",
-                merchantId,
-                validateBaseUrlOverride,
+                merchantId, validateBaseUrlOverride,
                 DEFAULT_TIMEOUT_SECONDS,
-                this.retryProps.summary());
+                this.retryProps.summary(),
+                metrics != null ? "enabled" : "disabled");
     }
 
     /**
      * Test-only constructor — accepts a pre-built PrivateKey directly.
-     *
-     * <p>Avoids needing a real .pfx file in tests. Package-private so only
-     * test code in the same package can use it.
-     *
-     * @param privateKey pre-built RSA key (use JVM-generated key in tests)
+     * Package-private so only test code in the same package can use it.
      */
     ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -208,14 +242,16 @@ public final class ConnectIpsClient {
         this.appId         = appId;
         this.appName       = appName;
         this.appPassword   = appPassword;
-        this.pfxBytes      = new byte[0]; // not used — key provided directly
-        this.pfxPassword   = "";          // not used — key provided directly
-        this.privateKey    = privateKey;  // injected directly — no pfx loading
+        this.pfxBytes      = new byte[0];
+        this.pfxPassword   = "";
+        this.privateKey    = privateKey;
         this.sandbox       = sandbox;
         this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps    = (retry != null) ? retry : RetryProperties.DEFAULT;
+        this.metrics       = null; // no metrics in test constructor
 
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
         factory.setReadTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
 
@@ -227,26 +263,16 @@ public final class ConnectIpsClient {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // PRIVATE STATIC HELPERS — called from constructor
+    // PRIVATE STATIC HELPERS
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Load and extract the RSA private key from a PKCS12 (.pfx) file.
-     *
-     * <p>Called ONCE from the constructor. Any configuration error
-     * (wrong password, corrupt file, missing file) causes an immediate
-     * {@link ConnectIpsException} at startup rather than at payment time.
-     *
-     * <p>This is intentional "fail fast" behaviour — a misconfigured
-     * .pfx file should prevent the application from starting cleanly,
-     * not silently fail on the first real payment.
-     *
-     * @param pfxBytes    raw bytes of the CREDITOR.pfx file
-     * @param pfxPassword password protecting the .pfx file
-     * @return extracted RSA PrivateKey ready for signing
-     * @throws ConnectIpsException if the key cannot be loaded for any reason
+     * Load and extract RSA PrivateKey from a PKCS12 (.pfx) file.
+     * Fails fast at construction time — better than failing at payment time.
      */
-    private static PrivateKey loadPrivateKey(byte[] pfxBytes, String pfxPassword) {
+    private static PrivateKey loadPrivateKey(
+            byte[] pfxBytes, String pfxPassword) {
+
         if (pfxBytes == null || pfxBytes.length == 0) {
             throw new ConnectIpsException(
                     "ConnectIPS .pfx certificate bytes are empty. " +
@@ -264,13 +290,14 @@ public final class ConnectIpsClient {
             keyStore.load(new ByteArrayInputStream(pfxBytes),
                     pfxPassword.toCharArray());
             String alias = keyStore.aliases().nextElement();
-            return (PrivateKey) keyStore.getKey(alias, pfxPassword.toCharArray());
+            return (PrivateKey) keyStore.getKey(
+                    alias, pfxPassword.toCharArray());
         } catch (ConnectIpsException e) {
-            throw e; // re-throw validation errors unchanged
+            throw e;
         } catch (Exception e) {
             throw new ConnectIpsException(
-                    "Failed to load ConnectIPS RSA private key from .pfx file. " +
-                            "Ensure pfx-path points to a valid PKCS12 file and " +
+                    "Failed to load ConnectIPS RSA private key from .pfx. " +
+                            "Ensure pfx-path is a valid PKCS12 file and " +
                             "pfx-password is correct. Error: " + e.getMessage(), e);
         }
     }
@@ -282,14 +309,16 @@ public final class ConnectIpsClient {
     /**
      * Build a signed ConnectIPS form payload from a request object.
      *
-     * @param request payment request built via
-     *                {@link ConnectIpsPaymentRequest#builder()}
+     * @param request payment request
      * @return signed form payload
      * @throws ConnectIpsException if RSA signing fails
      */
-    public ConnectIpsFormPayload buildFormPayload(ConnectIpsPaymentRequest request) {
-        return buildFormPayload(request.txnId(), request.txnAmtPaisa(),
-                request.referenceId(), request.remarks(), request.particulars());
+    public ConnectIpsFormPayload buildFormPayload(
+            ConnectIpsPaymentRequest request) {
+        return buildFormPayload(
+                request.txnId(), request.txnAmtPaisa(),
+                request.referenceId(), request.remarks(),
+                request.particulars());
     }
 
     /**
@@ -316,18 +345,20 @@ public final class ConnectIpsClient {
                 referenceId, safeRemarks, safeParticulars);
         String token = generateRsaToken(message);
 
-        log.debug("[NepalPay] ConnectIPS form payload built | txnId={} | amtPaisa={}",
-                txnId, txnAmtPaisa);
+        log.debug("[NepalPay] ConnectIPS form payload built" +
+                " | txnId={} | amtPaisa={}", txnId, txnAmtPaisa);
 
         return new ConnectIpsFormPayload(
                 merchantId, appId, appName, txnId, txnDate,
                 CURRENCY, txnAmtPaisa, referenceId,
-                safeRemarks, safeParticulars,
-                token, formActionUrl);
+                safeRemarks, safeParticulars, token, formActionUrl);
     }
 
     /**
      * Validate a ConnectIPS transaction after payment.
+     *
+     * <p>Records {@code nepalpay.connectips.validate.duration} timer
+     * when Micrometer is available.
      *
      * @param txnId       Transaction ID from {@link #buildFormPayload}
      * @param referenceId Original reference/order ID
@@ -344,6 +375,12 @@ public final class ConnectIpsClient {
         String token   = generateRsaToken(message);
 
         log.debug("[NepalPay] ConnectIPS validating | txnId={}", txnId);
+
+        //  Wrap with metrics timer if available
+        if (metrics != null) {
+            return metrics.recordValidate(
+                    () -> executeValidateRequest(referenceId, txnAmtPaisa, token));
+        }
         return executeValidateRequest(referenceId, txnAmtPaisa, token);
     }
 
@@ -391,47 +428,59 @@ public final class ConnectIpsClient {
         String basicAuth   = Base64.getEncoder().encodeToString(
                 credentials.getBytes(StandardCharsets.UTF_8));
 
-        return executeWithRetry("ConnectIPS validate", () -> {
-            ConnectIpsValidateResponse response = restClient.post()
-                    .uri(VALIDATE_PATH)
-                    .header("Authorization", "Basic " + basicAuth)
-                    .body(request)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                        String body = readBodySafely(res);
-                        log.error("[NepalPay] ConnectIPS validate 4xx" +
-                                " | refId={} | body={}", referenceId, body);
-                        throw new ConnectIpsException(
-                                "ConnectIPS validation failed",
-                                res.getStatusCode().value(), body);
-                    })
-                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-                        log.error("[NepalPay] ConnectIPS validate 5xx" +
-                                " | refId={}", referenceId);
-                        throw new ConnectIpsException(
-                                "ConnectIPS server error during validation",
-                                res.getStatusCode().value(), null);
-                    })
-                    .body(ConnectIpsValidateResponse.class);
+        return executeWithRetry(
+                "ConnectIPS validate",
+                metrics != null ? metrics::incrementValidateRetry : null,
+                () -> {
+                    ConnectIpsValidateResponse response = restClient.post()
+                            .uri(VALIDATE_PATH)
+                            .header("Authorization", "Basic " + basicAuth)
+                            .body(request)
+                            .retrieve()
+                            .onStatus(HttpStatusCode::is4xxClientError,
+                                    (req, res) -> {
+                                        String body = readBodySafely(res);
+                                        log.error("[NepalPay] ConnectIPS validate" +
+                                                        " 4xx | refId={} | body={}",
+                                                referenceId, body);
+                                        throw new ConnectIpsException(
+                                                "ConnectIPS validation failed",
+                                                res.getStatusCode().value(), body);
+                                    })
+                            .onStatus(HttpStatusCode::is5xxServerError,
+                                    (req, res) -> {
+                                        log.error("[NepalPay] ConnectIPS validate" +
+                                                " 5xx | refId={}", referenceId);
+                                        throw new ConnectIpsException(
+                                                "ConnectIPS server error during validation",
+                                                res.getStatusCode().value(), null);
+                                    })
+                            .body(ConnectIpsValidateResponse.class);
 
-            if (response == null) {
-                throw new ConnectIpsException(
-                        "ConnectIPS returned empty validation response" +
-                                " for refId=" + referenceId);
-            }
+                    if (response == null) {
+                        throw new ConnectIpsException(
+                                "ConnectIPS returned empty validation response" +
+                                        " for refId=" + referenceId);
+                    }
 
-            log.info("[NepalPay] ConnectIPS validate result | refId={}" +
-                            " | status={} | success={}",
-                    referenceId, response.status(), response.isPaymentSuccessful());
-            return response;
-        });
+                    log.info("[NepalPay] ConnectIPS validate result | refId={}" +
+                                    " | status={} | success={}",
+                            referenceId, response.status(),
+                            response.isPaymentSuccessful());
+                    return response;
+                });
     }
 
     /**
      * Executes a ConnectIPS API call with exponential backoff retry.
+     * Accepts an optional retryIncrement to count retries in Micrometer.
      * Never retries 4xx client errors.
      */
-    private <T> T executeWithRetry(String operationName, Supplier<T> operation) {
+    private <T> T executeWithRetry(
+            String operationName,
+            Runnable retryIncrement,
+            Supplier<T> operation) {
+
         if (!retryProps.isActive()) {
             return operation.get();
         }
@@ -457,11 +506,16 @@ public final class ConnectIpsClient {
                     throw e;
                 }
 
+                //  Increment Micrometer retry counter if metrics available
+                if (retryIncrement != null) {
+                    retryIncrement.run();
+                }
+
                 long waitMs = RetryProperties.jitter(delayMs);
                 log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={}" +
                                 " | retrying in {}ms",
-                        operationName, attempt, retryProps.maxAttempts(),
-                        e.httpStatus(), waitMs);
+                        operationName, attempt,
+                        retryProps.maxAttempts(), e.httpStatus(), waitMs);
 
                 sleepForRetry(waitMs, e);
                 delayMs = retryProps.nextDelay(delayMs);
@@ -474,17 +528,8 @@ public final class ConnectIpsClient {
         }
     }
 
-    /**
-     * Sleeps for the given duration during retry backoff.
-     *
-     * <p>Extracted from the retry loop to avoid IDE warnings about
-     * {@code Thread.sleep()} in a loop body. This is intentional
-     * exponential backoff — not busy-waiting.
-     *
-     * @param waitMs      milliseconds to sleep
-     * @param onInterrupt exception to rethrow if thread is interrupted
-     */
-    private void sleepForRetry(long waitMs, ConnectIpsException onInterrupt) {
+    private void sleepForRetry(
+            long waitMs, ConnectIpsException onInterrupt) {
         try {
             Thread.sleep(waitMs);
         } catch (InterruptedException ie) {
@@ -498,29 +543,18 @@ public final class ConnectIpsClient {
             String referenceId, String remarks, String particulars) {
 
         return "MERCHANTID=" + merchantId
-                + ",APPID="        + appId
-                + ",APPNAME="      + appName
-                + ",TXNID="        + txnId
-                + ",TXNDATE="      + txnDate
-                + ",TXNCRNCY="     + CURRENCY
-                + ",TXNAMT="       + txnAmtPaisa
-                + ",REFERENCEID="  + referenceId
-                + ",REMARKS="      + remarks
-                + ",PARTICULARS="  + particulars
-                + ","              + TOKEN_SUFFIX;
+                + ",APPID="       + appId
+                + ",APPNAME="     + appName
+                + ",TXNID="       + txnId
+                + ",TXNDATE="     + txnDate
+                + ",TXNCRNCY="    + CURRENCY
+                + ",TXNAMT="      + txnAmtPaisa
+                + ",REFERENCEID=" + referenceId
+                + ",REMARKS="     + remarks
+                + ",PARTICULARS=" + particulars
+                + ","             + TOKEN_SUFFIX;
     }
 
-    /**
-     * Signs a message using the cached RSA private key.
-     *
-     * <p>The private key was loaded once in the constructor.
-     * Only the actual signing operation runs here — no KeyStore
-     * loading, no password-based key derivation.
-     *
-     * @param message the plain-text message to sign
-     * @return Base64-encoded RSA-SHA256 signature
-     * @throws ConnectIpsException if signing fails
-     */
     private String generateRsaToken(String message) {
         try {
             Signature sig = Signature.getInstance("SHA256withRSA");
