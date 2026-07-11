@@ -60,7 +60,8 @@ public record NepalPayProperties(
         KhaltiProperties     khalti,
         EsewaProperties      esewa,
         ConnectIpsProperties connectips,
-        FonepayProperties    fonepay
+        FonepayProperties    fonepay,
+        MetricsProperties    metrics
 ) {
 
     // ── Khalti ───────────────────────────────────────────────────────────────
@@ -210,5 +211,25 @@ public record NepalPayProperties(
             String secretKey,
             String returnUrl,
             @DefaultValue("true") boolean sandbox
+    ) {}
+
+    /**
+     * Metrics configuration — controls NepalPay Micrometer integration.
+     *
+     * <p>Metrics are opt-out — enabled by default when Actuator is on
+     * the classpath. Set {@code nepalpay.metrics.enabled=false} to disable
+     * all NepalPay Micrometer timers and counters.
+     *
+     * <p>YAML:
+     * <pre>
+     * nepalpay:
+     *   metrics:
+     *     enabled: false   # disable all NepalPay metrics
+     * </pre>
+     *
+     * @param enabled true (default) = record metrics when Actuator present
+     */
+    public record MetricsProperties(
+            @DefaultValue("true") boolean enabled
     ) {}
 }
