@@ -109,6 +109,24 @@
             <optional>true</optional>
         </dependency>
 
+        <!--
+         Optional: Spring Boot Actuator.
+         NepalPay does not require Actuator, but when present on the
+         classpath it enables Micrometer-based observability.
+
+         NepalPay clients (KhaltiClient, EsewaClient, etc.) accept an
+         optional MeterRegistry constructor argument — when provided,
+         operation latency timers and retry counters are recorded.
+
+         Health indicators and full @ConditionalOnClass auto-configuration
+         are in progress — coming in v1.2.0.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

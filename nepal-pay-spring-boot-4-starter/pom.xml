@@ -62,6 +62,7 @@
 
     <dependencies>
 
+        <!-- NepalPay Core -->
         <dependency>
             <groupId>io.github.sujankim</groupId>
             <artifactId>nepal-pay-core</artifactId>
@@ -92,6 +93,7 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Jackson 3 — Spring Boot 4 uses tools.jackson -->
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -118,6 +120,32 @@
             <optional>true</optional>
         </dependency>
 
+        <!--
+            Optional: Spring Boot Actuator.
+            Enables Micrometer observability and /actuator/health indicators.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            Spring Boot 4.1.0: Health classes moved from spring-boot-actuator
+            into this separate spring-boot-health module.
+            Must be declared DIRECTLY — as a transitive optional dependency
+            it is NOT automatically on the compile classpath.
+
+            Package: org.springframework.boot.health
+            Classes: Health, HealthIndicator, ReactiveHealthIndicator
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-health</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- TEST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

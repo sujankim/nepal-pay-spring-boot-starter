@@ -1,1 +1,3 @@
+io.nepalpay.reactive.autoconfigure.NepalPayReactiveMetricsAutoConfiguration
+io.nepalpay.reactive.autoconfigure.NepalPayReactiveHealthAutoConfiguration
 io.nepalpay.reactive.autoconfigure.NepalPayReactiveAutoConfiguration

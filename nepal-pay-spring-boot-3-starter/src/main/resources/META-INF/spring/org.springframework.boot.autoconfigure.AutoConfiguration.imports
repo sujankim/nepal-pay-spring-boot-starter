@@ -1,1 +1,3 @@
+io.nepalpay.autoconfigure.NepalPayMetricsAutoConfiguration
+io.nepalpay.autoconfigure.NepalPayHealthAutoConfiguration
 io.nepalpay.autoconfigure.NepalPayAutoConfiguration

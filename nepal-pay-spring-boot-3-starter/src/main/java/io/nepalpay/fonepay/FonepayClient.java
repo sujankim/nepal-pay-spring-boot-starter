@@ -1,10 +1,12 @@
 package io.nepalpay.fonepay;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.config.NepalPayProperties;
 import io.nepalpay.core.exception.FonepayException;
 import io.nepalpay.core.fonepay.model.FonepayCallbackResponse;
 import io.nepalpay.core.fonepay.model.FonepayPaymentRequest;
 import io.nepalpay.core.fonepay.model.FonepayRedirectParams;
+import io.nepalpay.core.metrics.FonepayMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -16,11 +18,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 
 /**
- * Fonepay Payment Gateway Client for Spring Boot.
+ * Fonepay Payment Gateway Client for Spring Boot 3.
  *
  * <p>Fonepay uses a <strong>URL redirect model</strong>:
- * Your backend builds signed redirect parameters, constructs the redirect URL,
- * and the frontend redirects the user directly to Fonepay.
+ * Your backend builds signed redirect parameters, constructs the redirect
+ * URL, and the frontend redirects the user directly to Fonepay.
  *
  * <p>Signature algorithm: HMAC-SHA512, hex output (not Base64 like eSewa).
  *
@@ -30,144 +32,157 @@ import java.util.HexFormat;
  *   <li>{@link #verifyCallback}      — Verify HMAC signature + check status</li>
  * </ul>
  *
- * <p>Official Fonepay docs: Fonepay Web Integration Technical Specification
- *
- * <p>Complete integration flow:
- * <pre>{@code
- * // Step 1: Build redirect params
- * FonepayRedirectParams params = fonepayClient.buildRedirectParams(
- *     FonepayPaymentRequest.builder()
- *         .prn("ORD-001-" + System.currentTimeMillis())
- *         .amount(100.0)
- *         .remarks1("Pro Plan")
- *         .build()
- * );
- * // Return params.redirectUrl() to frontend
- * // Frontend: window.location.href = redirectUrl
- *
- * // Step 2: Verify callback
- * FonepayCallbackResponse callback = FonepayCallbackResponse.of(
- *     prn, pid, ps, rc, uid, bc, ini, pAmt, rAmt, dv);
- * FonepayClient.FonepayVerificationResult result =
- *     fonepayClient.verifyCallback(callback);
- * if (result.isPaymentSuccessful()) {
- *     // safe to mark as paid
- * }
- * }</pre>
+ * <p><strong>Metrics:</strong>
+ * If this client is constructed with a {@link MeterRegistry}, event
+ * counters are recorded — redirects built, callbacks verified, signature
+ * failures. No Timers — Fonepay makes no server-side HTTP calls.
+ * Full auto-configuration wiring is in v1.2.0.
  *
  * @author Sujan Lamichhane
  */
 @Slf4j
 public final class FonepayClient {
 
-    // Official Fonepay gateway URLs
-    private static final String SANDBOX_URL    = "https://dev.fonepay.com/api/merchantRequest";
-    private static final String PRODUCTION_URL = "https://fonepay.com/api/merchantRequest";
+    // ── Official Fonepay gateway URLs ─────────────────────────────────────
+    private static final String SANDBOX_URL    =
+            "https://dev.fonepay.com/api/merchantRequest";
+    private static final String PRODUCTION_URL =
+            "https://fonepay.com/api/merchantRequest";
 
-    // Fonepay constants
-    private static final String PAYMENT_MODE = "P";   // always "P" for payment
-    private static final String CURRENCY     = "NPR"; // always NPR
+    // ── Constants ─────────────────────────────────────────────────────────
+    private static final String PAYMENT_MODE   = "P";
+    private static final String CURRENCY       = "NPR";
+    private static final String HMAC_ALGORITHM = "HmacSHA512";
 
-    // Date format required by Fonepay: MM/DD/YYYY
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
-    // HMAC-SHA512 algorithm
-    private static final String HMAC_ALGORITHM = "HmacSHA512";
-
+    // ── Fields ────────────────────────────────────────────────────────────
     private final NepalPayProperties.FonepayProperties props;
     private final String gatewayUrl;
 
-    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Optional Micrometer metrics — null when Actuator not on classpath.
+     * All usages guarded with null check — no NPE possible.
+     */
+    private final FonepayMetrics metrics;
+
+    // ─────────────────────────────────────────────────────────────────────
     // CONSTRUCTORS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Production constructor — used by auto-configuration.
-     *
-     * <p>Gateway URL is determined from {@code nepalpay.fonepay.sandbox}:
-     * <ul>
-     *   <li>sandbox=true  → https://dev.fonepay.com/api/merchantRequest</li>
-     *   <li>sandbox=false → https://fonepay.com/api/merchantRequest</li>
-     * </ul>
+     * Production constructor — no metrics.
+     * Used by auto-configuration when Actuator is absent.
      *
      * @param props Fonepay properties from application.yml
      */
     public FonepayClient(NepalPayProperties.FonepayProperties props) {
-        this.props      = props;
-        this.gatewayUrl = props.sandbox() ? SANDBOX_URL : PRODUCTION_URL;
-
-        log.info("[NepalPay] FonepayClient initialized | mode={} | merchantCode={}",
-                props.sandbox() ? "SANDBOX" : "PRODUCTION",
-                props.merchantCode());
+        this(props,
+                props.sandbox() ? SANDBOX_URL : PRODUCTION_URL,
+                null);
     }
 
     /**
-     * Test constructor — allows injecting a custom gateway URL.
+     * Test constructor — custom gateway URL, no metrics.
      *
      * <p>Used in tests to override the Fonepay gateway URL.
      *
-     * @param props             Fonepay properties
-     * @param gatewayUrlOverride custom gateway URL for testing
+     * <p><strong>NOTE (CodeRabbit fix):</strong>
+     * A separate {@code FonepayClient(props, MeterRegistry)} overload
+     * was removed because it was ambiguous with this constructor at the
+     * call site when {@code null} was passed. Use the 3-arg constructor
+     * {@link #FonepayClient(NepalPayProperties.FonepayProperties,
+     * String, MeterRegistry)} to inject a {@link MeterRegistry} instead.
+     *
+     * @param props              Fonepay properties
+     * @param gatewayUrlOverride Custom gateway URL for testing
      */
     public FonepayClient(
             NepalPayProperties.FonepayProperties props,
             String gatewayUrlOverride) {
+        this(props, gatewayUrlOverride, null);
+    }
+
+    /**
+     * Full constructor — custom gateway URL + optional metrics.
+     *
+     * <p>Used by {@code NepalPayMetricsAutoConfiguration} to inject a
+     * {@link MeterRegistry} when Actuator is on the classpath.
+     * Exposed as {@code public} to avoid constructor ambiguity — passing
+     * {@code null} for {@code meterRegistry} is safe and disables metrics.
+     *
+     * <p>This replaces the removed
+     * {@code FonepayClient(props, MeterRegistry)} 2-arg overload which
+     * was ambiguous with the String test constructor when {@code null}
+     * was passed.
+     *
+     * @param props              Fonepay properties from application.yml
+     * @param gatewayUrlOverride Gateway URL — pass
+     *   {@code props.sandbox() ? SANDBOX_URL : PRODUCTION_URL} for
+     *   production use, or a custom URL in tests
+     * @param meterRegistry      Micrometer registry — null = no metrics
+     */
+    public FonepayClient(
+            NepalPayProperties.FonepayProperties props,
+            String gatewayUrlOverride,
+            MeterRegistry meterRegistry) {
 
         this.props      = props;
         this.gatewayUrl = gatewayUrlOverride;
+        this.metrics    = (meterRegistry != null)
+                ? new FonepayMetrics(meterRegistry, props.sandbox())
+                : null;
 
-        log.info("[NepalPay] FonepayClient initialized (test mode) | gatewayUrl={}",
-                gatewayUrlOverride);
+        log.info("[NepalPay] FonepayClient initialized | mode={}" +
+                        " | merchantCode={} | metrics={}",
+                props.sandbox() ? "SANDBOX" : "PRODUCTION",
+                props.merchantCode(),
+                metrics != null ? "enabled" : "disabled");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // PUBLIC API
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Build signed Fonepay redirect parameters from a request object.
      *
-     * <p>Convenience overload that accepts a {@link FonepayPaymentRequest}.
-     *
-     * @param request payment request built via {@link FonepayPaymentRequest#builder()}
-     * @return signed redirect params containing the full redirect URL
+     * @param request payment request
+     * @return signed redirect params with full redirect URL
      * @throws FonepayException if validation fails or signature generation fails
      */
-    public FonepayRedirectParams buildRedirectParams(FonepayPaymentRequest request) {
+    public FonepayRedirectParams buildRedirectParams(
+            FonepayPaymentRequest request) {
         return buildRedirectParams(
                 request.prn(),
                 request.amount(),
                 request.remarks1(),
-                request.remarks2() != null ? request.remarks2() : ""
-        );
+                request.remarks2() != null ? request.remarks2() : "");
     }
 
     /**
      * Build signed Fonepay redirect parameters.
      *
-     * <p>Signature algorithm (field order is MANDATORY per Fonepay docs):
+     * <p>Signature algorithm (field order MANDATORY per Fonepay docs):
      * <pre>
      * Concatenate: PID,MD,PRN,AMT,CRN,DT,R1,R2,RU
      * Hash with:   HMAC-SHA512(secretKey, message, UTF-8)
      * Output:      lowercase hexadecimal
      * </pre>
      *
-     * <p>Amount note: Fonepay uses NPR as a double. NPR 100 → send {@code 100.0}.
-     * This is different from Khalti (paisa) and eSewa (BigDecimal NPR).
+     * <p>Records {@code nepalpay.fonepay.redirect.built} counter on success.
      *
-     * @param prn      Unique Product Reference Number (3-25 chars, store in DB!)
+     * @param prn      Unique PRN (3-25 chars, store in DB!)
      * @param amount   Amount in NPR as a double
      * @param remarks1 Payment description (max 160 chars)
-     * @param remarks2 Additional remarks (max 50 chars, empty string if none)
+     * @param remarks2 Additional remarks (max 50 chars)
      * @return signed redirect params with full redirect URL
-     * @throws FonepayException if config is invalid or signature generation fails
+     * @throws FonepayException if config is invalid or signature fails
      */
     public FonepayRedirectParams buildRedirectParams(
-            String prn,
-            double amount,
-            String remarks1,
-            String remarks2) {
+            String prn, double amount,
+            String remarks1, String remarks2) {
 
         validateConfig();
         validateRequest(prn, amount, remarks1);
@@ -179,15 +194,13 @@ public final class FonepayClient {
         String r1           = remarks1 != null ? remarks1 : "Payment";
         String r2           = remarks2 != null ? remarks2 : "";
 
-        // Build signature message — field order is MANDATORY per Fonepay spec:
-        // PID,MD,PRN,AMT,CRN,DT,R1,R2,RU
+        // Field order MANDATORY per Fonepay spec: PID,MD,PRN,AMT,CRN,DT,R1,R2,RU
         String message = merchantCode + "," + PAYMENT_MODE + "," + prn + ","
                 + amtStr + "," + CURRENCY + "," + date + ","
                 + r1 + "," + r2 + "," + returnUrl;
 
         String dv = generateHmacSha512Hex(message, props.secretKey());
 
-        // Build full redirect URL with all params as query string
         String redirectUrl = UriComponentsBuilder.fromUriString(gatewayUrl)
                 .queryParam("PID", merchantCode)
                 .queryParam("MD",  PAYMENT_MODE)
@@ -205,41 +218,44 @@ public final class FonepayClient {
         log.debug("[NepalPay] Fonepay redirect built | prn={} | amt={} | date={}",
                 prn, amtStr, date);
 
+        //  Increment redirect built counter if metrics available
+        if (metrics != null) {
+            metrics.incrementRedirectBuilt();
+        }
+
         return new FonepayRedirectParams(
                 merchantCode, PAYMENT_MODE, prn,
                 amtStr, CURRENCY, date,
-                r1, r2, dv, returnUrl,
-                redirectUrl
-        );
+                r1, r2, dv, returnUrl, redirectUrl);
     }
 
     /**
      * Verify a Fonepay callback response after payment.
      *
-     * <p>ALWAYS call this after receiving the Fonepay redirect.
-     * The redirect URL parameters can be faked.
-     *
      * <p>This method:
      * <ol>
-     *   <li>Re-computes the HMAC-SHA512 signature from callback fields</li>
-     *   <li>Compares it with the {@code DV} parameter from Fonepay</li>
+     *   <li>Re-computes HMAC-SHA512 from callback fields</li>
+     *   <li>Compares with the {@code DV} parameter from Fonepay</li>
      *   <li>Checks payment status is "success" — only AFTER HMAC passes</li>
      * </ol>
      *
-     * <p>Only returns a successful result if BOTH signature matches
-     * AND status is "success".
-     *
-     * <p>Response signature field order (MANDATORY per Fonepay spec):
-     * {@code PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT}
+     * <p>Records counters when Micrometer available:
+     * <ul>
+     *   <li>{@code nepalpay.fonepay.callback.signature.failed} on mismatch</li>
+     *   <li>{@code nepalpay.fonepay.callback.verified{status=success}}</li>
+     *   <li>{@code nepalpay.fonepay.callback.verified{status=failed}}</li>
+     * </ul>
      *
      * @param callback parsed callback parameters from Fonepay redirect
      * @return verification result with payment status
-     * @throws FonepayException if signature verification fails or params
-     *                          are missing
+     * @throws FonepayException if signature verification fails or params missing
      */
-    public FonepayVerificationResult verifyCallback(FonepayCallbackResponse callback) {
+    public FonepayVerificationResult verifyCallback(
+            FonepayCallbackResponse callback) {
+
         if (callback == null) {
-            throw new FonepayException("FonepayCallbackResponse cannot be null");
+            throw new FonepayException(
+                    "FonepayCallbackResponse cannot be null");
         }
 
         validateCallbackParams(callback);
@@ -247,8 +263,7 @@ public final class FonepayClient {
         log.debug("[NepalPay] Fonepay verifying callback | prn={} | ps={}",
                 callback.prn(), callback.ps());
 
-        // Build response signature message — field order MANDATORY per spec:
-        // PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT
+        // Field order MANDATORY: PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT
         String message = callback.prn()  + "," + callback.pid()  + ","
                 + callback.ps()   + "," + callback.rc()   + ","
                 + callback.uid()  + "," + callback.bc()   + ","
@@ -257,24 +272,37 @@ public final class FonepayClient {
 
         String expectedDv = generateHmacSha512Hex(message, props.secretKey())
                 .toUpperCase();
-
         String receivedDv = callback.dv() != null
-                ? callback.dv().toUpperCase()
-                : "";
+                ? callback.dv().toUpperCase() : "";
 
         if (!expectedDv.equals(receivedDv)) {
-            log.error("[NepalPay] Fonepay signature MISMATCH — possible tampering!" +
-                    " prn={}", callback.prn());
+            log.error("[NepalPay] Fonepay SIGNATURE MISMATCH — " +
+                    "possible tampering! prn={}", callback.prn());
+
+            //  Increment signature failure counter
+            if (metrics != null) {
+                metrics.incrementSignatureFailed();
+            }
+
             throw new FonepayException(
                     "Fonepay callback signature verification FAILED. " +
-                            "Possible tampered response. PRN=" + callback.prn()
-            );
+                            "Possible tampered response. PRN=" + callback.prn());
         }
 
         boolean paymentSuccess = callback.paymentStatus().isSuccess();
 
-        log.info("[NepalPay] Fonepay callback verified | prn={} | ps={} | success={}",
+        log.info("[NepalPay] Fonepay callback verified | prn={}" +
+                        " | ps={} | success={}",
                 callback.prn(), callback.ps(), paymentSuccess);
+
+        //  Increment success or failed counter
+        if (metrics != null) {
+            if (paymentSuccess) {
+                metrics.incrementCallbackSuccess();
+            } else {
+                metrics.incrementCallbackFailed();
+            }
+        }
 
         return new FonepayVerificationResult(callback, paymentSuccess);
     }
@@ -284,28 +312,24 @@ public final class FonepayClient {
      *
      * @return true if sandbox mode is active
      */
-    public boolean isSandbox() {
-        return props.sandbox();
-    }
+    public boolean isSandbox() { return props.sandbox(); }
 
     /**
      * Returns the current active Fonepay gateway URL.
      *
      * @return sandbox or production gateway URL
      */
-    public String gatewayUrl() {
-        return gatewayUrl;
-    }
+    public String gatewayUrl() { return gatewayUrl; }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // VERIFICATION RESULT
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Result of {@link #verifyCallback} containing verification data.
+     * Result of {@link #verifyCallback}.
      *
      * @param callbackResponse the parsed Fonepay callback parameters
-     * @param verified         true only if signature matched AND status = "success"
+     * @param verified         true only if HMAC matched AND PS = "success"
      */
     public record FonepayVerificationResult(
             FonepayCallbackResponse callbackResponse,
@@ -321,38 +345,35 @@ public final class FonepayClient {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // PRIVATE HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Generate HMAC-SHA512 signature as lowercase hexadecimal.
-     *
-     * <p>Official Fonepay algorithm:
-     * HMAC-SHA512(secretKey, message, UTF-8) → hex lowercase
-     *
-     * <p>This differs from eSewa which uses Base64 encoding.
-     * Fonepay uses hex. Response verification uses UPPERCASE hex.
+     * Fonepay uses hex (not Base64 like eSewa).
+     * Response DV verification uses UPPERCASE hex.
      */
     private String generateHmacSha512Hex(String message, String secretKey) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             SecretKeySpec keySpec = new SecretKeySpec(
                     secretKey.getBytes(StandardCharsets.UTF_8),
-                    HMAC_ALGORITHM
-            );
+                    HMAC_ALGORITHM);
             mac.init(keySpec);
-            byte[] rawHmac = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+            byte[] rawHmac = mac.doFinal(
+                    message.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(rawHmac); // Java 17+ HexFormat
         } catch (Exception e) {
             throw new FonepayException(
-                    "Failed to generate HMAC-SHA512 signature: " + e.getMessage(), e);
+                    "Failed to generate HMAC-SHA512 signature: "
+                            + e.getMessage(), e);
         }
     }
 
     /**
      * Format amount as a string suitable for Fonepay.
-     * Fonepay uses double — format without unnecessary trailing zeros.
+     * Whole numbers have no decimal point — 100.0 → "100".
      */
     private String formatAmount(double amount) {
         if (amount == Math.floor(amount)) {
@@ -379,24 +400,30 @@ public final class FonepayClient {
         }
     }
 
-    private void validateRequest(String prn, double amount, String remarks1) {
+    private void validateRequest(
+            String prn, double amount, String remarks1) {
+
         if (prn == null || prn.isBlank()) {
-            throw new FonepayException("PRN (Product Reference Number) is required");
+            throw new FonepayException(
+                    "PRN (Product Reference Number) is required");
         }
         if (prn.length() < 3 || prn.length() > 25) {
             throw new FonepayException(
-                    "PRN must be between 3 and 25 characters. Got: " + prn.length());
+                    "PRN must be between 3 and 25 characters. Got: "
+                            + prn.length());
         }
         if (amount <= 0) {
             throw new FonepayException(
                     "Amount must be greater than 0. Got: " + amount);
         }
         if (remarks1 == null || remarks1.isBlank()) {
-            throw new FonepayException("remarks1 is required and cannot be blank");
+            throw new FonepayException(
+                    "remarks1 is required and cannot be blank");
         }
         if (remarks1.length() > 160) {
             throw new FonepayException(
-                    "remarks1 must not exceed 160 characters. Got: " + remarks1.length());
+                    "remarks1 must not exceed 160 characters. Got: "
+                            + remarks1.length());
         }
     }
 
@@ -408,7 +435,8 @@ public final class FonepayClient {
             throw new FonepayException("Callback DV (signature) is missing");
         }
         if (callback.ps() == null || callback.ps().isBlank()) {
-            throw new FonepayException("Callback PS (payment status) is missing");
+            throw new FonepayException(
+                    "Callback PS (payment status) is missing");
         }
     }
 }

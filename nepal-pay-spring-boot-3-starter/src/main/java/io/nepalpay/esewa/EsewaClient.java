@@ -1,23 +1,25 @@
 package io.nepalpay.esewa;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.config.NepalPayProperties;
 import io.nepalpay.core.esewa.model.EsewaCallbackData;
 import io.nepalpay.core.esewa.model.EsewaFormPayload;
 import io.nepalpay.core.esewa.model.EsewaStatusResponse;
 import io.nepalpay.core.exception.EsewaException;
 import io.nepalpay.core.retry.RetryProperties;
+import io.nepalpay.core.metrics.EsewaMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.web.client.RestClient;
-import java.time.Duration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -35,6 +37,13 @@ import java.util.function.Supplier;
  *   <li>{@link #checkStatus}     — Direct server-side status check</li>
  * </ul>
  *
+ * <p><strong>Metrics:</strong>
+ * If this client is constructed with a {@link MeterRegistry},
+ * HTTP operations are timed and signature failures counted via
+ * {@link EsewaMetrics}. When no {@link MeterRegistry} is provided,
+ * all metric recording is silently skipped — zero impact on existing
+ * users without Actuator. Full auto-configuration wiring is in v1.2.0.
+ *
  * <p>Official eSewa docs: https://developer.esewa.com.np/pages/Epay-V2
  *
  * @author Sujan Lamichhane
@@ -42,41 +51,51 @@ import java.util.function.Supplier;
 @Slf4j
 public final class EsewaClient {
 
-    // ── Official eSewa URLs ───────────────────────────────────────────────────
-    private static final String SANDBOX_FORM_URL         = "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
-    private static final String PRODUCTION_FORM_URL      = "https://epay.esewa.com.np/api/epay/main/v2/form";
-    private static final String SANDBOX_STATUS_BASE_URL  = "https://rc.esewa.com.np";
-    private static final String PROD_STATUS_BASE_URL     = "https://esewa.com.np";
-    private static final String STATUS_PATH              = "/api/epay/transaction/status/";
+    // ── Official eSewa URLs ───────────────────────────────────────────────
+    private static final String SANDBOX_FORM_URL        =
+            "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+    private static final String PRODUCTION_FORM_URL     =
+            "https://epay.esewa.com.np/api/epay/main/v2/form";
+    private static final String SANDBOX_STATUS_BASE_URL =
+            "https://rc.esewa.com.np";
+    private static final String PROD_STATUS_BASE_URL    =
+            "https://esewa.com.np";
+    private static final String STATUS_PATH             =
+            "/api/epay/transaction/status/";
 
-    // ── Signature ─────────────────────────────────────────────────────────────
-    private static final String HMAC_ALGORITHM    = "HmacSHA256";
-    private static final String SIGNED_FIELD_NAMES = "total_amount,transaction_uuid,product_code";
-
-    // ── Fields ────────────────────────────────────────────────────────────────
-    private final NepalPayProperties.EsewaProperties props;
-    private final RestClient restClient;
-    private final String formActionUrl;
-    private final RetryProperties retryProps;
+    // ── Signature ─────────────────────────────────────────────────────────
+    private static final String HMAC_ALGORITHM     = "HmacSHA256";
+    private static final String SIGNED_FIELD_NAMES =
+            "total_amount,transaction_uuid,product_code";
 
     /**
      * Shared ObjectMapper instance for decoding eSewa Base64 callback data.
      *
      * <p>ObjectMapper is thread-safe after configuration and expensive to
-     * construct (registers serializers, initialises caches, scans classpath).
-     * Using a static singleton avoids creating and discarding a new instance
-     * on every payment callback.
-     *
-     * <p>Jackson docs: "use static singleton, inject: just make sure to reuse!"
+     * construct. Using a static singleton avoids creating and discarding a
+     * new instance on every payment callback.
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // CONSTRUCTORS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Fields ────────────────────────────────────────────────────────────
+    private final NepalPayProperties.EsewaProperties props;
+    private final RestClient      restClient;
+    private final String          formActionUrl;
+    private final RetryProperties retryProps;
 
     /**
-     * Production constructor — used by auto-configuration.
+     * Optional Micrometer metrics — null when Actuator not on classpath.
+     * All usages guarded with null check — no NPE possible.
+     */
+    private final EsewaMetrics metrics;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CONSTRUCTORS
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Production constructor — no metrics.
+     * Used by auto-configuration when Actuator is absent.
      *
      * @param props             eSewa properties from application.yml
      * @param restClientBuilder Spring Boot RestClient builder
@@ -86,11 +105,23 @@ public final class EsewaClient {
             RestClient.Builder restClientBuilder) {
 
         this(props, restClientBuilder,
-                props.sandbox() ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL);
+                props.sandbox()
+                        ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL,
+                null);
     }
 
     /**
-     * Test constructor — allows injecting a custom status API base URL.
+     * Test constructor — custom status API base URL, no metrics.
+     *
+     * <p>Used in tests to point the client at {@code MockWebServer}.
+     *
+     * <p><strong>NOTE (CodeRabbit fix):</strong>
+     * A separate {@code EsewaClient(props, builder, MeterRegistry)} overload
+     * was removed because it was ambiguous with this constructor at the call
+     * site when {@code null} was passed. Use the 4-arg constructor
+     * {@link #EsewaClient(NepalPayProperties.EsewaProperties,
+     * RestClient.Builder, String, MeterRegistry)} to inject a
+     * {@link MeterRegistry} instead.
      *
      * @param props                 eSewa properties
      * @param restClientBuilder     RestClient builder
@@ -101,11 +132,47 @@ public final class EsewaClient {
             RestClient.Builder restClientBuilder,
             String statusBaseUrlOverride) {
 
+        this(props, restClientBuilder, statusBaseUrlOverride, null);
+    }
+
+    /**
+     * Full constructor — custom status URL + optional metrics.
+     *
+     * <p>Used by {@code NepalPayMetricsAutoConfiguration} to inject a
+     * {@link MeterRegistry} when Actuator is on the classpath.
+     * Exposed as {@code public} to avoid constructor ambiguity — passing
+     * {@code null} for {@code meterRegistry} is safe and disables metrics.
+     *
+     * <p>This replaces the removed
+     * {@code EsewaClient(props, builder, MeterRegistry)} 3-arg overload
+     * which was ambiguous with the String test constructor when {@code null}
+     * was passed.
+     *
+     * @param props                 eSewa properties from application.yml
+     * @param restClientBuilder     Spring Boot RestClient builder
+     * @param statusBaseUrlOverride Status API base URL — pass
+     *   {@code props.sandbox() ? SANDBOX_STATUS_BASE_URL : PROD_STATUS_BASE_URL}
+     *   for production use, or a {@code MockWebServer} URL in tests
+     * @param meterRegistry         Micrometer registry — null = no metrics
+     */
+    public EsewaClient(
+            NepalPayProperties.EsewaProperties props,
+            RestClient.Builder restClientBuilder,
+            String statusBaseUrlOverride,
+            MeterRegistry meterRegistry) {
+
         this.props         = props;
-        this.formActionUrl = props.sandbox() ? SANDBOX_FORM_URL : PRODUCTION_FORM_URL;
+        this.formActionUrl = props.sandbox()
+                ? SANDBOX_FORM_URL : PRODUCTION_FORM_URL;
         this.retryProps    = props.retryOrDefault();
 
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        // ── Metrics — optional ────────────────────────────────────────────
+        this.metrics = (meterRegistry != null)
+                ? new EsewaMetrics(meterRegistry, props.sandbox())
+                : null;
+
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(props.timeoutSeconds()));
         factory.setReadTimeout(Duration.ofSeconds(props.timeoutSeconds()));
 
@@ -115,17 +182,18 @@ public final class EsewaClient {
                 .build();
 
         log.info("[NepalPay] EsewaClient initialized | mode={} | productCode={}" +
-                        " | statusUrl={} | timeout={}s | retry={}",
+                        " | statusUrl={} | timeout={}s | retry={} | metrics={}",
                 props.sandbox() ? "SANDBOX" : "PRODUCTION",
                 props.productCode(),
                 statusBaseUrlOverride,
                 props.timeoutSeconds(),
-                this.retryProps.summary());
+                this.retryProps.summary(),
+                metrics != null ? "enabled" : "disabled");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // PUBLIC API
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Build a signed eSewa form payload — full overload with all charges.
@@ -160,19 +228,23 @@ public final class EsewaClient {
         String serviceStr  = formatAmount(service);
         String deliveryStr = formatAmount(delivery);
 
-        String message   = buildSignatureMessage(totalStr, transactionUuid, props.productCode());
+        String message   = buildSignatureMessage(
+                totalStr, transactionUuid, props.productCode());
         String signature = generateHmacSignature(message, props.secretKey());
 
         if (props.successUrl() == null || props.successUrl().isBlank()) {
             throw new EsewaException(
-                    "successUrl is required. Set nepalpay.esewa.success-url in application.yml");
+                    "successUrl is required. " +
+                            "Set nepalpay.esewa.success-url in application.yml");
         }
         if (props.failureUrl() == null || props.failureUrl().isBlank()) {
             throw new EsewaException(
-                    "failureUrl is required. Set nepalpay.esewa.failure-url in application.yml");
+                    "failureUrl is required. " +
+                            "Set nepalpay.esewa.failure-url in application.yml");
         }
 
-        log.debug("[NepalPay] eSewa form payload built | uuid={} | total={}", transactionUuid, totalStr);
+        log.debug("[NepalPay] eSewa form payload built | uuid={} | total={}",
+                transactionUuid, totalStr);
 
         return new EsewaFormPayload(
                 amountStr, taxStr, totalStr, transactionUuid,
@@ -189,8 +261,10 @@ public final class EsewaClient {
      * @param transactionUuid Your unique transaction ID (store in DB!)
      * @return Signed form payload
      */
-    public EsewaFormPayload buildFormPayload(BigDecimal amount, String transactionUuid) {
-        return buildFormPayload(amount, BigDecimal.ZERO, transactionUuid,
+    public EsewaFormPayload buildFormPayload(
+            BigDecimal amount, String transactionUuid) {
+        return buildFormPayload(
+                amount, BigDecimal.ZERO, transactionUuid,
                 BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
@@ -204,83 +278,59 @@ public final class EsewaClient {
      *   <li>Calls eSewa status API (with retry if configured)</li>
      * </ol>
      *
+     * <p>Records {@code nepalpay.esewa.callback.verify.duration} timer
+     * when Micrometer is available.
+     * Records {@code nepalpay.esewa.callback.signature.failed} counter
+     * when HMAC verification fails.
+     *
      * @param encodedData Base64 "data" param from eSewa redirect
      * @return Verification result
      * @throws EsewaException if decoding, signature, or status check fails
      */
     public EsewaVerificationResult verifyCallback(String encodedData) {
         if (encodedData == null || encodedData.isBlank()) {
-            throw new EsewaException("eSewa callback data cannot be null or blank");
+            throw new EsewaException(
+                    "eSewa callback data cannot be null or blank");
         }
 
         log.debug("[NepalPay] eSewa verifying callback");
 
-        EsewaCallbackData callbackData = decodeCallbackData(encodedData);
-        verifyCallbackSignature(callbackData);
-
-        EsewaStatusResponse statusResponse =
-                checkStatus(callbackData.transactionUuid(), callbackData.totalAmount());
-
-        boolean verified = statusResponse.isPaymentSuccessful();
-
-        log.info("[NepalPay] eSewa callback verified | uuid={} | status={} | verified={}",
-                callbackData.transactionUuid(), statusResponse.status(), verified);
-
-        return new EsewaVerificationResult(callbackData, statusResponse, verified);
+        if (metrics != null) {
+            return metrics.recordVerify(() -> doVerifyCallback(encodedData));
+        }
+        return doVerifyCallback(encodedData);
     }
 
     /**
      * Directly check eSewa transaction status via the status API.
+     *
+     * <p>Records {@code nepalpay.esewa.status.check.duration} timer
+     * when Micrometer is available.
      *
      * @param transactionUuid Your original transaction UUID
      * @param totalAmount     The exact total amount (must match original)
      * @return Status response from eSewa
      * @throws EsewaException if the API call fails
      */
-    public EsewaStatusResponse checkStatus(String transactionUuid, String totalAmount) {
+    public EsewaStatusResponse checkStatus(
+            String transactionUuid, String totalAmount) {
+
         if (transactionUuid == null || transactionUuid.isBlank()) {
-            throw new EsewaException("transactionUuid cannot be null or blank");
+            throw new EsewaException(
+                    "transactionUuid cannot be null or blank");
         }
         if (totalAmount == null || totalAmount.isBlank()) {
-            throw new EsewaException("totalAmount cannot be null or blank");
+            throw new EsewaException(
+                    "totalAmount cannot be null or blank");
         }
 
         log.debug("[NepalPay] eSewa status check | uuid={}", transactionUuid);
 
-        return executeWithRetry("eSewa status check", () -> {
-            EsewaStatusResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path(STATUS_PATH)
-                            .queryParam("product_code",     props.productCode())
-                            .queryParam("total_amount",     totalAmount)
-                            .queryParam("transaction_uuid", transactionUuid)
-                            .build())
-                    .retrieve()
-                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
-                        String body = readBodySafely(res);
-                        log.error("[NepalPay] eSewa status 4xx | uuid={} | body={}",
-                                transactionUuid, body);
-                        throw new EsewaException(
-                                "eSewa status check failed — check product_code or transaction_uuid",
-                                res.getStatusCode().value(), body);
-                    })
-                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
-                        log.error("[NepalPay] eSewa status 5xx | uuid={}", transactionUuid);
-                        throw new EsewaException(
-                                "eSewa server error during status check — try again",
-                                res.getStatusCode().value(), null);
-                    })
-                    .body(EsewaStatusResponse.class);
-
-            if (response == null) {
-                throw new EsewaException(
-                        "eSewa returned empty status response for uuid=" + transactionUuid);
-            }
-
-            log.info("[NepalPay] eSewa status result | uuid={} | status={} | refId={}",
-                    transactionUuid, response.status(), response.refId());
-            return response;
-        });
+        if (metrics != null) {
+            return metrics.recordStatus(
+                    () -> doCheckStatus(transactionUuid, totalAmount));
+        }
+        return doCheckStatus(transactionUuid, totalAmount);
     }
 
     /**
@@ -298,16 +348,16 @@ public final class EsewaClient {
     /** @return true if sandbox mode is active */
     public boolean isSandbox() { return props.sandbox(); }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
     // VERIFICATION RESULT
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
      * Result of {@link #verifyCallback}.
      *
      * @param callbackData   Decoded data from eSewa redirect
      * @param statusResponse Response from eSewa status API
-     * @param verified       True only if signature matched AND status is COMPLETE
+     * @param verified       True only if signature matched AND status COMPLETE
      */
     public record EsewaVerificationResult(
             EsewaCallbackData callbackData,
@@ -318,20 +368,108 @@ public final class EsewaClient {
         public boolean isPaymentSuccessful() { return verified; }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PRIVATE HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — HTTP execution
+    // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Executes an eSewa API call with exponential backoff retry.
-     * Never retries 4xx client errors.
+     * Inner verifyCallback logic — wrapped by metrics timer in public method.
      */
-    private <T> T executeWithRetry(String operationName, Supplier<T> operation) {
+    private EsewaVerificationResult doVerifyCallback(String encodedData) {
+        EsewaCallbackData callbackData = decodeCallbackData(encodedData);
+        verifyCallbackSignature(callbackData);
+
+        EsewaStatusResponse statusResponse =
+                doCheckStatus(
+                        callbackData.transactionUuid(),
+                        callbackData.totalAmount());
+
+        boolean verified = statusResponse.isPaymentSuccessful();
+
+        log.info("[NepalPay] eSewa callback verified | uuid={}" +
+                        " | status={} | verified={}",
+                callbackData.transactionUuid(),
+                statusResponse.status(), verified);
+
+        return new EsewaVerificationResult(
+                callbackData, statusResponse, verified);
+    }
+
+    /**
+     * Inner checkStatus logic — wrapped by metrics timer in public method.
+     * Also called from doVerifyCallback (already under verify timer).
+     */
+    private EsewaStatusResponse doCheckStatus(
+            String transactionUuid, String totalAmount) {
+
+        return executeWithRetry(
+                "eSewa status check",
+                metrics != null ? metrics::incrementStatusRetry : null,
+                () -> {
+                    EsewaStatusResponse response = restClient.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path(STATUS_PATH)
+                                    .queryParam("product_code",
+                                            props.productCode())
+                                    .queryParam("total_amount",
+                                            totalAmount)
+                                    .queryParam("transaction_uuid",
+                                            transactionUuid)
+                                    .build())
+                            .retrieve()
+                            .onStatus(HttpStatusCode::is4xxClientError,
+                                    (req, res) -> {
+                                        String body = readBodySafely(res);
+                                        log.error("[NepalPay] eSewa status" +
+                                                        " 4xx | uuid={} | body={}",
+                                                transactionUuid, body);
+                                        throw new EsewaException(
+                                                "eSewa status check failed — " +
+                                                        "check product_code or uuid",
+                                                res.getStatusCode().value(),
+                                                body);
+                                    })
+                            .onStatus(HttpStatusCode::is5xxServerError,
+                                    (req, res) -> {
+                                        log.error("[NepalPay] eSewa status" +
+                                                        " 5xx | uuid={}",
+                                                transactionUuid);
+                                        throw new EsewaException(
+                                                "eSewa server error during" +
+                                                        " status check — try again",
+                                                res.getStatusCode().value(),
+                                                null);
+                                    })
+                            .body(EsewaStatusResponse.class);
+
+                    if (response == null) {
+                        throw new EsewaException(
+                                "eSewa returned empty status response" +
+                                        " for uuid=" + transactionUuid);
+                    }
+
+                    log.info("[NepalPay] eSewa status result | uuid={}" +
+                                    " | status={} | refId={}",
+                            transactionUuid,
+                            response.status(), response.refId());
+                    return response;
+                });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — Retry
+    // ─────────────────────────────────────────────────────────────────────
+
+    private <T> T executeWithRetry(
+            String operationName,
+            Runnable retryIncrement,
+            Supplier<T> operation) {
+
         if (!retryProps.isActive()) {
             return operation.get();
         }
 
-        int attempt  = 0;
+        int  attempt = 0;
         long delayMs = retryProps.initialDelayMs();
 
         while (true) {
@@ -346,23 +484,30 @@ public final class EsewaClient {
                 attempt++;
 
                 if (attempt > retryProps.maxAttempts()) {
-                    log.error("[NepalPay] {} failed after {} attempt(s) | lastStatus={}",
+                    log.error("[NepalPay] {} failed after {} attempt(s)" +
+                                    " | lastStatus={}",
                             operationName, attempt, e.httpStatus());
                     throw e;
+                }
+
+                // Increment Micrometer retry counter if metrics available
+                if (retryIncrement != null) {
+                    retryIncrement.run();
                 }
 
                 long waitMs = RetryProperties.jitter(delayMs);
                 log.warn("[NepalPay] {} failed (attempt {}/{}) | httpStatus={}" +
                                 " | retrying in {}ms",
-                        operationName, attempt, retryProps.maxAttempts(),
-                        e.httpStatus(), waitMs);
+                        operationName, attempt,
+                        retryProps.maxAttempts(), e.httpStatus(), waitMs);
 
                 sleepForRetry(waitMs, e);
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {
                 throw new EsewaException(
-                        "Unexpected error during " + operationName + ": " + e.getMessage(), e);
+                        "Unexpected error during " + operationName
+                                + ": " + e.getMessage(), e);
             }
         }
     }
@@ -376,19 +521,28 @@ public final class EsewaClient {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // PRIVATE — Signature + Decode
+    // ─────────────────────────────────────────────────────────────────────
+
     private EsewaCallbackData decodeCallbackData(String encodedData) {
         try {
-            byte[] decodedBytes = Base64.getDecoder().decode(encodedData.trim());
-            String jsonString   = new String(decodedBytes, StandardCharsets.UTF_8);
-            log.debug("[NepalPay] eSewa decoded callback JSON: {}", jsonString);
-            // Reuse shared singleton — ObjectMapper is thread-safe after construction.
+            byte[] decodedBytes = Base64.getDecoder()
+                    .decode(encodedData.trim());
+            String jsonString = new String(
+                    decodedBytes, StandardCharsets.UTF_8);
+            log.debug("[NepalPay] eSewa decoded callback JSON: {}",
+                    jsonString);
             return OBJECT_MAPPER.readValue(jsonString, EsewaCallbackData.class);
         } catch (IllegalArgumentException e) {
             throw new EsewaException(
                     "Failed to decode eSewa Base64 callback data. " +
-                            "Pass the raw 'data' query parameter from the redirect URL.", e);
+                            "Pass the raw 'data' query parameter from the redirect URL.",
+                    e);
         } catch (Exception e) {
-            throw new EsewaException("Failed to parse eSewa callback JSON: " + e.getMessage(), e);
+            throw new EsewaException(
+                    "Failed to parse eSewa callback JSON: "
+                            + e.getMessage(), e);
         }
     }
 
@@ -396,7 +550,8 @@ public final class EsewaClient {
         try {
             String signedFields = data.signedFieldNames();
             if (signedFields == null || signedFields.isBlank()) {
-                throw new EsewaException("signed_field_names is missing from eSewa callback");
+                throw new EsewaException(
+                        "signed_field_names is missing from eSewa callback");
             }
 
             StringBuilder messageBuilder = new StringBuilder();
@@ -412,41 +567,57 @@ public final class EsewaClient {
                     messageBuilder.toString(), props.secretKey());
 
             if (!expectedSignature.equals(data.signature())) {
-                log.error("[NepalPay] eSewa signature MISMATCH — possible tampering! uuid={}",
+                log.error("[NepalPay] eSewa SIGNATURE MISMATCH — " +
+                                "possible tampering! uuid={}",
                         data.transactionUuid());
+
+                // Increment signature failure counter if metrics available
+                if (metrics != null) {
+                    metrics.incrementSignatureFailed();
+                }
+
                 throw new EsewaException(
                         "eSewa callback signature verification FAILED. " +
-                                "Possible tampered response. uuid=" + data.transactionUuid());
+                                "Possible tampered response. uuid="
+                                + data.transactionUuid());
             }
 
-            log.debug("[NepalPay] eSewa callback signature OK | uuid={}", data.transactionUuid());
+            log.debug("[NepalPay] eSewa callback signature OK | uuid={}",
+                    data.transactionUuid());
 
         } catch (EsewaException e) {
             throw e;
         } catch (Exception e) {
             throw new EsewaException(
-                    "Error during eSewa signature verification: " + e.getMessage(), e);
+                    "Error during eSewa signature verification: "
+                            + e.getMessage(), e);
         }
     }
 
     private String generateHmacSignature(String message, String secretKey) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
+            mac.init(new SecretKeySpec(
+                    secretKey.getBytes(StandardCharsets.UTF_8),
+                    HMAC_ALGORITHM));
             return Base64.getEncoder().encodeToString(
                     mac.doFinal(message.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
-            throw new EsewaException("Failed to generate HMAC-SHA256 signature: " + e.getMessage(), e);
+            throw new EsewaException(
+                    "Failed to generate HMAC-SHA256 signature: "
+                            + e.getMessage(), e);
         }
     }
 
-    private String buildSignatureMessage(String totalAmount, String transactionUuid, String productCode) {
+    private String buildSignatureMessage(
+            String totalAmount, String transactionUuid, String productCode) {
         return "total_amount=" + totalAmount
                 + ",transaction_uuid=" + transactionUuid
                 + ",product_code=" + productCode;
     }
 
-    private String getCallbackFieldValue(EsewaCallbackData data, String fieldName) {
+    private String getCallbackFieldValue(
+            EsewaCallbackData data, String fieldName) {
         return switch (fieldName.trim()) {
             case "transaction_code"   -> nullToEmpty(data.transactionCode());
             case "status"             -> nullToEmpty(data.status());
@@ -455,27 +626,32 @@ public final class EsewaClient {
             case "product_code"       -> nullToEmpty(data.productCode());
             case "signed_field_names" -> nullToEmpty(data.signedFieldNames());
             default -> {
-                log.warn("[NepalPay] Unknown signed field in eSewa callback: {}", fieldName);
+                log.warn("[NepalPay] Unknown signed field in eSewa" +
+                        " callback: {}", fieldName);
                 yield "";
             }
         };
     }
 
-    private void validateBuildRequest(BigDecimal amount, String transactionUuid) {
+    private void validateBuildRequest(
+            BigDecimal amount, String transactionUuid) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new EsewaException("Amount must be greater than 0 NPR. Got: " + amount);
+            throw new EsewaException(
+                    "Amount must be greater than 0 NPR. Got: " + amount);
         }
         if (transactionUuid == null || transactionUuid.isBlank()) {
-            throw new EsewaException("transactionUuid is required and cannot be blank");
+            throw new EsewaException(
+                    "transactionUuid is required and cannot be blank");
         }
         if (props.secretKey() == null || props.secretKey().isBlank()) {
             throw new EsewaException(
-                    "eSewa secret key not configured. Set nepalpay.esewa.secret-key in application.yml");
+                    "eSewa secret key not configured. " +
+                            "Set nepalpay.esewa.secret-key in application.yml");
         }
         if (props.productCode() == null || props.productCode().isBlank()) {
             throw new EsewaException(
-                    "eSewa product code not configured. Set nepalpay.esewa.product-code. " +
-                            "Sandbox: EPAYTEST");
+                    "eSewa product code not configured. " +
+                            "Set nepalpay.esewa.product-code. Sandbox: EPAYTEST");
         }
     }
 
@@ -483,9 +659,12 @@ public final class EsewaClient {
         return amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
-    private String nullToEmpty(String value) { return value != null ? value : ""; }
+    private String nullToEmpty(String value) {
+        return value != null ? value : "";
+    }
 
-    private String readBodySafely(org.springframework.http.client.ClientHttpResponse res) {
+    private String readBodySafely(
+            org.springframework.http.client.ClientHttpResponse res) {
         try {
             return new String(res.getBody().readAllBytes());
         } catch (Exception ignored) {

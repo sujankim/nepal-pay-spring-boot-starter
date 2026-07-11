@@ -1,5 +1,29 @@
 name: CI
 
+# ── Action runtime note ───────────────────────────────────────────────────
+# actions/checkout@v5 and actions/setup-java@v5 use Node.js 24 as their
+# internal ACTION RUNTIME (the engine that runs the action's own code).
+# This is NOT the Node.js version available to your workflow job steps.
+#
+# What this means:
+#   Java build steps are completely unaffected
+#   No Node.js is exposed to the job environment by these actions
+#    If a job needs a specific Node.js version, use actions/setup-node
+#
+# Why v5 is safe here:
+#   All jobs use runs-on: ubuntu-latest (GitHub-hosted runners).
+#   GitHub-hosted runners are always updated and already meet the
+#   minimum runner version 2.327.1+ required by v5 actions.
+#
+# persist-credentials: false — security hardening (zizmor finding):
+#   actions/checkout writes the GitHub token to local git config by default.
+#   These jobs run Maven builds immediately after checkout — no git auth
+#   is needed after that point. Disabling credential persistence prevents
+#   the token from being leaked via Maven build artifacts or logs.
+#
+# Reference:
+#   https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+# ─────────────────────────────────────────────────────────────────────────
 on:
   push:
     branches: [ "main" ]
@@ -19,6 +43,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -45,6 +71,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -81,6 +109,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Java 21
         uses: actions/setup-java@v5
@@ -117,6 +147,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Java 17
         uses: actions/setup-java@v5

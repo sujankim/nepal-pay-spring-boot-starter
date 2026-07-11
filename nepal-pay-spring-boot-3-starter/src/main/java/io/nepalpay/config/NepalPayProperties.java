@@ -5,7 +5,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Root configuration properties for NepalPay Spring Boot Starter.
  *
  * <p>Add to your {@code application.yml}:
  * <pre>
@@ -16,11 +15,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     website-url: ${YOUR_WEBSITE_URL}
  *     sandbox: true
  *     retry:
- *       enabled: false            # opt-in, off by default
- *       max-attempts: 3
- *       initial-delay-ms: 500
- *       multiplier: 2.0
- *       max-delay-ms: 5000
+ *       enabled: false
  *
  *   esewa:
  *     secret-key:   ${ESEWA_SECRET_KEY}
@@ -28,8 +23,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     success-url:  ${ESEWA_SUCCESS_URL}
  *     failure-url:  ${ESEWA_FAILURE_URL}
  *     sandbox: true
- *     retry:
- *       enabled: false
  *
  *   connectips:
  *     merchant-id:  ${CONNECTIPS_MERCHANT_ID}
@@ -39,46 +32,48 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     pfx-path:     ${CONNECTIPS_PFX_PATH}
  *     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
  *     sandbox: true
- *     retry:
- *       enabled: false
  *
  *   fonepay:
  *     merchant-code: ${FONEPAY_MERCHANT_CODE}
  *     secret-key:    ${FONEPAY_SECRET_KEY}
  *     return-url:    ${FONEPAY_RETURN_URL}
  *     sandbox: true
- *     # ← no retry block — Fonepay makes no HTTP calls (URL redirect only)
+ *
+ *   metrics:
+ *     enabled: true    # opt-out — disable with false
+ *
+ *   health:
+ *     enabled: true    # opt-out — disable with false
  * </pre>
  *
  * @param khalti     Khalti payment gateway configuration
  * @param esewa      eSewa payment gateway configuration
  * @param connectips ConnectIPS payment gateway configuration
  * @param fonepay    Fonepay payment gateway configuration
+ * @param metrics    Micrometer metrics configuration (null = enabled by default)
+ * @param health     Actuator health indicator configuration (null = enabled by default)
  */
 @ConfigurationProperties(prefix = "nepalpay")
 public record NepalPayProperties(
         KhaltiProperties     khalti,
         EsewaProperties      esewa,
         ConnectIpsProperties connectips,
-        FonepayProperties    fonepay
+        FonepayProperties    fonepay,
+        MetricsProperties    metrics,
+        HealthProperties     health
 ) {
 
-    // ── Khalti ───────────────────────────────────────────────────────────────
+    // ── Khalti ───────────────────────────────────────────────────────────
 
     /**
      * Khalti payment gateway configuration.
      *
-     * <p>Retry applies to:
-     * {@code initiatePayment()}, {@code lookupPayment()},
-     * {@code refundPayment()}.
-     *
-     * @param secretKey      Your Khalti secret key from merchant dashboard
+     * @param secretKey      Your Khalti secret key
      * @param returnUrl      URL Khalti redirects to after payment
      * @param websiteUrl     Your merchant website URL
      * @param sandbox        true = dev.khalti.com / false = khalti.com
-     * @param timeoutSeconds HTTP timeout in seconds for Khalti API calls
-     * @param retry          Retry configuration — null means use defaults
-     *                       (retry disabled by default)
+     * @param timeoutSeconds HTTP timeout in seconds
+     * @param retry          Retry configuration — null = defaults (disabled)
      */
     public record KhaltiProperties(
             String secretKey,
@@ -92,10 +87,6 @@ public record NepalPayProperties(
          * Returns retry configuration, falling back to
          * {@link RetryProperties#DEFAULT} when not configured.
          *
-         * <p>Always use this instead of {@link #retry()} directly
-         * in client code so you never get a NullPointerException
-         * when the user omits the {@code retry:} block.
-         *
          * @return retry config, never null
          */
         public RetryProperties retryOrDefault() {
@@ -103,26 +94,18 @@ public record NepalPayProperties(
         }
     }
 
-    // ── eSewa ─────────────────────────────────────────────────────────────────
+    // ── eSewa ─────────────────────────────────────────────────────────────
 
     /**
      * eSewa payment gateway configuration.
      *
-     * <p>Retry applies to: {@code checkStatus()} (called inside
-     * {@code verifyCallback()}).
-     *
-     * <p>Sandbox credentials:
-     * Secret key: {@code 8gBm/:&amp;EnhH.1/q} |
-     * Product code: {@code EPAYTEST}
-     *
      * @param secretKey      eSewa HMAC-SHA256 secret key
      * @param productCode    Sandbox: EPAYTEST / Production: your merchant code
-     * @param successUrl     URL eSewa redirects to on successful payment
-     * @param failureUrl     URL eSewa redirects to on failed payment
+     * @param successUrl     URL eSewa redirects to on success
+     * @param failureUrl     URL eSewa redirects to on failure
      * @param sandbox        true = sandbox / false = production
      * @param timeoutSeconds HTTP timeout in seconds
-     * @param retry          Retry configuration — null means use defaults
-     *                       (retry disabled by default)
+     * @param retry          Retry configuration — null = defaults (disabled)
      */
     public record EsewaProperties(
             String secretKey,
@@ -144,31 +127,19 @@ public record NepalPayProperties(
         }
     }
 
-    // ── ConnectIPS ────────────────────────────────────────────────────────────
+    // ── ConnectIPS ────────────────────────────────────────────────────────
 
     /**
      * ConnectIPS payment gateway configuration.
      *
-     * <p>Retry applies to: {@code validateTransaction()}.
-     *
-     * <p>Requires merchant registration with NCHL before use.
-     * Contact connectips@nchl.com.np to register.
-     *
-     * <p>The {@code pfxPath} supports Spring Resource path prefixes:
-     * <ul>
-     *   <li>{@code file:/app/CREDITOR.pfx} — absolute file path</li>
-     *   <li>{@code classpath:CREDITOR.pfx} — from classpath</li>
-     * </ul>
-     *
-     * @param merchantId  NCHL-assigned merchant ID (integer)
+     * @param merchantId  NCHL-assigned merchant ID
      * @param appId       Application ID from NCHL
      * @param appName     Application name from NCHL
      * @param appPassword Application password for HTTP Basic Auth
-     * @param pfxPath     Path to CREDITOR.pfx file (Spring Resource format)
+     * @param pfxPath     Path to CREDITOR.pfx (Spring Resource format)
      * @param pfxPassword Password for the CREDITOR.pfx file
-     * @param sandbox     true = UAT (uat.connectips.com) / false = production
-     * @param retry       Retry configuration — null means use defaults
-     *                    (retry disabled by default)
+     * @param sandbox     true = UAT / false = production
+     * @param retry       Retry configuration — null = defaults (disabled)
      */
     public record ConnectIpsProperties(
             int merchantId,
@@ -191,14 +162,12 @@ public record NepalPayProperties(
         }
     }
 
-    // ── Fonepay ───────────────────────────────────────────────────────────────
+    // ── Fonepay ───────────────────────────────────────────────────────────
 
     /**
      * Fonepay payment gateway configuration.
      *
-     * <p><strong>No retry configuration.</strong>
-     * Fonepay uses URL redirect — it makes zero server-to-server
-     * HTTP calls. Retry does not apply.
+     * <p>No retry — Fonepay makes no server-side HTTP calls.
      *
      * @param merchantCode Your Fonepay merchant code (PID)
      * @param secretKey    Your Fonepay HMAC-SHA512 secret key
@@ -211,4 +180,65 @@ public record NepalPayProperties(
             String returnUrl,
             @DefaultValue("true") boolean sandbox
     ) {}
+
+    // ── Metrics ───────────────────────────────────────────────────────────
+
+    /**
+     * Micrometer metrics configuration.
+     *
+     * <p>Metrics are opt-out — enabled by default when Actuator is on
+     * the classpath. Set {@code nepalpay.metrics.enabled=false} to disable.
+     *
+     * <p><strong>Note:</strong> This record component is {@code null} when
+     * the {@code nepalpay.metrics:} block is absent from YAML entirely.
+     * Use {@link NepalPayProperties#isMetricsEnabled()} for null-safe access.
+     *
+     * @param enabled true (default) = record metrics when Actuator present
+     */
+    public record MetricsProperties(
+            @DefaultValue("true") boolean enabled
+    ) {}
+
+    // ── Health ────────────────────────────────────────────────────────────
+
+    /**
+     * Actuator health indicator configuration.
+     *
+     * <p>Health indicators are opt-out — enabled by default when Actuator
+     * is on the classpath. Set {@code nepalpay.health.enabled=false} to
+     * disable all NepalPay {@code /actuator/health} indicators.
+     *
+     * <p><strong>Note:</strong> This record component is {@code null} when
+     * the {@code nepalpay.health:} block is absent from YAML entirely.
+     * Use {@link NepalPayProperties#isHealthEnabled()} for null-safe access.
+     *
+     * @param enabled true (default) = register health indicators
+     */
+    public record HealthProperties(
+            @DefaultValue("true") boolean enabled
+    ) {}
+
+    /**
+     * Returns true if Micrometer metrics are enabled.
+     *
+     * <p>Safe to call even when the {@code nepalpay.metrics:} block is
+     * absent from {@code application.yml} — returns {@code true} in that case.
+     *
+     * @return true if metrics should be recorded (default when block absent)
+     */
+    public boolean isMetricsEnabled() {
+        return metrics == null || metrics.enabled();
+    }
+
+    /**
+     * Returns true if Actuator health indicators are enabled.
+     *
+     * <p>Safe to call even when the {@code nepalpay.health:} block is
+     * absent from {@code application.yml} — returns {@code true} in that case.
+     *
+     * @return true if health indicators should be registered (default when absent)
+     */
+    public boolean isHealthEnabled() {
+        return health == null || health.enabled();
+    }
 }
