@@ -23,7 +23,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import java.util.Enumeration;   // <-- ADDED for alias iteration
+import java.util.Enumeration;
 import java.util.function.Supplier;
 
 /**
@@ -45,7 +45,7 @@ import java.util.function.Supplier;
  * and retry attempts are counted via {@link ConnectIpsMetrics}.
  * When no {@link MeterRegistry} is provided, all metric recording is
  * silently skipped — zero impact on existing users without Actuator.
- * Full auto-configuration wiring is coming in v1.2.0.
+ * Metrics auto-configuration is active — wired via NepalPayMetricsAutoConfiguration.
  *
  * @author Sujan Lamichhane
  */
@@ -78,7 +78,7 @@ public final class ConnectIpsClient {
      * legitimately be slower than commercial payment gateway APIs.
      *
      * <p>TODO: Make configurable via nepalpay.connectips.timeout-seconds
-     *          (tracked in issue #7)
+     *          (tracked in issue #8)
      */
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
@@ -167,7 +167,7 @@ public final class ConnectIpsClient {
      *
      * <p>When {@code meterRegistry} is non-null, {@code validateTransaction()}
      * is timed and retry attempts counted via {@link ConnectIpsMetrics}.
-     * Full auto-configuration wiring is coming in v1.2.0.
+     * Metrics auto-configuration is active — wired via NepalPayMetricsAutoConfiguration.
      *
      * @param meterRegistry Micrometer registry — null means no metrics
      */
@@ -249,7 +249,7 @@ public final class ConnectIpsClient {
         this.sandbox       = sandbox;
         this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps    = (retry != null) ? retry : RetryProperties.DEFAULT;
-        this.metrics       = null; // no metrics in test constructor
+        this.metrics       = null;
 
         SimpleClientHttpRequestFactory factory =
                 new SimpleClientHttpRequestFactory();
@@ -298,9 +298,6 @@ public final class ConnectIpsClient {
             keyStore.load(new ByteArrayInputStream(pfxBytes),
                     pfxPassword.toCharArray());
 
-            // ✅ Iterate all aliases and select the first isKeyEntry()
-            // Matches ConnectIpsReactiveClient fix — avoids grabbing
-            // a certificate alias that has no associated private key.
             Enumeration<String> aliases = keyStore.aliases();
             while (aliases.hasMoreElements()) {
                 String alias = aliases.nextElement();
@@ -397,7 +394,6 @@ public final class ConnectIpsClient {
 
         log.debug("[NepalPay] ConnectIPS validating | txnId={}", txnId);
 
-        //  Wrap with metrics timer if available
         if (metrics != null) {
             return metrics.recordValidate(
                     () -> executeValidateRequest(referenceId, txnAmtPaisa, token));
@@ -421,18 +417,10 @@ public final class ConnectIpsClient {
         return executeValidateRequest(referenceId, txnAmtPaisa, token);
     }
 
-    /**
-     * Returns the ConnectIPS gateway form action URL.
-     *
-     * @return UAT or production form action URL
-     */
+    /** @return UAT or production form action URL */
     public String formActionUrl() { return formActionUrl; }
 
-    /**
-     * Returns true if operating in UAT (sandbox) mode.
-     *
-     * @return true if sandbox mode is active
-     */
+    /** @return true if sandbox/UAT mode is active */
     public boolean isSandbox() { return sandbox; }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -492,11 +480,6 @@ public final class ConnectIpsClient {
                 });
     }
 
-    /**
-     * Executes a ConnectIPS API call with exponential backoff retry.
-     * Accepts an optional retryIncrement to count retries in Micrometer.
-     * Never retries 4xx client errors.
-     */
     private <T> T executeWithRetry(
             String operationName,
             Runnable retryIncrement,
@@ -527,7 +510,6 @@ public final class ConnectIpsClient {
                     throw e;
                 }
 
-                //  Increment Micrometer retry counter if metrics available
                 if (retryIncrement != null) {
                     retryIncrement.run();
                 }

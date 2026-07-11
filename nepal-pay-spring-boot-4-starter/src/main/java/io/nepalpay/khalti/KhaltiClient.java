@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
@@ -20,7 +21,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Khalti Payment Gateway Client — Spring Boot 4.
+ * Khalti Payment Gateway Client — Spring Boot 3.
  *
  * <p>Provides three operations:
  * <ul>
@@ -112,9 +113,8 @@ public final class KhaltiClient {
      * are timed and retry attempts are counted via {@link KhaltiMetrics}.
      * When null, behaviour is identical to the no-metrics constructor.
      *
-     * <p>This constructor will be used by
-     * {@code NepalPayMetricsAutoConfiguration} (coming in Step 12)
-     * to wire metrics automatically when Actuator is on the classpath.
+     * <p>Used by {@code NepalPayMetricsAutoConfiguration} to wire metrics
+     * automatically when Actuator is on the classpath.
      *
      * @param props             Khalti properties from application.yml
      * @param restClientBuilder Spring Boot RestClient builder
@@ -174,9 +174,6 @@ public final class KhaltiClient {
         this.retryProps = props.retryOrDefault();
 
         // ── Metrics — optional ────────────────────────────────────────────
-        // KhaltiMetrics is null when no MeterRegistry is available.
-        // All metric recording below is guarded with null checks —
-        // zero NPE risk, zero impact on users without Actuator.
         this.metrics = (meterRegistry != null)
                 ? new KhaltiMetrics(meterRegistry, props.sandbox())
                 : null;
@@ -227,8 +224,6 @@ public final class KhaltiClient {
         log.debug("[NepalPay] Khalti initiate | orderId={} | amount={} paisa",
                 finalRequest.purchaseOrderId(), finalRequest.amount());
 
-        // ✅ Wrap with metrics timer if available — falls back to direct
-        // call if metrics is null (Actuator not on classpath)
         if (metrics != null) {
             return metrics.recordInitiate(
                     () -> executeInitiate(finalRequest));
@@ -295,38 +290,19 @@ public final class KhaltiClient {
         return executeRefundRequest(transactionId, amountPaisa);
     }
 
-    /**
-     * Returns true if operating in sandbox (test) mode.
-     *
-     * @return true if sandbox mode is active
-     */
+    /** @return true if sandbox mode is active */
     public boolean isSandbox() { return props.sandbox(); }
 
-    /**
-     * Returns the current active API v2 base URL.
-     *
-     * @return sandbox or production API v2 base URL
-     */
+    /** @return sandbox or production API v2 base URL */
     public String baseUrl() { return baseUrl; }
 
-    /**
-     * Returns the current active base domain.
-     * Used to build the refund endpoint URL.
-     *
-     * @return sandbox or production base domain (no trailing slash)
-     */
+    /** @return sandbox or production base domain (no trailing slash) */
     public String baseDomain() { return baseDomain; }
 
     // ─────────────────────────────────────────────────────────────────────
     // PRIVATE — HTTP execution methods
-    // (separated from public API so metrics wrap cleanly)
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Executes the actual initiatePayment HTTP call with retry.
-     * Called by public {@link #initiatePayment} — either directly
-     * or wrapped inside a metrics timer.
-     */
     private KhaltiInitiateResponse executeInitiate(
             KhaltiInitiateRequest finalRequest) {
 
@@ -371,9 +347,6 @@ public final class KhaltiClient {
                 });
     }
 
-    /**
-     * Executes the actual lookupPayment HTTP call with retry.
-     */
     private KhaltiLookupResponse executeLookup(String pidx) {
         return executeWithRetry("Khalti lookup",
                 metrics != null ? metrics::incrementLookupRetry : null,
@@ -419,9 +392,6 @@ public final class KhaltiClient {
                 });
     }
 
-    /**
-     * Executes the actual refund HTTP call with retry.
-     */
     private KhaltiRefundResponse executeRefundRequest(
             String transactionId, Long amountPaisa) {
 
@@ -456,9 +426,6 @@ public final class KhaltiClient {
                 () -> doRefund(transactionId, refundUrl, requestBody));
     }
 
-    /**
-     * The actual HTTP call for refund — separated for metrics wrapping.
-     */
     private KhaltiRefundResponse doRefund(
             String transactionId, String refundUrl, Object requestBody) {
 
@@ -507,9 +474,11 @@ public final class KhaltiClient {
     /**
      * Executes an API call with exponential backoff retry.
      *
-     * <p>Updated to accept an optional {@code retryIncrement} runnable
-     * so the retry counter is incremented on each retry attempt when
-     * metrics are available.
+     * <p><strong>Fix (R-17):</strong> {@link ResourceAccessException}
+     * (connect timeout, read timeout, connection reset) is now caught
+     * separately and treated as retryable — previously it fell into the
+     * generic {@code catch (Exception e)} branch and was wrapped as a
+     * non-retryable error, silently skipping all retry logic.
      *
      * @param operationName  display name for log messages
      * @param retryIncrement optional — increments retry counter per attempt
@@ -547,7 +516,6 @@ public final class KhaltiClient {
                     throw e;
                 }
 
-                // Increment Micrometer retry counter if metrics available
                 if (retryIncrement != null) {
                     retryIncrement.run();
                 }
@@ -559,6 +527,33 @@ public final class KhaltiClient {
                         retryProps.maxAttempts(), e.httpStatus(), waitMs);
 
                 sleepForRetry(waitMs, e);
+                delayMs = retryProps.nextDelay(delayMs);
+
+            } catch (ResourceAccessException e) {
+                attempt++;
+
+                if (attempt > retryProps.maxAttempts()) {
+                    log.error("[NepalPay] {} failed after {} attempt(s)" +
+                                    " — transport error: {}",
+                            operationName, attempt, e.getMessage());
+                    throw new KhaltiException(
+                            "Network error during " + operationName
+                                    + ": " + e.getMessage(), e);
+                }
+
+                if (retryIncrement != null) {
+                    retryIncrement.run();
+                }
+
+                long waitMs = RetryProperties.jitter(delayMs);
+                log.warn("[NepalPay] {} transport error (attempt {}/{}) |" +
+                                " retrying in {}ms | cause={}",
+                        operationName, attempt,
+                        retryProps.maxAttempts(), waitMs, e.getMessage());
+
+                sleepForRetry(waitMs,
+                        new KhaltiException(
+                                "Network error: " + e.getMessage(), e));
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {

@@ -317,15 +317,15 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
 
             <pre><code>// Angular
 initiatePayment(orderId: string, amount: number): void {
-    this.paymentService.startFonepay(orderId, amount).subscribe(res => {
+    this.paymentService.startFonepay(orderId, amount).subscribe(res =&gt; {
         window.location.href = res.redirectUrl;
     });
 }
 
 // Plain JavaScript
 fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
-  .then(res => res.json())
-  .then(data => window.location.href = data.redirect_url);</code></pre>
+  .then(res =&gt; res.json())
+  .then(data =&gt; window.location.href = data.redirect_url);</code></pre>
 
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
@@ -522,12 +522,14 @@ public class FonepayService {
         ).redirectUrl();
     }
 
-    // Optional: wrap in Mono if needed for reactive pipeline
+    // Optional: offload to boundedElastic to avoid running HMAC
+    // work on the WebFlux event-loop thread
     public Mono&lt;Boolean&gt; verifyFonepay(
             FonepayCallbackResponse callback) {
-        return Mono.fromCallable(() ->
+        return Mono.fromCallable(() -&gt;
             fonepayClient.verifyCallback(callback)
-                         .isPaymentSuccessful());
+                         .isPaymentSuccessful())
+            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
     }
 }</code></pre>
         </section>

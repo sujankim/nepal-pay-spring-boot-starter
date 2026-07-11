@@ -45,7 +45,7 @@ import java.util.function.Supplier;
  * and retry attempts are counted via {@link ConnectIpsMetrics}.
  * When no {@link MeterRegistry} is provided, all metric recording is
  * silently skipped — zero impact on existing users without Actuator.
- * Full auto-configuration wiring is coming in v1.2.0.
+ * Metrics auto-configuration is active — wired via NepalPayMetricsAutoConfiguration.
  *
  * @author Sujan Lamichhane
  */
@@ -78,7 +78,7 @@ public final class ConnectIpsClient {
      * legitimately be slower than commercial payment gateway APIs.
      *
      * <p>TODO: Make configurable via nepalpay.connectips.timeout-seconds
-     *          (tracked in issue #7)
+     *          (tracked in issue #8)
      */
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
@@ -167,7 +167,7 @@ public final class ConnectIpsClient {
      *
      * <p>When {@code meterRegistry} is non-null, {@code validateTransaction()}
      * is timed and retry attempts counted via {@link ConnectIpsMetrics}.
-     * Full auto-configuration wiring is coming in v1.2.0.
+     * Metrics auto-configuration is active — wired via NepalPayMetricsAutoConfiguration.
      *
      * @param meterRegistry Micrometer registry — null means no metrics
      */

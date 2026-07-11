@@ -503,7 +503,7 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         @RequestParam String data) {
 
     return esewaReactiveClient.verifyCallback(data)
-        .flatMap(result -> {
+        .flatMap(result -&gt; {
             if (!result.isPaymentSuccessful()) {
                 return Mono.just(ResponseEntity.badRequest()
                     .body("Not confirmed"));

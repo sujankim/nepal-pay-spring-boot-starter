@@ -504,7 +504,7 @@ public Mono&lt;String&gt; startKhalti(String orderId, long amountNPR) {
             .purchaseOrderName("Your Product")
             .build()
     )
-    .doOnNext(res -> orderRepo.savePidx(orderId, res.pidx()))
+    .doOnNext(res -&gt; orderRepo.savePidx(orderId, res.pidx()))
     .map(KhaltiInitiateResponse::paymentUrl);
 }
 

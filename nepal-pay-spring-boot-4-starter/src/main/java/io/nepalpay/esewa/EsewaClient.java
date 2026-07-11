@@ -29,8 +29,6 @@ import java.util.function.Supplier;
  *
  * <p>Uses Jackson 3 ({@code tools.jackson.databind.json.JsonMapper})
  * for Base64 callback decoding.
- * This is the only difference from the Boot 3 variant which uses
- * {@code com.fasterxml.jackson.databind.ObjectMapper} (Jackson 2).
  *
  * <p>This client provides:
  * <ul>
@@ -71,14 +69,13 @@ public final class EsewaClient {
             "total_amount,transaction_uuid,product_code";
 
     /**
-     * Shared ObjectMapper instance for decoding eSewa Base64 callback data.
+     * Shared JsonMapper instance for decoding eSewa Base64 callback data.
      *
-     * <p>ObjectMapper is thread-safe after configuration and expensive to
+     * <p>JsonMapper is thread-safe after configuration and expensive to
      * construct. Using a static singleton avoids creating and discarding a
      * new instance on every payment callback.
      */
-    private static final JsonMapper OBJECT_MAPPER =
-            JsonMapper.builder().build();
+    private static final JsonMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
     // ── Fields ────────────────────────────────────────────────────────────
     private final NepalPayProperties.EsewaProperties props;
@@ -508,6 +505,32 @@ public final class EsewaClient {
                         retryProps.maxAttempts(), e.httpStatus(), waitMs);
 
                 sleepForRetry(waitMs, e);
+                delayMs = retryProps.nextDelay(delayMs);
+
+            } catch (org.springframework.web.client.ResourceAccessException e) {
+                attempt++;
+
+                if (attempt > retryProps.maxAttempts()) {
+                    log.error("[NepalPay] {} failed after {} attempt(s)" +
+                                    " — transport error: {}",
+                            operationName, attempt, e.getMessage());
+                    throw new EsewaException(
+                            "Network error during " + operationName
+                                    + ": " + e.getMessage(), e);
+                }
+
+                if (retryIncrement != null) {
+                    retryIncrement.run();
+                }
+
+                long waitMs = RetryProperties.jitter(delayMs);
+                log.warn("[NepalPay] {} transport error (attempt {}/{}) |" +
+                                " retrying in {}ms | cause={}",
+                        operationName, attempt,
+                        retryProps.maxAttempts(), waitMs, e.getMessage());
+
+                sleepForRetry(waitMs,
+                        new EsewaException("Network error: " + e.getMessage(), e));
                 delayMs = retryProps.nextDelay(delayMs);
 
             } catch (Exception e) {

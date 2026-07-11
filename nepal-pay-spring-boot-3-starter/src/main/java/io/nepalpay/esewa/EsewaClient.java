@@ -507,6 +507,32 @@ public final class EsewaClient {
                 sleepForRetry(waitMs, e);
                 delayMs = retryProps.nextDelay(delayMs);
 
+            } catch (org.springframework.web.client.ResourceAccessException e) {
+                attempt++;
+
+                if (attempt > retryProps.maxAttempts()) {
+                    log.error("[NepalPay] {} failed after {} attempt(s)" +
+                                    " — transport error: {}",
+                            operationName, attempt, e.getMessage());
+                    throw new EsewaException(
+                            "Network error during " + operationName
+                                    + ": " + e.getMessage(), e);
+                }
+
+                if (retryIncrement != null) {
+                    retryIncrement.run();
+                }
+
+                long waitMs = RetryProperties.jitter(delayMs);
+                log.warn("[NepalPay] {} transport error (attempt {}/{}) |" +
+                                " retrying in {}ms | cause={}",
+                        operationName, attempt,
+                        retryProps.maxAttempts(), waitMs, e.getMessage());
+
+                sleepForRetry(waitMs,
+                        new EsewaException("Network error: " + e.getMessage(), e));
+                delayMs = retryProps.nextDelay(delayMs);
+
             } catch (Exception e) {
                 throw new EsewaException(
                         "Unexpected error during " + operationName
