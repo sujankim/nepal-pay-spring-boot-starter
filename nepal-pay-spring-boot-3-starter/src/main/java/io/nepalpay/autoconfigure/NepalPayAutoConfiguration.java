@@ -33,9 +33,6 @@ import org.springframework.web.client.RestClient;
  * <p>Every bean uses {@code @ConditionalOnMissingBean} — define your own bean
  * and NepalPay steps aside automatically.
  *
- * <p>Retry is disabled by default for all clients.
- * Enable per gateway via {@code nepalpay.khalti.retry.enabled=true} etc.
- *
  * @author Sujan Lamichhane
  */
 @Slf4j
@@ -45,17 +42,6 @@ public class NepalPayAutoConfiguration {
 
     // ── Khalti ───────────────────────────────────────────────────────────────
 
-    /**
-     * Auto-configures {@link KhaltiClient} when
-     * {@code nepalpay.khalti.secret-key} is present.
-     *
-     * <p>Retry config is read from {@code nepalpay.khalti.retry.*}.
-     * Defaults to disabled if not configured.
-     *
-     * @param properties        bound from nepalpay.* in application.yml
-     * @param restClientBuilder Spring Boot RestClient builder
-     * @return configured KhaltiClient bean
-     */
     @Bean
     @ConditionalOnMissingBean(KhaltiClient.class)
     @ConditionalOnProperty(prefix = "nepalpay.khalti", name = "secret-key")
@@ -72,20 +58,6 @@ public class NepalPayAutoConfiguration {
 
     // ── eSewa ─────────────────────────────────────────────────────────────────
 
-    /**
-     * Auto-configures {@link EsewaClient} when
-     * {@code nepalpay.esewa.secret-key} is present.
-     *
-     * <p>Retry config is read from {@code nepalpay.esewa.retry.*}.
-     * Defaults to disabled if not configured.
-     *
-     * <p>Note: EsewaClient creates its own {@code ObjectMapper} (Boot 3)
-     * locally — no ObjectMapper injection required here.
-     *
-     * @param properties        bound from nepalpay.* in application.yml
-     * @param restClientBuilder Spring Boot RestClient builder
-     * @return configured EsewaClient bean
-     */
     @Bean
     @ConditionalOnMissingBean(EsewaClient.class)
     @ConditionalOnProperty(prefix = "nepalpay.esewa", name = "secret-key")
@@ -102,31 +74,6 @@ public class NepalPayAutoConfiguration {
 
     // ── ConnectIPS ────────────────────────────────────────────────────────────
 
-    /**
-     * Auto-configures {@link ConnectIpsClient} when
-     * {@code nepalpay.connectips.merchant-id} is present.
-     *
-     * <p>This bean reads the CREDITOR.pfx file from the path configured
-     * in {@code nepalpay.connectips.pfx-path} using Spring's
-     * {@link ResourceLoader}. Supported path formats:
-     * <ul>
-     *   <li>{@code file:/app/CREDITOR.pfx} — absolute file path</li>
-     *   <li>{@code classpath:CREDITOR.pfx} — classpath resource</li>
-     * </ul>
-     *
-     * <p>Throws {@link ConnectIpsException} at startup if the .pfx file
-     * cannot be found or read — this is intentional so misconfiguration
-     * is detected immediately rather than at first payment attempt.
-     *
-     * <p>Retry config is read from {@code nepalpay.connectips.retry.*}.
-     * Defaults to disabled if not configured.
-     *
-     * @param properties        bound from nepalpay.* in application.yml
-     * @param restClientBuilder Spring Boot RestClient builder
-     * @param resourceLoader    Spring ResourceLoader for reading .pfx file
-     * @return configured ConnectIpsClient bean
-     * @throws ConnectIpsException if .pfx file cannot be loaded
-     */
     @Bean
     @ConditionalOnMissingBean(ConnectIpsClient.class)
     @ConditionalOnProperty(prefix = "nepalpay.connectips", name = "merchant-id")
@@ -136,13 +83,13 @@ public class NepalPayAutoConfiguration {
             ResourceLoader resourceLoader) {
 
         NepalPayProperties.ConnectIpsProperties props = properties.connectips();
-
         byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
 
-        log.info("[NepalPay] Auto-configuring ConnectIpsClient | mode={} " +
-                        "| merchantId={} | retry={}",
+        log.info("[NepalPay] Auto-configuring ConnectIpsClient | mode={}" +
+                        " | merchantId={} | timeout={}s | retry={}",
                 props.sandbox() ? "UAT" : "PRODUCTION",
                 props.merchantId(),
+                props.timeoutSeconds(),
                 props.retryOrDefault().summary());
 
         return new ConnectIpsClient(
@@ -154,23 +101,14 @@ public class NepalPayAutoConfiguration {
                 props.pfxPassword(),
                 props.sandbox(),
                 restClientBuilder,
-                props.retryOrDefault()
+                props.retryOrDefault(),
+                null,
+                props.timeoutSeconds()
         );
     }
 
     // ── Fonepay ───────────────────────────────────────────────────────────────
 
-    /**
-     * Auto-configures {@link FonepayClient} when
-     * {@code nepalpay.fonepay.secret-key} is present.
-     *
-     * <p>Note: FonepayClient does NOT need RestClient.Builder —
-     * Fonepay uses URL redirect, not server-to-server API calls.
-     * Retry does not apply to Fonepay.
-     *
-     * @param properties bound from nepalpay.* in application.yml
-     * @return configured FonepayClient bean
-     */
     @Bean
     @ConditionalOnMissingBean(FonepayClient.class)
     @ConditionalOnProperty(prefix = "nepalpay.fonepay", name = "secret-key")
@@ -185,24 +123,6 @@ public class NepalPayAutoConfiguration {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /**
-     * Load .pfx file bytes from a Spring Resource path.
-     *
-     * <p>Fails fast at application startup with a clear error message
-     * if the file cannot be found or read.
-     *
-     * <p><strong>Fix (Bug #13):</strong> Uses try-with-resources to
-     * guarantee the {@link java.io.InputStream} is closed after reading,
-     * even if an exception is thrown during {@code readAllBytes()}.
-     * The previous implementation called {@code resource.getInputStream()}
-     * without closing it — file descriptors accumulated on each application
-     * restart, eventually exhausting the OS file descriptor limit.
-     *
-     * @param pfxPath        path to the .pfx file (Spring Resource format)
-     * @param resourceLoader Spring ResourceLoader
-     * @return file contents as byte array
-     * @throws ConnectIpsException if file cannot be loaded
-     */
     private byte[] loadPfxBytes(String pfxPath, ResourceLoader resourceLoader) {
         if (pfxPath == null || pfxPath.isBlank()) {
             throw new ConnectIpsException(

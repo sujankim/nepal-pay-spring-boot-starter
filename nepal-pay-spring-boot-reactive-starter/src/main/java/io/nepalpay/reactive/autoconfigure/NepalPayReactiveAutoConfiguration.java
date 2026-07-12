@@ -116,7 +116,10 @@ public class NepalPayReactiveAutoConfiguration {
                 props.pfxPassword(),
                 props.sandbox(),
                 webClientBuilder,
-                props.retryOrDefault());
+                props.retryOrDefault(),
+                null,
+                props.timeoutSeconds()
+        );
     }
 
     // ── Private helpers ───────────────────────────────────────────────────

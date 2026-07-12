@@ -77,8 +77,9 @@ public final class ConnectIpsClient {
      * ConnectIPS validates bank transfers via NCHL — bank systems can
      * legitimately be slower than commercial payment gateway APIs.
      *
-     * <p>TODO: Make configurable via nepalpay.connectips.timeout-seconds
-     *          (tracked in issue #8)
+     * <p>Configurable via {@code nepalpay.connectips.timeout-seconds}.
+     * This constant is used as the fallback when no properties are injected
+     * (e.g. in the test-only PrivateKey constructor).
      */
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
@@ -94,6 +95,7 @@ public final class ConnectIpsClient {
     private final RestClient      restClient;
     private final RetryProperties retryProps;
     private final PrivateKey      privateKey;
+    private final int             timeoutSeconds;
 
     /**
      * Optional Micrometer metrics — null when Actuator not on classpath.
@@ -106,7 +108,8 @@ public final class ConnectIpsClient {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Production constructor (8-arg) — no metrics, DEFAULT retry.
+     * Production constructor (8-arg) — no metrics, DEFAULT retry,
+     * default timeout.
      */
     public ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -116,11 +119,12 @@ public final class ConnectIpsClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                RetryProperties.DEFAULT, null);
+                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Test constructor (9-arg) — custom validate URL, DEFAULT retry, no metrics.
+     * Test constructor (9-arg) — custom validate URL, DEFAULT retry,
+     * no metrics, default timeout.
      */
     public ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -129,12 +133,12 @@ public final class ConnectIpsClient {
 
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder, validateBaseUrlOverride,
-                RetryProperties.DEFAULT, null);
+                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Production constructor with explicit retry — no metrics.
-     * Used by auto-configuration when retry is configured.
+     * Production constructor with explicit retry — no metrics, default timeout.
+     * Used by auto-configuration when retry is configured but Actuator absent.
      */
     public ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -144,12 +148,12 @@ public final class ConnectIpsClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                retry, null);
+                retry, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Full constructor — custom validate URL + explicit retry. No metrics.
-     * Used in retry tests.
+     * Full constructor — custom validate URL + explicit retry.
+     * No metrics, default timeout. Used in retry tests.
      */
     public ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -158,16 +162,13 @@ public final class ConnectIpsClient {
             RetryProperties retry) {
 
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
-                sandbox, builder, validateBaseUrlOverride, retry, null);
+                sandbox, builder, validateBaseUrlOverride,
+                retry, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Constructor with explicit retry + optional metrics.
-     * Used by auto-configuration when Actuator + MeterRegistry available.
-     *
-     * <p>When {@code meterRegistry} is non-null, {@code validateTransaction()}
-     * is timed and retry attempts counted via {@link ConnectIpsMetrics}.
-     * Metrics auto-configuration is active — wired via NepalPayMetricsAutoConfiguration.
+     * Constructor with explicit retry + optional metrics + default timeout.
+     * Used by auto-configuration when Actuator is present.
      *
      * @param meterRegistry Micrometer registry — null means no metrics
      */
@@ -180,7 +181,33 @@ public final class ConnectIpsClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                retry, meterRegistry);
+                retry, meterRegistry, DEFAULT_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * Constructor with explicit retry + optional metrics + configurable timeout.
+     *
+     * <p><strong>Fix (Issue #8):</strong> Exposes
+     * {@code nepalpay.connectips.timeout-seconds} as a constructor parameter
+     * so auto-configuration can pass the user-configured value.
+     *
+     * <p>Used by auto-configuration when
+     * {@code nepalpay.connectips.timeout-seconds} is set.
+     *
+     * @param retry          retry configuration
+     * @param meterRegistry  Micrometer registry — null means no metrics
+     * @param timeoutSeconds HTTP connect/read timeout in seconds
+     */
+    public ConnectIpsClient(
+            int merchantId, String appId, String appName, String appPassword,
+            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            RestClient.Builder builder, RetryProperties retry,
+            MeterRegistry meterRegistry, int timeoutSeconds) {
+
+        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+                sandbox, builder,
+                sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
+                retry, meterRegistry, timeoutSeconds);
     }
 
     /**
@@ -191,18 +218,20 @@ public final class ConnectIpsClient {
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
             RestClient.Builder builder, String validateBaseUrlOverride,
-            RetryProperties retry, MeterRegistry meterRegistry) {
+            RetryProperties retry, MeterRegistry meterRegistry,
+            int timeoutSeconds) {
 
-        this.merchantId    = merchantId;
-        this.appId         = appId;
-        this.appName       = appName;
-        this.appPassword   = appPassword;
-        this.pfxBytes      = pfxBytes;
-        this.pfxPassword   = pfxPassword;
-        this.sandbox       = sandbox;
-        this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
-        this.retryProps    = (retry != null) ? retry : RetryProperties.DEFAULT;
-        this.privateKey    = loadPrivateKey(pfxBytes, pfxPassword);
+        this.merchantId     = merchantId;
+        this.appId          = appId;
+        this.appName        = appName;
+        this.appPassword    = appPassword;
+        this.pfxBytes       = pfxBytes;
+        this.pfxPassword    = pfxPassword;
+        this.sandbox        = sandbox;
+        this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
+        this.retryProps     = (retry != null) ? retry : RetryProperties.DEFAULT;
+        this.privateKey     = loadPrivateKey(pfxBytes, pfxPassword);
+        this.timeoutSeconds = timeoutSeconds;
 
         // ── Metrics — optional ────────────────────────────────────────────
         this.metrics = (meterRegistry != null)
@@ -211,8 +240,8 @@ public final class ConnectIpsClient {
 
         SimpleClientHttpRequestFactory factory =
                 new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
-        factory.setReadTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+        factory.setConnectTimeout(Duration.ofSeconds(this.timeoutSeconds));
+        factory.setReadTimeout(Duration.ofSeconds(this.timeoutSeconds));
 
         this.restClient = builder
                 .baseUrl(validateBaseUrlOverride)
@@ -224,7 +253,7 @@ public final class ConnectIpsClient {
                         " | validateUrl={} | timeout={}s | retry={} | metrics={}",
                 sandbox ? "UAT" : "PRODUCTION",
                 merchantId, validateBaseUrlOverride,
-                DEFAULT_TIMEOUT_SECONDS,
+                this.timeoutSeconds,
                 this.retryProps.summary(),
                 metrics != null ? "enabled" : "disabled");
     }
@@ -239,22 +268,23 @@ public final class ConnectIpsClient {
             RestClient.Builder builder, String validateBaseUrlOverride,
             RetryProperties retry) {
 
-        this.merchantId    = merchantId;
-        this.appId         = appId;
-        this.appName       = appName;
-        this.appPassword   = appPassword;
-        this.pfxBytes      = new byte[0];
-        this.pfxPassword   = "";
-        this.privateKey    = privateKey;
-        this.sandbox       = sandbox;
-        this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
-        this.retryProps    = (retry != null) ? retry : RetryProperties.DEFAULT;
-        this.metrics       = null;
+        this.merchantId     = merchantId;
+        this.appId          = appId;
+        this.appName        = appName;
+        this.appPassword    = appPassword;
+        this.pfxBytes       = new byte[0];
+        this.pfxPassword    = "";
+        this.privateKey     = privateKey;
+        this.sandbox        = sandbox;
+        this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
+        this.retryProps     = (retry != null) ? retry : RetryProperties.DEFAULT;
+        this.timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
+        this.metrics        = null;
 
         SimpleClientHttpRequestFactory factory =
                 new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
-        factory.setReadTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+        factory.setConnectTimeout(Duration.ofSeconds(this.timeoutSeconds));
+        factory.setReadTimeout(Duration.ofSeconds(this.timeoutSeconds));
 
         this.restClient = builder
                 .baseUrl(validateBaseUrlOverride)
@@ -272,11 +302,7 @@ public final class ConnectIpsClient {
      *
      * <p><strong>Fix (D-34):</strong> Iterates all KeyStore aliases and
      * checks {@code isKeyEntry()} before selecting — matches the fix already
-     * applied to {@code ConnectIpsReactiveClient}. The previous implementation
-     * used {@code nextElement()} blindly which could grab a certificate alias
-     * instead of the key entry, causing RSA signing to fail at runtime.
-     *
-     * <p>Fails fast at construction time — better than failing at payment time.
+     * applied to {@code ConnectIpsReactiveClient}.
      */
     private static PrivateKey loadPrivateKey(
             byte[] pfxBytes, String pfxPassword) {
@@ -422,6 +448,9 @@ public final class ConnectIpsClient {
 
     /** @return true if sandbox/UAT mode is active */
     public boolean isSandbox() { return sandbox; }
+
+    /** @return configured HTTP timeout in seconds */
+    public int timeoutSeconds() { return timeoutSeconds; }
 
     // ─────────────────────────────────────────────────────────────────────
     // PRIVATE HELPERS

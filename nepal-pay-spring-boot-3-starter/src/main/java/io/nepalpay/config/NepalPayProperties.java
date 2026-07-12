@@ -148,7 +148,8 @@ public record NepalPayProperties(
             String appPassword,
             String pfxPath,
             String pfxPassword,
-            @DefaultValue("true") boolean sandbox,
+            @DefaultValue("true")  boolean sandbox,
+            @DefaultValue("30")    int timeoutSeconds,
             RetryProperties retry
     ) {
         /**

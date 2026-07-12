@@ -87,7 +87,7 @@
                     <tr><td><code>return-url</code></td><td>✅</td><td>—</td><td>URL Khalti redirects to after payment.</td></tr>
                     <tr><td><code>website-url</code></td><td>✅</td><td>—</td><td>Your merchant website URL.</td></tr>
                     <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = dev.khalti.com · <code>false</code> = khalti.com</td></tr>
-                    <tr><td><code>timeout-seconds</code></td><td>—</td><td><code>10</code></td><td>HTTP timeout in seconds.</td></tr>
+                    <tr><td><code>timeout-seconds</code></td><td>—</td><td><code>10</code></td><td>HTTP connect and read timeout in seconds.</td></tr>
                     <tr><td><code>retry.*</code></td><td>—</td><td>disabled</td><td>See <a href="#retry">Retry Config →</a></td></tr>
                     </tbody>
                 </table>
@@ -106,6 +106,7 @@
                     <tr><td><code>success-url</code></td><td>✅</td><td>—</td><td>Redirect on successful payment.</td></tr>
                     <tr><td><code>failure-url</code></td><td>✅</td><td>—</td><td>Redirect on failed payment.</td></tr>
                     <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = sandbox · <code>false</code> = production</td></tr>
+                    <tr><td><code>timeout-seconds</code></td><td>—</td><td><code>10</code></td><td>HTTP connect and read timeout in seconds.</td></tr>
                     <tr><td><code>retry.*</code></td><td>—</td><td>disabled</td><td>Applies to <code>checkStatus()</code>.</td></tr>
                     </tbody>
                 </table>
@@ -129,9 +130,20 @@
                     <tr><td><code>pfx-path</code></td><td>✅</td><td>—</td><td>Path to CREDITOR.pfx. Example: <code>file:/app/CREDITOR.pfx</code></td></tr>
                     <tr><td><code>pfx-password</code></td><td>✅</td><td>—</td><td>Password for CREDITOR.pfx file.</td></tr>
                     <tr><td><code>sandbox</code></td><td>—</td><td><code>true</code></td><td><code>true</code> = uat.connectips.com · <code>false</code> = production</td></tr>
+                    <tr><td><code>timeout-seconds</code></td><td>—</td><td><code>30</code></td><td>HTTP timeout in seconds. Default is 30s — intentionally longer than other gateways because ConnectIPS validates via NCHL to bank systems which can be slower.</td></tr>
                     <tr><td><code>retry.*</code></td><td>—</td><td>disabled</td><td>Applies to <code>validateTransaction()</code>.</td></tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    ConnectIPS timeout defaults to <strong>30 seconds</strong> — higher than
+                    Khalti and eSewa's 10s. Bank systems accessed via NCHL can legitimately
+                    take longer to respond. Increase this value if you observe timeouts
+                    with slower banks.
+                </p>
             </div>
         </section>
 
@@ -139,7 +151,7 @@
             <h2>Fonepay Properties</h2>
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
-                <p><strong>No retry configuration for Fonepay.</strong> Fonepay uses URL redirect and makes zero server-to-server HTTP calls.</p>
+                <p><strong>No retry or timeout configuration for Fonepay.</strong> Fonepay uses URL redirect and makes zero server-to-server HTTP calls.</p>
             </div>
             <div class="table-wrap">
                 <table>
@@ -211,7 +223,7 @@
                     <tr><td><code>retry.enabled</code></td><td><code>false</code></td><td>Must be <code>true</code> to activate. Disabled by default.</td></tr>
                     <tr><td><code>retry.max-attempts</code></td><td><code>3</code></td><td>Retries after first failure. Total calls = max-attempts + 1.</td></tr>
                     <tr><td><code>retry.initial-delay-ms</code></td><td><code>500</code></td><td>Milliseconds before first retry.</td></tr>
-                    <tr><td><code>retry.multiplier</code></td><td><code>2.0</code></td><td>Delay multiplier per retry. Use <code>1.0</code> for constant delay. Must be >= 1.0.</td></tr>
+                    <tr><td><code>retry.multiplier</code></td><td><code>2.0</code></td><td>Delay multiplier per retry. Use <code>1.0</code> for constant delay. Must be &gt;= 1.0.</td></tr>
                     <tr><td><code>retry.max-delay-ms</code></td><td><code>5000</code></td><td>Maximum wait between retries in milliseconds.</td></tr>
                     </tbody>
                 </table>
@@ -261,6 +273,7 @@ Retry 3     → fails with 500 → no more retries → throw exception
   #   app-password: ${CONNECTIPS_APP_PASSWORD}
   #   pfx-path:     ${CONNECTIPS_PFX_PATH}
   #   pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+  #   timeout-seconds: 30   # optional — default is 30
   #   sandbox: true</code></pre>
         </section>
 
@@ -276,14 +289,14 @@ Retry 3     → fails with 500 → no more retries → throw exception
     secret-key:  ${KHALTI_SECRET_KEY}
     return-url:  https://yourapp.com/api/khalti/callback
     website-url: https://yourapp.com
-    sandbox: false                    # ← production
+    sandbox: false
 
   esewa:
     secret-key:   ${ESEWA_SECRET_KEY}
-    product-code: ${ESEWA_PRODUCT_CODE} # ⚠️ must be your real merchant code!
+    product-code: ${ESEWA_PRODUCT_CODE}
     success-url:  https://yourapp.com/api/esewa/callback
     failure-url:  https://yourapp.com/payment/failed
-    sandbox: false                    # ← production
+    sandbox: false
 
   connectips:
     merchant-id:  ${CONNECTIPS_MERCHANT_ID}
@@ -292,7 +305,14 @@ Retry 3     → fails with 500 → no more retries → throw exception
     app-password: ${CONNECTIPS_APP_PASSWORD}
     pfx-path:     ${CONNECTIPS_PFX_PATH}
     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
-    sandbox: false                    # ← production</code></pre>
+    timeout-seconds: 30   # increase if you see timeouts with slower banks
+    sandbox: false
+
+  fonepay:
+    merchant-code: ${FONEPAY_MERCHANT_CODE}
+    secret-key:    ${FONEPAY_SECRET_KEY}
+    return-url:    https://yourapp.com/api/fonepay/callback
+    sandbox: false</code></pre>
         </section>
 
         <section id="env-vars">
@@ -360,6 +380,8 @@ public class MyPaymentConfig {
         <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
+            <a href="getting-started.html">Getting Started</a>
+            <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
         </div>
