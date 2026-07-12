@@ -2,6 +2,7 @@ package io.nepalpay.autoconfigure;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.config.NepalPayProperties;
+import io.nepalpay.core.util.PfxLoader;
 import io.nepalpay.connectips.ConnectIpsClient;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.esewa.EsewaClient;
@@ -95,7 +96,7 @@ public class NepalPayMetricsAutoConfiguration {
             ResourceLoader resourceLoader) {
 
         NepalPayProperties.ConnectIpsProperties props = properties.connectips();
-        byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
+        byte[] pfxBytes = PfxLoader.load(props.pfxPath(), resourceLoader);
 
         log.info("[NepalPay Metrics] Auto-configuring ConnectIpsClient" +
                         " with Micrometer metrics | mode={} | merchantId={}" +

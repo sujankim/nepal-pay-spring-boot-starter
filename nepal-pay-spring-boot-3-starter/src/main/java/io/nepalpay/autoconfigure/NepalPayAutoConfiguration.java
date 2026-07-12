@@ -1,6 +1,7 @@
 package io.nepalpay.autoconfigure;
 
 import io.nepalpay.config.NepalPayProperties;
+import io.nepalpay.core.util.PfxLoader;
 import io.nepalpay.connectips.ConnectIpsClient;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.esewa.EsewaClient;
@@ -83,7 +84,7 @@ public class NepalPayAutoConfiguration {
             ResourceLoader resourceLoader) {
 
         NepalPayProperties.ConnectIpsProperties props = properties.connectips();
-        byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
+        byte[] pfxBytes = PfxLoader.load(props.pfxPath(), resourceLoader);
 
         log.info("[NepalPay] Auto-configuring ConnectIpsClient | mode={}" +
                         " | merchantId={} | timeout={}s | retry={}",

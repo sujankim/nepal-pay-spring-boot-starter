@@ -2,6 +2,7 @@ package io.nepalpay.reactive.autoconfigure;
 
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.reactive.config.NepalPayProperties;
+import io.nepalpay.core.util.PfxLoader;
 import io.nepalpay.reactive.connectips.ConnectIpsReactiveClient;
 import io.nepalpay.reactive.esewa.EsewaReactiveClient;
 import io.nepalpay.reactive.khalti.KhaltiReactiveClient;
@@ -99,7 +100,7 @@ public class NepalPayReactiveAutoConfiguration {
             ResourceLoader resourceLoader) {
 
         NepalPayProperties.ConnectIpsProperties props = properties.connectips();
-        byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
+        byte[] pfxBytes = PfxLoader.load(props.pfxPath(), resourceLoader);
 
         log.info("[NepalPay Reactive] Auto-configuring ConnectIpsReactiveClient" +
                         " | mode={} | merchantId={} | retry={}",
