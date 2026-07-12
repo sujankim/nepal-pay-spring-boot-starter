@@ -179,7 +179,7 @@ public class NepalPayReactiveMetricsAutoConfiguration {
 
         NepalPayProperties.ConnectIpsProperties props =
                 properties.connectips();
-        byte[] pfxBytes = PfxLoader.load(props.pfxPath(), resourceLoader);
+        byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
 
         log.info("[NepalPay Reactive Metrics] Auto-configuring" +
                         " ConnectIpsReactiveClient with Micrometer metrics" +

@@ -1,26 +1,28 @@
 package io.nepalpay.core.util;
 
 import io.nepalpay.core.exception.ConnectIpsException;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
+
+import java.io.InputStream;
 
 /**
- * Utility class for loading ConnectIPS CREDITOR.pfx files.
+ * Utility class for loading ConnectIPS CREDITOR.pfx file bytes.
  *
  * <p>Extracted from the six auto-configuration classes that previously
  * each contained an identical copy of this logic (D-35/D-51).
  * Centralising here means a bug fix or enhancement only needs to
  * be applied once.
  *
- * <p><strong>Fix (Bug #13):</strong> Uses try-with-resources to
- * guarantee the {@link java.io.InputStream} is closed after reading,
- * even if {@code readAllBytes()} throws — preventing file-descriptor
- * leaks on repeated application restarts.
+ * <p><strong>Design — Zero Spring dependency:</strong>
+ * This class accepts a plain {@link InputStream} — not Spring's
+ * {@code ResourceLoader} or {@code Resource}. Callers in the starter
+ * modules (where Spring is available) resolve the resource and open
+ * the stream, then delegate here for validation and reading.
+ * This keeps {@code nepal-pay-core} free of any Spring dependency.
  *
- * <p>This class has zero Spring dependency beyond
- * {@link ResourceLoader} — it lives in {@code nepal-pay-core}
- * so all three starters (Boot 3, Boot 4, reactive) can share it
- * without cross-module dependencies.
+ * <p><strong>Fix (Bug #13):</strong> Uses try-with-resources to
+ * guarantee the {@link InputStream} is closed after reading, even if
+ * {@code readAllBytes()} throws — preventing file-descriptor leaks
+ * on Kubernetes rolling restarts.
  *
  * @author Sujan Lamichhane
  */
@@ -30,28 +32,16 @@ public final class PfxLoader {
     private PfxLoader() {}
 
     /**
-     * Load CREDITOR.pfx file bytes from a Spring Resource path.
+     * Validates that a pfx-path property is configured.
      *
-     * <p>Supported path formats:
-     * <ul>
-     *   <li>{@code file:/app/CREDITOR.pfx} — absolute path on server</li>
-     *   <li>{@code classpath:CREDITOR.pfx} — inside JAR (not recommended
-     *       for production)</li>
-     * </ul>
+     * <p>Call this before obtaining a resource from Spring's
+     * {@code ResourceLoader} so the user gets a clear error message
+     * if the property is missing — not a cryptic Spring resource error.
      *
-     * <p>Fails fast at application startup with a clear error if the file
-     * is missing, empty, or the path is not configured — rather than
-     * silently failing at the first payment attempt.
-     *
-     * @param pfxPath        Spring Resource path to the .pfx file
-     * @param resourceLoader Spring ResourceLoader
-     * @return file contents as a byte array — never null, never empty
-     * @throws ConnectIpsException if the path is blank, the file does
-     *         not exist, the file is empty, or any I/O error occurs
+     * @param pfxPath the configured path value
+     * @throws ConnectIpsException if pfxPath is null or blank
      */
-    public static byte[] load(
-            String pfxPath, ResourceLoader resourceLoader) {
-
+    public static void validatePath(String pfxPath) {
         if (pfxPath == null || pfxPath.isBlank()) {
             throw new ConnectIpsException(
                     "ConnectIPS pfx-path is not configured. " +
@@ -61,23 +51,36 @@ public final class PfxLoader {
                             "Contact NCHL at connectips@nchl.com.np " +
                             "to obtain your certificate.");
         }
+    }
 
-        try {
-            Resource resource = resourceLoader.getResource(pfxPath);
+    /**
+     * Reads all bytes from the given {@link InputStream}.
+     *
+     * <p>The caller is responsible for:
+     * <ol>
+     *   <li>Validating the path with {@link #validatePath(String)}</li>
+     *   <li>Checking the resource exists before opening the stream</li>
+     *   <li>Opening the stream — this method owns it and closes it</li>
+     * </ol>
+     *
+     * <p>Uses try-with-resources to close the stream after reading,
+     * even if {@code readAllBytes()} throws (Bug #13 fix).
+     *
+     * @param inputStream open stream to the .pfx file — will be closed
+     * @param pfxPath     original path string — used in error messages only
+     * @return file contents as a byte array — never null, never empty
+     * @throws ConnectIpsException if the stream is null, the file is
+     *         empty, or any I/O error occurs
+     */
+    public static byte[] read(InputStream inputStream, String pfxPath) {
+        if (inputStream == null) {
+            throw new ConnectIpsException(
+                    "ConnectIPS .pfx InputStream is null for path: "
+                            + pfxPath);
+        }
 
-            if (!resource.exists()) {
-                throw new ConnectIpsException(
-                        "ConnectIPS .pfx file not found at path: " + pfxPath +
-                                ". Ensure the file exists at this location " +
-                                "on your server.");
-            }
-
-            //  try-with-resources — prevents InputStream file
-            // descriptor leak on Kubernetes rolling restarts (Bug #13)
-            final byte[] bytes;
-            try (var inputStream = resource.getInputStream()) {
-                bytes = inputStream.readAllBytes();
-            }
+        try (inputStream) {
+            byte[] bytes = inputStream.readAllBytes();
 
             if (bytes.length == 0) {
                 throw new ConnectIpsException(

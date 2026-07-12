@@ -4,10 +4,10 @@ import io.nepalpay.core.exception.ConnectIpsException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.core.io.ResourceLoader;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -17,97 +17,105 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for {@link PfxLoader}.
  *
- * <p>Uses JUnit 5 {@code @TempDir} to create real temporary files —
- * no mocking needed. Pure unit test — no Spring context.
+ * <p>Pure unit test — no Spring context, no mocking.
+ * Uses JUnit 5 {@code @TempDir} for real temporary files.
  */
 @DisplayName("PfxLoader")
 class PfxLoaderTest {
 
-    private final ResourceLoader resourceLoader =
-            new DefaultResourceLoader();
-
     @TempDir
     Path tempDir;
 
-    // ── Happy path ────────────────────────────────────────────────────────
+    // ── validatePath() ────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("loads file bytes correctly from a valid file: path")
-    void load_validFile_returnsBytesCorrectly() throws IOException {
-        byte[] expected = {1, 2, 3, 4, 5};
-        Path pfxFile = tempDir.resolve("CREDITOR.pfx");
-        Files.write(pfxFile, expected);
+    @DisplayName("validatePath: valid path passes without exception")
+    void validatePath_validPath_noException() {
+        PfxLoader.validatePath("file:/app/CREDITOR.pfx");
+        // no exception = pass
+    }
 
-        byte[] result = PfxLoader.load(
-                "file:" + pfxFile.toAbsolutePath(), resourceLoader);
+    @Test
+    @DisplayName("validatePath: null throws ConnectIpsException")
+    void validatePath_null_throws() {
+        assertThatThrownBy(() -> PfxLoader.validatePath(null))
+                .isInstanceOf(ConnectIpsException.class)
+                .hasMessageContaining("pfx-path is not configured");
+    }
+
+    @Test
+    @DisplayName("validatePath: blank throws ConnectIpsException")
+    void validatePath_blank_throws() {
+        assertThatThrownBy(() -> PfxLoader.validatePath("   "))
+                .isInstanceOf(ConnectIpsException.class)
+                .hasMessageContaining("pfx-path is not configured");
+    }
+
+    @Test
+    @DisplayName("validatePath: empty string throws ConnectIpsException")
+    void validatePath_emptyString_throws() {
+        assertThatThrownBy(() -> PfxLoader.validatePath(""))
+                .isInstanceOf(ConnectIpsException.class)
+                .hasMessageContaining("pfx-path is not configured");
+    }
+
+    // ── read() ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("read: valid InputStream returns bytes correctly")
+    void read_validInputStream_returnsBytesCorrectly() {
+        byte[] expected = {1, 2, 3, 4, 5};
+        InputStream stream = new ByteArrayInputStream(expected);
+
+        byte[] result = PfxLoader.read(stream, "file:/app/CREDITOR.pfx");
 
         assertThat(result).isEqualTo(expected);
     }
 
     @Test
-    @DisplayName("loads file bytes correctly from a classpath: path")
-    void load_classpathResource_returnsBytesCorrectly() {
-        // Use a known classpath resource — any test resource will do
-        // We use the test class itself as a classpath resource marker
-        // In practice any non-empty classpath file works
-        byte[] result = PfxLoader.load(
-                "classpath:io/nepalpay/core/util/PfxLoaderTest.class",
-                resourceLoader);
+    @DisplayName("read: closes InputStream after reading (try-with-resources)")
+    void read_closesStream_afterReading() throws IOException {
+        // Write a real file and open a real stream to verify it's closed
+        Path pfxFile = tempDir.resolve("test.pfx");
+        Files.write(pfxFile, new byte[]{10, 20, 30});
 
-        assertThat(result).isNotEmpty();
+        InputStream stream = Files.newInputStream(pfxFile);
+        byte[] result = PfxLoader.read(stream, "file:" + pfxFile);
+
+        assertThat(result).isEqualTo(new byte[]{10, 20, 30});
+        // If stream was closed, reading again throws — confirms try-with-resources
+        assertThatThrownBy(stream::read)
+                .isInstanceOf(IOException.class);
     }
 
-    // ── Validation errors ─────────────────────────────────────────────────
-
     @Test
-    @DisplayName("throws ConnectIpsException when pfxPath is null")
-    void load_nullPath_throwsConnectIpsException() {
+    @DisplayName("read: null InputStream throws ConnectIpsException")
+    void read_nullInputStream_throws() {
         assertThatThrownBy(() ->
-                PfxLoader.load(null, resourceLoader))
+                PfxLoader.read(null, "file:/app/CREDITOR.pfx"))
                 .isInstanceOf(ConnectIpsException.class)
-                .hasMessageContaining("pfx-path is not configured");
+                .hasMessageContaining("InputStream is null");
     }
 
     @Test
-    @DisplayName("throws ConnectIpsException when pfxPath is blank")
-    void load_blankPath_throwsConnectIpsException() {
-        assertThatThrownBy(() ->
-                PfxLoader.load("   ", resourceLoader))
-                .isInstanceOf(ConnectIpsException.class)
-                .hasMessageContaining("pfx-path is not configured");
-    }
-
-    @Test
-    @DisplayName("throws ConnectIpsException when file does not exist")
-    void load_nonExistentFile_throwsConnectIpsException() {
-        assertThatThrownBy(() ->
-                PfxLoader.load(
-                        "file:/nonexistent/path/CREDITOR.pfx",
-                        resourceLoader))
-                .isInstanceOf(ConnectIpsException.class)
-                .hasMessageContaining("not found at path");
-    }
-
-    @Test
-    @DisplayName("throws ConnectIpsException when file is empty")
-    void load_emptyFile_throwsConnectIpsException() throws IOException {
-        Path emptyPfx = tempDir.resolve("empty.pfx");
-        Files.write(emptyPfx, new byte[0]);
+    @DisplayName("read: empty InputStream throws ConnectIpsException")
+    void read_emptyInputStream_throws() {
+        InputStream empty = new ByteArrayInputStream(new byte[0]);
 
         assertThatThrownBy(() ->
-                PfxLoader.load(
-                        "file:" + emptyPfx.toAbsolutePath(),
-                        resourceLoader))
+                PfxLoader.read(empty, "file:/app/empty.pfx"))
                 .isInstanceOf(ConnectIpsException.class)
                 .hasMessageContaining("empty");
     }
 
     @Test
-    @DisplayName("throws ConnectIpsException when path is empty string")
-    void load_emptyString_throwsConnectIpsException() {
+    @DisplayName("read: pfxPath used in error message for debugging")
+    void read_pfxPathAppearsInErrorMessage() {
+        InputStream empty = new ByteArrayInputStream(new byte[0]);
+
         assertThatThrownBy(() ->
-                PfxLoader.load("", resourceLoader))
+                PfxLoader.read(empty, "file:/app/CREDITOR.pfx"))
                 .isInstanceOf(ConnectIpsException.class)
-                .hasMessageContaining("pfx-path is not configured");
+                .hasMessageContaining("file:/app/CREDITOR.pfx");
     }
 }

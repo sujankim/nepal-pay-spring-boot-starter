@@ -84,7 +84,7 @@ public class NepalPayAutoConfiguration {
             ResourceLoader resourceLoader) {
 
         NepalPayProperties.ConnectIpsProperties props = properties.connectips();
-        byte[] pfxBytes = PfxLoader.load(props.pfxPath(), resourceLoader);
+        byte[] pfxBytes = loadPfxBytes(props.pfxPath(), resourceLoader);
 
         log.info("[NepalPay] Auto-configuring ConnectIpsClient | mode={}" +
                         " | merchantId={} | timeout={}s | retry={}",
@@ -125,44 +125,26 @@ public class NepalPayAutoConfiguration {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private byte[] loadPfxBytes(String pfxPath, ResourceLoader resourceLoader) {
-        if (pfxPath == null || pfxPath.isBlank()) {
+        // Step 1 — validatePath is Spring-free, lives in nepal-pay-core
+        PfxLoader.validatePath(pfxPath);
+
+        Resource resource = resourceLoader.getResource(pfxPath);
+
+        if (!resource.exists()) {
             throw new ConnectIpsException(
-                    "ConnectIPS pfx-path is not configured. " +
-                            "Set nepalpay.connectips.pfx-path in application.yml. " +
-                            "Example: file:/app/CREDITOR.pfx or classpath:CREDITOR.pfx. " +
-                            "Contact NCHL at connectips@nchl.com.np to obtain your certificate.");
+                    "ConnectIPS .pfx file not found at path: " + pfxPath +
+                            ". Ensure the file exists at this location.");
         }
 
         try {
-            Resource resource = resourceLoader.getResource(pfxPath);
-
-            if (!resource.exists()) {
-                throw new ConnectIpsException(
-                        "ConnectIPS .pfx file not found at path: " + pfxPath +
-                                ". Ensure the file exists at this location on your server.");
-            }
-
-            final byte[] bytes;
-            try (var inputStream = resource.getInputStream()) {
-                bytes = inputStream.readAllBytes();
-            }
-
-            if (bytes.length == 0) {
-                throw new ConnectIpsException(
-                        "ConnectIPS .pfx file is empty at path: " + pfxPath);
-            }
-
-            log.info("[NepalPay] ConnectIPS .pfx loaded | path={} | bytes={}",
-                    pfxPath, bytes.length);
-
-            return bytes;
-
+            // Step 2 — PfxLoader.read() owns and closes the stream (Bug #13 fix)
+            return PfxLoader.read(resource.getInputStream(), pfxPath);
         } catch (ConnectIpsException e) {
             throw e;
         } catch (Exception e) {
             throw new ConnectIpsException(
-                    "Failed to load ConnectIPS .pfx file from path: " + pfxPath +
-                            ". Error: " + e.getMessage(), e);
+                    "Failed to load ConnectIPS .pfx file from path: "
+                            + pfxPath + ". Error: " + e.getMessage(), e);
         }
     }
 }
