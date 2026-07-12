@@ -315,6 +315,48 @@ Projects that do not include Spring Boot Actuator remain completely unaffected.
 
 ---
 
+### Fixed (post-release — PR #21)
+
+#### Security
+- **FonepayClient** Boot 3 + Boot 4: replaced `String.equals()` with
+  `MessageDigest.isEqual()` for constant-time HMAC comparison —
+  prevents timing attacks on attacker-controlled DV input
+- **EsewaClient** Boot 3 + Boot 4: removed raw decoded JSON debug log —
+  attacker-controlled callback data must never be logged verbatim
+
+#### Retry
+- **KhaltiClient** Boot 3 + Boot 4: `ResourceAccessException`
+  (connect timeout, read timeout, connection reset) now caught separately
+  and treated as retryable — previously fell into generic catch and
+  bypassed all retry logic
+- **EsewaClient** Boot 3: same `ResourceAccessException` fix applied
+
+#### Metrics
+- **EsewaClient** Boot 3 + Boot 4: `doVerifyCallback()` now routes
+  status check through public `checkStatus()` so
+  `nepalpay.esewa.status.check.duration` fires during `verifyCallback()`
+- **EsewaClient** Boot 3 + Boot 4: negative charge component validation
+  added to `buildFormPayload()` — matches reactive client behaviour
+- **KhaltiReactiveClient**: `withRetry()` now accepts per-operation
+  `retryIncrement` — lookup and refund retries previously always
+  incremented the initiate counter
+
+#### Docs
+- README: dependency versions 1.1.1 → 1.2.0, complete Kotlin Gradle section
+- README: blog series section and Medium profile added
+- `khalti.html`: undefined `orderId` in reactive callback example fixed
+- All raw `->` arrows escaped as `&gt;` in HTML code blocks
+- TOKEN exposure wording corrected in `connectips.html`
+- Boot 4 health indicator log paths corrected (suffix stripped)
+- `connectips.html`: version pill `v0.2.0` → `v1.2.0`
+- `esewa.html`: version pill `v0.1.0` → `v1.2.0`
+- `reactive.html`: version pill `v1.1.0` → `v1.2.0`
+- `index.html`: hero stat `3+2` → `3 Starters`
+- Retry idempotency guidance added for refund operations
+- ConnectIPS timeout TODO reference corrected to issue #8
+
+---
+
 ## [v1.1.1] - 2026-07-09
 
 ### Fixed
