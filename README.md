@@ -544,6 +544,16 @@ nepal-pay-spring-boot-starter/
 
 ---
 
+# 📝 Blog Series
+
+| # | Post | Platform |
+|---|------|----------|
+| 1 | [I Built Nepal's First Java Library for Khalti, eSewa, ConnectIPS & Fonepay](https://dev.to/sujankim/i-built-nepals-first-java-library-for-khalti-esewa-connectips-and-it-supports-spring-boot-3-2ekh) | dev.to |
+| 2 | [I Published Nepal's First Java Payment Library to Maven Central — Here's What Broke](https://dev.to/sujankim/i-published-nepals-first-java-payment-library-to-maven-central-heres-what-broke-1nm7) | dev.to |
+| 3 | [NepalPay v1.2.0 — Building Observability into Nepal's Open-Source Payment Library](https://medium.com/@sujan.lamichhane32/nepalpay-v1-2-0-building-observability-into-nepals-open-source-payment-library-0cf0f2bda448) | Medium |
+
+---
+
 # 🤝 Contributing
 
 See **CONTRIBUTING.md** for:
@@ -571,6 +581,7 @@ MIT — see [**LICENSE**](LICENSE).
 
 - https://sujanlamichhane.com.np
 - https://dev.to/sujankim
+- https://medium.com/@sujan.lamichhane32
 - https://github.com/sujankim
 
 ---
