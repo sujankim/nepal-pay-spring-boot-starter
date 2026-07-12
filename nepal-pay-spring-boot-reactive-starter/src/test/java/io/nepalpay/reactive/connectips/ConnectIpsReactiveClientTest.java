@@ -758,7 +758,7 @@ class ConnectIpsReactiveClientTest {
             StepVerifier.create(
                             timeoutClient.validateTransactionWithToken(
                                     REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
-                    .expectErrorMatches(err -> err != null)
+                    .expectError(org.springframework.web.reactive.function.client.WebClientRequestException.class)
                     .verify(java.time.Duration.ofSeconds(5));
 
             assertThat(mockWebServer.getRequestCount()).isEqualTo(1);

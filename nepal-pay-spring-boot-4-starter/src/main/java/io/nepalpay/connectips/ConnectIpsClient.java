@@ -79,7 +79,7 @@ public final class ConnectIpsClient {
      *
      * <p>Configurable via {@code nepalpay.connectips.timeout-seconds}.
      * This constant is used as the fallback when no properties are injected
-     * (e.g. in the test-only PrivateKey constructor).
+     * (e.g. in the test-only PrivateKey constructor that does not take timeout).
      */
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
@@ -104,7 +104,7 @@ public final class ConnectIpsClient {
     private final ConnectIpsMetrics metrics;
 
     // ─────────────────────────────────────────────────────────────────────
-    // CONSTRUCTORS
+    // CONSTRUCTORS — Public
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -258,15 +258,37 @@ public final class ConnectIpsClient {
                 metrics != null ? "enabled" : "disabled");
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // CONSTRUCTORS — Package-private (test-only)
+    // ─────────────────────────────────────────────────────────────────────
+
     /**
      * Test-only constructor — accepts a pre-built PrivateKey directly.
      * Package-private so only test code in the same package can use it.
+     * Default timeout (30s), no metrics.
      */
     ConnectIpsClient(
             int merchantId, String appId, String appName, String appPassword,
             PrivateKey privateKey, boolean sandbox,
             RestClient.Builder builder, String validateBaseUrlOverride,
             RetryProperties retry) {
+
+        this(merchantId, appId, appName, appPassword, privateKey, sandbox,
+                builder, validateBaseUrlOverride, retry, DEFAULT_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * Test-only constructor — accepts pre-built PrivateKey + explicit timeout.
+     * Package-private — only test code in the same package can use it.
+     *
+     * <p>Used by timeout tests (C-4) to verify that timeoutSeconds is
+     * correctly wired — without needing a real PKCS12 file.
+     */
+    ConnectIpsClient(
+            int merchantId, String appId, String appName, String appPassword,
+            PrivateKey privateKey, boolean sandbox,
+            RestClient.Builder builder, String validateBaseUrlOverride,
+            RetryProperties retry, int timeoutSeconds) {
 
         this.merchantId     = merchantId;
         this.appId          = appId;
@@ -278,7 +300,7 @@ public final class ConnectIpsClient {
         this.sandbox        = sandbox;
         this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps     = (retry != null) ? retry : RetryProperties.DEFAULT;
-        this.timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
+        this.timeoutSeconds = timeoutSeconds;
         this.metrics        = null;
 
         SimpleClientHttpRequestFactory factory =

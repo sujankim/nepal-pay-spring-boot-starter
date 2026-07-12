@@ -185,6 +185,28 @@ public final class ConnectIpsReactiveClient {
                 retry, meterRegistry, timeoutSeconds);
     }
 
+    /**
+     * Test / proxy constructor — custom validate base URL, no metrics,
+     * DEFAULT retry, default timeout.
+     *
+     * <p><strong>Fix (D-48):</strong> Reintroduced to avoid breaking
+     * downstream code that was using a custom validate URL (e.g. tests
+     * or proxy setups). Previously this was removed accidentally when
+     * the constructors were refactored — flagged by Copilot review.
+     *
+     * @param validateBaseUrlOverride Custom validate API base URL
+     */
+    public ConnectIpsReactiveClient(
+            int merchantId, String appId, String appName, String appPassword,
+            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            WebClient.Builder builder, String validateBaseUrlOverride) {
+
+        this(merchantId, appId, appName, appPassword,
+                loadPrivateKey(pfxBytes, pfxPassword),
+                sandbox, builder, validateBaseUrlOverride,
+                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // CONSTRUCTORS — Package-private (test-only)
     // ─────────────────────────────────────────────────────────────────────
@@ -250,6 +272,15 @@ public final class ConnectIpsReactiveClient {
         this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps     = retry != null ? retry : RetryProperties.DEFAULT;
         this.privateKey     = privateKey;
+
+        // ── Validate timeout ──────────────────────────────────────────────
+        // Fix: ensure timeoutSeconds > 0, throw meaningful exception
+        if (timeoutSeconds <= 0) {
+            throw new ConnectIpsException(
+                    "ConnectIPS timeoutSeconds must be greater than 0. Got: "
+                            + timeoutSeconds +
+                            ". Set nepalpay.connectips.timeout-seconds in application.yml.");
+        }
         this.timeoutSeconds = timeoutSeconds;
 
         // ── Metrics — optional ────────────────────────────────────────────

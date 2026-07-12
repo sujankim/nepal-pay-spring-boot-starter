@@ -85,10 +85,14 @@ public record NepalPayProperties(
      * @param pfxPath     Path to CREDITOR.pfx (Spring Resource format)
      * @param pfxPassword Password for the CREDITOR.pfx file
      * @param sandbox     true = UAT / false = production
-     * @param timeoutSeconds HTTP connect and read timeout in seconds.
+     * @param timeoutSeconds HTTP response timeout in seconds (Reactor Netty
+     *                       {@code HttpClient.responseTimeout()}).
      *                       Default 30s — intentionally longer than other
      *                       gateways because ConnectIPS validates via NCHL
      *                       to bank systems which can be slower.
+     *                       Note: the blocking starters apply this as both
+     *                       connect and read timeout via
+     *                       {@code SimpleClientHttpRequestFactory}.
      * @param retry       Retry configuration — null = defaults (disabled)
      */
     public record ConnectIpsProperties(

@@ -314,7 +314,7 @@ String json = """
       "purchase_order_id": "%s",
       "purchase_order_name": "%s"
     }
-    """.formatted(returnUrl, url, amt, id, name);
+    """.formatted(returnUrl, url, amount, id, name);
 
 HttpRequest req = HttpRequest.newBuilder()
     .uri(URI.create(
