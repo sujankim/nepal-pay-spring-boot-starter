@@ -6,6 +6,137 @@ This project follows the **[Keep a Changelog](https://keepachangelog.com/en/1.0.
 
 ---
 
+## [v1.2.1] - 2026-07-12
+
+### Added
+
+#### ConnectIPS Configurable Timeout (Closes #8)
+
+`nepalpay.connectips.timeout-seconds` is now configurable (default: **30 seconds**).
+
+```yaml
+nepalpay:
+  connectips:
+    timeout-seconds: 30   # Increase for slower bank connections
+```
+
+**Reactive Starter**
+
+Applied using Reactor Netty:
+
+- `HttpClient.responseTimeout(...)`
+- `ChannelOption.CONNECT_TIMEOUT_MILLIS`
+
+Fully non-blocking and covers both:
+
+- TCP connection timeout
+- Response timeout
+
+**Blocking Starters (Spring Boot 3 & 4)**
+
+Applied through `SimpleClientHttpRequestFactory`:
+
+- Connect timeout
+- Read timeout
+
+---
+
+### Changed
+
+#### PfxLoader Extracted to `nepal-pay-core` (D-35 / D-51)
+
+The six duplicated `loadPfxBytes()` implementations across all auto-configuration modules have been replaced with a shared utility:
+
+- `PfxLoader.validatePath(String)` — validates the configured `pfx-path` (Spring-free)
+- `PfxLoader.read(InputStream, String)` — safely reads bytes using try-with-resources (Spring-free)
+
+This centralizes **Bug #13** (file descriptor leak prevention) into a single implementation, ensuring future fixes only need to be made once.
+
+---
+
+### Fixed (Post-v1.2.0 — PR #21)
+
+#### 🔒 Security
+
+**FonepayClient (Spring Boot 3 & 4)**
+
+- Replaced `String.equals()` with `MessageDigest.isEqual()` for constant-time HMAC comparison.
+- Prevents timing attacks against attacker-controlled DV values.
+
+**EsewaClient (Spring Boot 3 & 4)**
+
+- Removed raw decoded callback JSON from debug logging.
+- Prevents attacker-controlled payloads from being written directly to application logs.
+
+---
+
+#### 🔁 Retry
+
+**KhaltiClient (Spring Boot 3 & 4)**
+
+- `ResourceAccessException` (connection timeout, read timeout, connection reset, etc.) is now treated as retryable.
+- Previously it was wrapped by a generic exception handler, bypassing retry logic entirely.
+
+**EsewaClient (Spring Boot 3)**
+
+- Applied the same retry handling improvement for transport failures.
+
+---
+
+#### 📊 Metrics
+
+**EsewaClient (Spring Boot 3 & 4)**
+
+- `doVerifyCallback()` now routes status verification through the public `checkStatus()` method.
+- Ensures `nepalpay.esewa.status.check.duration` is recorded during callback verification.
+
+**EsewaClient (Spring Boot 3 & 4)**
+
+- Added validation for negative charge components in `buildFormPayload()`.
+- Behaviour now matches the reactive implementation.
+
+**KhaltiReactiveClient**
+
+- `withRetry()` now accepts a per-operation retry callback.
+- Lookup and refund retries previously incremented the initiate retry counter.
+- Retry metrics are now correctly attributed per operation.
+
+---
+
+#### 📚 Documentation
+
+Complete **Heritage Tech** documentation redesign.
+
+Highlights include:
+
+- Plus Jakarta Sans typography
+- Crimson + gold color palette
+- Heritage-inspired mandala dot grid
+- Fully light/dark theme aware
+- All 10 documentation pages rebuilt
+
+Content improvements include:
+
+- `findOrderByPidx()` documented before `isAmountValid()`
+- Improved TOKEN exposure wording
+- Clarified HMAC secret vs. private key usage
+- UUID-based PRN documentation
+- Fixed `COMPLETE` vs `COMPLETED` status references
+- Escaped HTML arrows for proper rendering
+- Updated version badges and stale Javadoc comments
+
+---
+
+### Breaking Changes
+
+**None.**
+
+All changes are additive or bug fixes.
+
+Existing `application.yml` configuration continues to work without modification.
+
+---
+
 ## [v1.2.0] - 2026-07-12
 
 ### Added
