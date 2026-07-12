@@ -17,7 +17,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.web.client.RestClient;
 
 /**
- * NepalPay Spring Boot Auto-Configuration — Spring Boot 3 variant.
+ * NepalPay Spring Boot Auto-Configuration — Spring Boot 4 variant.
  *
  * <p>Spring Boot loads this class automatically from:
  * {@code META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}

@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for KhaltiClient — Spring Boot 3.
+ * Unit tests for KhaltiClient — Spring Boot 4.
  *
  * <p>Tests:
  * initiatePayment(), lookupPayment(), refundPayment(), retry behavior.

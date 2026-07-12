@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for EsewaClient — Spring Boot 3.
+ * Unit tests for EsewaClient — Spring Boot 4.
  */
 @DisplayName("EsewaClient")
 class EsewaClientTest {

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.sujankim</groupId>
+  <artifactId>nepal-pay-spring-boot-reactive-starter</artifactId>
+  <version>1.2.0</version>
+  <name>NepalPay Spring Boot Reactive Starter</name>
+  <description>Spring WebFlux reactive starter for Nepal payment gateways.
+        Returns Mono responses using WebClient — non-blocking, suitable for
+        Spring WebFlux applications. Supports Khalti, eSewa, and ConnectIPS.
+        Fonepay uses URL redirect and works in both blocking and reactive apps.
+        Spring Boot 3.2+ and Java 17+.</description>
+  <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>sujankim</id>
+      <name>Sujan Lamichhane</name>
+      <email>sujan.officals@email.com</email>
+      <url>https://sujanlamichhane.com.np</url>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git://github.com/sujankim/nepal-pay-spring-boot-starter.git</connection>
+    <developerConnection>scm:git:ssh://github.com/sujankim/nepal-pay-spring-boot-starter.git</developerConnection>
+    <url>https://github.com/sujankim/nepal-pay-spring-boot-starter</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>io.github.sujankim</groupId>
+      <artifactId>nepal-pay-core</artifactId>
+      <version>1.2.0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webflux</artifactId>
+      <version>3.5.15</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+      <version>3.5.15</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <version>3.5.15</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.46</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.18</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.21.4</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+      <version>3.5.15</version>
+      <scope>compile</scope>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.9.0</version>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
