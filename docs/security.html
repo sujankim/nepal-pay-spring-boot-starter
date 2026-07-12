@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Security — NepalPay</title>
+    <meta name="description"
+          content="Security guide for NepalPay. Server-side verification, HMAC validation, amount tamper protection, and pre-launch checklist.">
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         (function () {
@@ -47,23 +49,29 @@
             </div>
         </div>
     </nav>
+
     <div class="page-header-body">
         <div class="page-header-left">
             <h1>Security</h1>
-            <p>Payment integrations require extra care. Everything you must know to avoid vulnerabilities.</p>
+            <p>
+                Payment integrations require extra care.
+                Everything you must know to avoid vulnerabilities —
+                from redirect trust to timing attacks.
+            </p>
         </div>
     </div>
 </div>
 
 <div class="docs-wrapper">
+
     <aside class="sidebar">
         <nav class="sidebar-nav">
             <div class="sidebar-group-label">Rules</div>
-            <a href="#rule1">Verify Server-Side</a>
-            <a href="#rule2">Store Before Redirect</a>
-            <a href="#rule3">Verify Amount</a>
-            <a href="#rule4">Environment Variables</a>
-            <a href="#rule5">Protect .pfx File</a>
+            <a href="#rule1">1. Verify Server-Side</a>
+            <a href="#rule2">2. Store Before Redirect</a>
+            <a href="#rule3">3. Verify Amount</a>
+            <a href="#rule4">4. Environment Variables</a>
+            <a href="#rule5">5. Protect .pfx File</a>
             <div class="sidebar-group-label">Reference</div>
             <a href="#never-do">Never Do These</a>
             <a href="#how-nepalpay">How NepalPay Helps</a>
@@ -75,25 +83,50 @@
 
         <div class="callout callout-info">
             <span class="callout-icon">ℹ️</span>
-            <p>NepalPay enforces secure patterns by design — server-side verification, HMAC signature validation, and RSA signing are all built in. But you must also follow the rules below.</p>
+            <p>
+                NepalPay enforces secure patterns by design —
+                server-side verification, HMAC signature validation,
+                RSA signing, and constant-time comparison are all
+                built in and tested. But you must also follow
+                the rules below.
+            </p>
         </div>
 
+        <!-- Rule 1 -->
         <section id="rule1">
-            <h2>1. Always verify server-side after redirect</h2>
-            <p>When a gateway redirects to your callback URL, the URL parameters can be typed by anyone. They prove nothing. Always verify using the gateway API from your backend.</p>
+            <h2>1. Always Verify Server-Side After Redirect</h2>
+
+            <p>
+                When a gateway redirects to your callback URL,
+                the URL parameters can be typed by anyone.
+                They prove nothing. Always verify using the
+                gateway API from your backend.
+            </p>
 
             <h3>Khalti</h3>
             <pre><code>@GetMapping("/khalti/callback")
-public ResponseEntity&lt;String&gt; callback(@RequestParam String pidx) {
+public ResponseEntity&lt;String&gt; callback(
+        @RequestParam String pidx,
+        @RequestParam(required = false) String status) {
 
+    // ⚠️ IGNORE ?status=Completed from URL — it can be forged
     // ✅ ALWAYS verify server-side
     KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
 
     if (!lookup.isPaymentSuccessful()) {
-        return ResponseEntity.badRequest().body("Not confirmed");
+        return ResponseEntity.badRequest()
+            .body("Not confirmed: " + lookup.status());
     }
 
-    orderService.markAsPaid(pidx);
+    // Verify amount from YOUR database
+    String orderId = orderRepo.findOrderByPidx(pidx);
+    long expectedPaisa = orderRepo.getAmountPaisa(orderId);
+    if (!lookup.isAmountValid(expectedPaisa)) {
+        log.error("SECURITY: Amount mismatch | pidx={}", pidx);
+        return ResponseEntity.badRequest().body("Amount mismatch");
+    }
+
+    orderRepo.markPaid(orderId, lookup.transactionId());
     return ResponseEntity.ok("Confirmed");
 }</code></pre>
 
@@ -101,7 +134,7 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String pidx) {
             <pre><code>@GetMapping("/esewa/callback")
 public ResponseEntity&lt;String&gt; callback(@RequestParam String data) {
 
-    // ✅ 3-step: decode + HMAC verify + status API
+    // verifyCallback: decode Base64 → verify HMAC → call status API
     EsewaClient.EsewaVerificationResult result =
         esewaClient.verifyCallback(data);
 
@@ -109,7 +142,7 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String data) {
         return ResponseEntity.badRequest().body("Not confirmed");
     }
 
-    orderService.markAsPaid(result.callbackData().transactionUuid());
+    orderRepo.markPaid(result.callbackData().transactionUuid());
     return ResponseEntity.ok("Confirmed");
 }</code></pre>
 
@@ -120,62 +153,125 @@ public ResponseEntity&lt;String&gt; callback(
         @RequestParam String referenceId,
         @RequestParam long txnAmt) {
 
-    // ✅ Validate with HTTP Basic Auth
+    // validateTransaction uses HTTP Basic Auth with NCHL
     ConnectIpsValidateResponse res =
-        connectIpsClient.validateTransaction(txnId, referenceId, txnAmt);
+        connectIpsClient.validateTransaction(
+            txnId, referenceId, txnAmt);
 
     if (!res.isPaymentSuccessful()) {
         return ResponseEntity.badRequest().body("Not confirmed");
     }
 
-    orderService.markAsPaid(referenceId);
+    orderRepo.markPaid(referenceId);
     return ResponseEntity.ok("Confirmed");
+}</code></pre>
+
+            <h3>Fonepay</h3>
+            <pre><code>// verifyCallback re-computes HMAC-SHA512, compares DV,
+// THEN checks PS=success — never trust PS alone
+// Build callback from query parameters
+// Fonepay sends all params as GET query params to your returnUrl
+FonepayCallbackResponse callback =
+    FonepayCallbackResponse.of(
+        PRN,   // your original Product Reference Number
+        PID,   // Fonepay merchant code
+        PS,    // payment status — DO NOT trust alone
+        RC,    // response code
+        UID,   // Fonepay unique transaction ID
+        BC,    // bank code
+        INI,   // transaction initiator
+        pAmt,  // paid amount
+        rAmt,  // refund amount
+        dv     // HMAC-SHA512 signature — the only real proof
+    );
+
+// verifyCallback: re-computes HMAC-SHA512, compares DV (constant-time),
+// THEN checks PS=success — only after signature verification passes
+FonepayClient.FonepayVerificationResult result =
+    fonepayClient.verifyCallback(callback);
+
+if (result.isPaymentSuccessful()) {
+    // Load order using saved PRN
+    orderRepo.markPaid(callback.prn());
 }</code></pre>
         </section>
 
+        <!-- Rule 2 -->
         <section id="rule2">
-            <h2>2. Store identifiers before redirecting</h2>
-            <p>Save payment identifiers to your database <strong>before</strong> redirecting the user. If the browser crashes or the user closes the tab, you still have the ID to verify later.</p>
+            <h2>2. Store Identifiers Before Redirecting</h2>
+
+            <p>
+                Save payment identifiers to your database
+                <strong>before</strong> redirecting the user.
+                If the browser crashes or the user closes the tab,
+                you still have the ID to verify later.
+            </p>
+
             <pre><code>// ✅ Khalti
 KhaltiInitiateResponse res = khaltiClient.initiatePayment(request);
-orderRepo.savePidx(orderId, res.pidx());   // ← FIRST
+orderRepo.savePidx(orderId, res.pidx());   // ← SAVE FIRST
 return res.paymentUrl();                    // ← THEN redirect
 
 // ✅ eSewa
 String uuid = EsewaClient.generateTransactionUuid();
-orderRepo.saveUuid(orderId, uuid);          // ← FIRST
+orderRepo.saveUuid(orderId, uuid);          // ← SAVE FIRST
 EsewaFormPayload payload = esewaClient.buildFormPayload(amount, uuid);
 return payload;                             // ← THEN return to frontend
 
 // ✅ ConnectIPS
 String txnId = "TXN-" + orderId;
-orderRepo.saveTxnId(orderId, txnId);        // ← FIRST
-ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(req);
+orderRepo.saveTxnId(orderId, txnId);        // ← SAVE FIRST
+ConnectIpsFormPayload payload =
+    connectIpsClient.buildFormPayload(req);
 return payload;
 
 // ✅ Fonepay
 String prn = "FP-" + orderId;
-orderRepo.savePrn(orderId, prn);            // ← FIRST
-String redirectUrl = fonepayClient.buildRedirectParams(req).redirectUrl();
+orderRepo.savePrn(orderId, prn);            // ← SAVE FIRST
+String redirectUrl = fonepayClient
+    .buildRedirectParams(req).redirectUrl();
 return redirectUrl;</code></pre>
         </section>
 
+        <!-- Rule 3 -->
         <section id="rule3">
-            <h2>3. Verify the amount was not tampered</h2>
-            <pre><code>// ✅ Khalti — isAmountValid() checks totalAmount matches
+            <h2>3. Verify the Amount Was Not Tampered</h2>
+
+            <p>
+                A malicious user could initiate a payment for NPR 1
+                and try to claim a product worth NPR 1000.
+                Always compare the gateway-confirmed amount with
+                the amount stored in YOUR database.
+            </p>
+
+            <pre><code>// Khalti — isAmountValid() checks totalAmount matches
 KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
 
+// Load expected amount from YOUR database — NOT from redirect URL
 long expectedPaisa = orderRepo.getAmountPaisa(orderId);
+
 if (!lookup.isAmountValid(expectedPaisa)) {
-    log.error("SECURITY: Amount mismatch! expected={} received={}",
-        expectedPaisa, lookup.totalAmount());
-    // Do NOT mark as paid — investigate this
+    log.error(
+        "SECURITY ALERT: Amount mismatch | orderId={}" +
+        " | expected={}paisa | received={}paisa",
+        orderId, expectedPaisa, lookup.totalAmount()
+    );
+    // Do NOT fulfil the order — investigate immediately
     return ResponseEntity.badRequest().body("Amount mismatch");
-}</code></pre>
+}
+
+if (!lookup.isPaymentSuccessful()) {
+    return ResponseEntity.badRequest().body("Not paid");
+}
+
+// Both checks passed — safe to fulfil
+orderRepo.markPaid(orderId, lookup.transactionId());</code></pre>
         </section>
 
+        <!-- Rule 4 -->
         <section id="rule4">
-            <h2>4. Use environment variables for all secrets</h2>
+            <h2>4. Use Environment Variables for All Secrets</h2>
+
             <pre><code># ✅ Correct — values from environment variables
 nepalpay:
   khalti:
@@ -184,84 +280,237 @@ nepalpay:
             <pre><code># ❌ Wrong — hardcoded in YAML
 nepalpay:
   khalti:
-    secret-key: live_secret_key_abc123  # now in git history forever!</code></pre>
+    secret-key: live_secret_key_abc123
+    # This is now in your Git history forever
+    # Even after you delete it, it remains in past commits</code></pre>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    If you accidentally commit a real secret key,
+                    immediately rotate it on the gateway dashboard
+                    AND clean your Git history. Deleting the line
+                    in a new commit is not enough — the key remains
+                    in the commit history.
+                </p>
+            </div>
         </section>
 
+        <!-- Rule 5 -->
         <section id="rule5">
-            <h2>5. Protect your ConnectIPS .pfx file</h2>
-            <p>The CREDITOR.pfx contains your RSA private key. Anyone with it can forge ConnectIPS payment tokens.</p>
-            <pre><code># .gitignore — add immediately
+            <h2>5. Protect Your ConnectIPS .pfx File</h2>
+
+            <p>
+                The <code>CREDITOR.pfx</code> contains your RSA private
+                key. Anyone with it can forge ConnectIPS payment tokens
+                and steal from your merchant account.
+            </p>
+
+            <pre><code># .gitignore — add these BEFORE your first commit
 *.pfx
-CREDITOR.pfx</code></pre>
-            <pre><code># application.yml — load via env var path
+CREDITOR.pfx
+
+# Verify it is not already tracked
+git check-ignore -v CREDITOR.pfx</code></pre>
+
+            <pre><code># application.yml — always load from environment variable path
 nepalpay:
   connectips:
-    pfx-path:     ${CONNECTIPS_PFX_PATH}    # file:/app/CREDITOR.pfx
+    pfx-path:     ${CONNECTIPS_PFX_PATH}     # file:/app/CREDITOR.pfx
     pfx-password: ${CONNECTIPS_PFX_PASSWORD}</code></pre>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    NepalPay loads the <code>.pfx</code> using
+                    Spring's <code>ResourceLoader</code> with
+                    <code>try-with-resources</code> — no file
+                    descriptor leaks on application restarts.
+                    The RSA private key is cached at startup —
+                    no KeyStore loading on every payment.
+                </p>
+            </div>
         </section>
 
+        <!-- Never Do -->
         <section id="never-do">
             <h2>Never Do These Things</h2>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Never trust redirect parameters alone.</strong> <code>?status=Completed</code>, <code>?PS=success</code>, <code>?data=BASE64</code> can all be faked. Always verify server-side.</p>
+                <p>
+                    <strong>Never trust redirect parameters alone.</strong>
+                    <code>?status=Completed</code>,
+                    <code>?PS=success</code>,
+                    <code>?data=BASE64</code>
+                    can all be faked. Always verify server-side.
+                </p>
             </div>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Never put secret keys in frontend code.</strong> Anyone who opens DevTools can read frontend variables. Keys belong only on your backend server.</p>
+                <p>
+                    <strong>Never put secret keys in frontend
+                        code.</strong> Anyone who opens DevTools can read
+                    frontend variables. Keys belong only on your
+                    backend server.
+                </p>
             </div>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Never hardcode secrets in source code.</strong> Even if you delete them, they remain in your Git history. Use environment variables.</p>
+                <p>
+                    <strong>Never hardcode secrets in source code.</strong>
+                    Even if you delete them, they remain in your Git
+                    history. Use environment variables for all real
+                    credentials.
+                </p>
             </div>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Never commit CREDITOR.pfx to Git.</strong> Add <code>*.pfx</code> to <code>.gitignore</code> immediately and verify it is not tracked.</p>
+                <p>
+                    <strong>Never commit CREDITOR.pfx to Git.</strong>
+                    Add <code>*.pfx</code> to <code>.gitignore</code>
+                    immediately — before your very first commit.
+                </p>
             </div>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
-                <p><strong>Never set <code>sandbox=false</code> without end-to-end testing.</strong> NepalPay defaults all gateways to <code>sandbox=true</code> to prevent accidental production charges during development.</p>
+                <p>
+                    <strong>Never set <code>sandbox=false</code>
+                        without end-to-end testing.</strong>
+                    NepalPay defaults all gateways to
+                    <code>sandbox=true</code> to prevent accidental
+                    production charges during development.
+                </p>
+            </div>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    <strong>Never call
+                        <code>callback.paymentStatus()</code>
+                        directly on <code>FonepayCallbackResponse</code>
+                    </strong> — there is no
+                    <code>isPaymentSuccessful()</code> on it by design.
+                    The only safe path is
+                    <code>fonepayClient.verifyCallback(callback)</code>
+                    which verifies the HMAC-SHA512 DV signature first.
+                </p>
             </div>
         </section>
 
+        <!-- How NepalPay Helps -->
         <section id="how-nepalpay">
             <h2>How NepalPay Protects You</h2>
+
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Threat</th><th>Gateway</th><th>NepalPay Protection</th></tr></thead>
+                    <thead>
+                    <tr>
+                        <th>Threat</th>
+                        <th>Gateway</th>
+                        <th>NepalPay Protection</th>
+                    </tr>
+                    </thead>
                     <tbody>
-                    <tr><td>Redirect URL faking</td><td>All</td><td>Server-side verification methods built into every client</td></tr>
-                    <tr><td>eSewa response tampering</td><td>eSewa</td><td><code>verifyCallback()</code> re-computes HMAC-SHA256 — throws on mismatch</td></tr>
-                    <tr><td>Fonepay callback faking</td><td>Fonepay</td><td><code>verifyCallback()</code> re-computes HMAC-SHA512 — throws on mismatch</td></tr>
-                    <tr><td>Amount manipulation</td><td>Khalti</td><td><code>isAmountValid(expectedPaisa)</code> helper on lookup response</td></tr>
-                    <tr><td>Accidental production charges</td><td>All</td><td><code>sandbox=true</code> is the default — you must opt into production</td></tr>
-                    <tr><td>ConnectIPS token forgery</td><td>ConnectIPS</td><td>RSA signing happens server-side — token never exposed to frontend</td></tr>
+                    <tr>
+                        <td>Redirect URL faking</td>
+                        <td>All</td>
+                        <td>Server-side verification methods built into every client</td>
+                    </tr>
+                    <tr>
+                        <td>eSewa response tampering</td>
+                        <td>eSewa</td>
+                        <td><code>verifyCallback()</code> re-computes HMAC-SHA256 — throws on mismatch</td>
+                    </tr>
+                    <tr>
+                        <td>eSewa HMAC timing attack</td>
+                        <td>eSewa</td>
+                        <td><code>MessageDigest.isEqual()</code> — constant-time comparison</td>
+                    </tr>
+                    <tr>
+                        <td>Fonepay callback faking</td>
+                        <td>Fonepay</td>
+                        <td><code>verifyCallback()</code> re-computes HMAC-SHA512 — throws on mismatch</td>
+                    </tr>
+                    <tr>
+                        <td>Fonepay HMAC timing attack</td>
+                        <td>Fonepay</td>
+                        <td><code>MessageDigest.isEqual()</code> — constant-time comparison</td>
+                    </tr>
+                    <tr>
+                        <td>Fonepay PS bypass</td>
+                        <td>Fonepay</td>
+                        <td><code>isPaymentSuccessful()</code> removed from raw callback record in v1.1.1</td>
+                    </tr>
+                    <tr>
+                        <td>Amount manipulation</td>
+                        <td>Khalti</td>
+                        <td><code>isAmountValid(expectedPaisa)</code> helper on lookup response</td>
+                    </tr>
+                    <tr>
+                        <td>Accidental production charges</td>
+                        <td>All</td>
+                        <td><code>sandbox=true</code> is the default — must explicitly opt into production</td>
+                    </tr>
+                    <tr>
+                        <td>ConnectIPS token forgery</td>
+                        <td>ConnectIPS</td>
+                        <td>RSA signing server-side — TOKEN value only reaches frontend, private key never does</td>
+                    </tr>
+                    <tr>
+                        <td>PFX file descriptor leak</td>
+                        <td>ConnectIPS</td>
+                        <td><code>try-with-resources</code> on <code>getInputStream()</code> — fixed in v1.1.1</td>
+                    </tr>
+                    <tr>
+                        <td>Wrong PFX alias selected</td>
+                        <td>ConnectIPS</td>
+                        <td><code>isKeyEntry()</code> check on all aliases — safe for multi-entry PFX</td>
+                    </tr>
+                    <tr>
+                        <td>Khalti refund false-negative</td>
+                        <td>Khalti</td>
+                        <td><code>isRefundSuccessful()</code> uses <code>refunded</code> boolean only — fixed in v1.1.1</td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
+        <!-- Pre-Launch Checklist -->
         <section id="checklist">
             <h2>Pre-Launch Security Checklist</h2>
-            <p>Before setting <code>sandbox=false</code>, verify every item:</p>
+
+            <p>
+                Before setting <code>sandbox=false</code> for any
+                gateway, verify every item:
+            </p>
+
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>Item</th><th>Khalti</th><th>eSewa</th><th>ConnectIPS</th><th>Fonepay</th></tr></thead>
+                    <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Khalti</th>
+                        <th>eSewa</th>
+                        <th>ConnectIPS</th>
+                        <th>Fonepay</th>
+                    </tr>
+                    </thead>
                     <tbody>
                     <tr>
-                        <td>Server-side verification after callback</td>
+                        <td>Server-side verification on callback</td>
                         <td>✅ <code>lookupPayment()</code></td>
                         <td>✅ <code>verifyCallback()</code></td>
                         <td>✅ <code>validateTransaction()</code></td>
                         <td>✅ <code>verifyCallback()</code></td>
                     </tr>
                     <tr>
-                        <td>Identifier stored before redirect</td>
+                        <td>Identifier saved before redirect</td>
                         <td>pidx saved</td>
                         <td>uuid saved</td>
                         <td>txnId saved</td>
@@ -270,9 +519,9 @@ nepalpay:
                     <tr>
                         <td>Amount verified after payment</td>
                         <td>✅ <code>isAmountValid()</code></td>
-                        <td>✅ compare status</td>
-                        <td>✅ compare response</td>
-                        <td>✅ compare pAmt</td>
+                        <td>✅ status COMPLETE</td>
+                        <td>✅ status SUCCESS</td>
+                        <td>✅ compare P_AMT</td>
                     </tr>
                     <tr>
                         <td>Secrets in env vars only</td>
@@ -286,8 +535,12 @@ nepalpay:
                         <td>N/A</td>
                     </tr>
                     <tr>
-                        <td><code>sandbox=false</code> set for production</td>
+                        <td>End-to-end tested in sandbox</td>
                         <td colspan="4" style="text-align:center">✅ All gateways</td>
+                    </tr>
+                    <tr>
+                        <td><code>sandbox=false</code> set</td>
+                        <td colspan="4" style="text-align:center">✅ All gateways before go-live</td>
                     </tr>
                     </tbody>
                 </table>
@@ -302,10 +555,15 @@ nepalpay:
         <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
+            <a href="getting-started.html">Getting Started</a>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
+            <a href="connectips.html">ConnectIPS</a>
+            <a href="fonepay.html">Fonepay</a>
+            <a href="reactive.html">Reactive</a>
+            <a href="configuration.html">Config</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
-            <a href="https://sujanlamichhane.com.np"
-               target="_blank" rel="noopener">Author</a>
         </div>
         <p class="footer-copy">MIT © 2026 · Built for Nepal's developers 🇳🇵</p>
     </div>
@@ -319,6 +577,23 @@ nepalpay:
         r.setAttribute('data-theme', n);
         try { localStorage.setItem('np-theme', n); } catch (e) {}
     }
+
+    (function () {
+        var links = document.querySelectorAll('.sidebar-nav a');
+        var sections = document.querySelectorAll('.docs-content section');
+        window.addEventListener('scroll', function () {
+            var pos = window.scrollY + 100;
+            sections.forEach(function (s) {
+                if (s.offsetTop <= pos &&
+                    s.offsetTop + s.offsetHeight > pos) {
+                    links.forEach(function (l) { l.classList.remove('active'); });
+                    var a = document.querySelector(
+                        '.sidebar-nav a[href="#' + s.id + '"]');
+                    if (a) a.classList.add('active');
+                }
+            });
+        });
+    }());
 </script>
 </body>
 </html>

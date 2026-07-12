@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Enumeration;
+import io.netty.channel.ChannelOption;
 
 /**
  * Reactive ConnectIPS Payment Gateway Client.
@@ -78,8 +79,8 @@ public final class ConnectIpsReactiveClient {
      * legitimately be slower than commercial payment gateway APIs.
      *
      * <p>Configurable via {@code nepalpay.connectips.timeout-seconds}.
-     * This constant is used as the fallback when no properties are injected
-     * (e.g. in the test-only PrivateKey constructor).
+     * This constant is the fallback used by the test-only PrivateKey
+     * constructors that do not accept a timeoutSeconds parameter.
      */
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
@@ -102,7 +103,7 @@ public final class ConnectIpsReactiveClient {
     private final ConnectIpsMetrics metrics;
 
     // ─────────────────────────────────────────────────────────────────────
-    // CONSTRUCTORS
+    // CONSTRUCTORS — Public
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -114,23 +115,10 @@ public final class ConnectIpsReactiveClient {
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
             WebClient.Builder builder) {
 
-        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+        this(merchantId, appId, appName, appPassword,
+                loadPrivateKey(pfxBytes, pfxPassword),
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
-    }
-
-    /**
-     * Test constructor — custom validate URL, DEFAULT retry, no metrics,
-     * default timeout.
-     */
-    public ConnectIpsReactiveClient(
-            int merchantId, String appId, String appName, String appPassword,
-            byte[] pfxBytes, String pfxPassword, boolean sandbox,
-            WebClient.Builder builder, String validateBaseUrlOverride) {
-
-        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
-                sandbox, builder, validateBaseUrlOverride,
                 RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
@@ -142,7 +130,8 @@ public final class ConnectIpsReactiveClient {
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
             WebClient.Builder builder, RetryProperties retry) {
 
-        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+        this(merchantId, appId, appName, appPassword,
+                loadPrivateKey(pfxBytes, pfxPassword),
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
                 retry, null, DEFAULT_TIMEOUT_SECONDS);
@@ -163,7 +152,8 @@ public final class ConnectIpsReactiveClient {
             WebClient.Builder builder, RetryProperties retry,
             MeterRegistry meterRegistry) {
 
-        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+        this(merchantId, appId, appName, appPassword,
+                loadPrivateKey(pfxBytes, pfxPassword),
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
                 retry, meterRegistry, DEFAULT_TIMEOUT_SECONDS);
@@ -189,19 +179,88 @@ public final class ConnectIpsReactiveClient {
             WebClient.Builder builder, RetryProperties retry,
             MeterRegistry meterRegistry, int timeoutSeconds) {
 
-        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+        this(merchantId, appId, appName, appPassword,
+                loadPrivateKey(pfxBytes, pfxPassword),
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
                 retry, meterRegistry, timeoutSeconds);
     }
 
     /**
-     * Core private constructor — single point of initialization.
-     * All public constructors delegate here.
+     * Test / proxy constructor — custom validate base URL, no metrics,
+     * DEFAULT retry, default timeout.
+     *
+     * <p><strong>Fix (D-48):</strong> Reintroduced to avoid breaking
+     * downstream code that was using a custom validate URL (e.g. tests
+     * or proxy setups). Previously this was removed accidentally when
+     * the constructors were refactored — flagged by Copilot review.
+     *
+     * @param validateBaseUrlOverride Custom validate API base URL
+     */
+    public ConnectIpsReactiveClient(
+            int merchantId, String appId, String appName, String appPassword,
+            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            WebClient.Builder builder, String validateBaseUrlOverride) {
+
+        this(merchantId, appId, appName, appPassword,
+                loadPrivateKey(pfxBytes, pfxPassword),
+                sandbox, builder, validateBaseUrlOverride,
+                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CONSTRUCTORS — Package-private (test-only)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Test-only constructor — accepts pre-built PrivateKey directly.
+     * Default timeout (30s). No metrics.
+     * Package-private — only test code in the same package can use it.
+     */
+    ConnectIpsReactiveClient(
+            int merchantId, String appId, String appName, String appPassword,
+            PrivateKey privateKey, boolean sandbox,
+            WebClient.Builder builder, String validateBaseUrlOverride,
+            RetryProperties retry) {
+
+        this(merchantId, appId, appName, appPassword,
+                privateKey, sandbox, builder, validateBaseUrlOverride,
+                retry, null, DEFAULT_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * Test-only constructor — accepts pre-built PrivateKey + explicit timeout.
+     * No metrics. Package-private — only test code in the same package can
+     * use it.
+     *
+     * <p>Used by timeout tests that need to verify
+     * {@code timeoutSeconds} propagation and timeout behavior
+     * without needing a real PKCS12 file.
+     *
+     * @param retry          retry configuration — null = DEFAULT
+     * @param timeoutSeconds HTTP response timeout in seconds
+     */
+    ConnectIpsReactiveClient(
+            int merchantId, String appId, String appName, String appPassword,
+            PrivateKey privateKey, boolean sandbox,
+            WebClient.Builder builder, String validateBaseUrlOverride,
+            RetryProperties retry, int timeoutSeconds) {
+
+        this(merchantId, appId, appName, appPassword,
+                privateKey, sandbox, builder, validateBaseUrlOverride,
+                retry, null, timeoutSeconds);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CORE PRIVATE CONSTRUCTOR — single point of initialization
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Core private constructor — all other constructors delegate here.
      */
     private ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
-            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            PrivateKey privateKey, boolean sandbox,
             WebClient.Builder builder, String validateBaseUrlOverride,
             RetryProperties retry, MeterRegistry meterRegistry,
             int timeoutSeconds) {
@@ -213,7 +272,16 @@ public final class ConnectIpsReactiveClient {
         this.sandbox        = sandbox;
         this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
         this.retryProps     = retry != null ? retry : RetryProperties.DEFAULT;
-        this.privateKey     = loadPrivateKey(pfxBytes, pfxPassword);
+        this.privateKey     = privateKey;
+
+        // ── Validate timeout ──────────────────────────────────────────────
+        // Fix: ensure timeoutSeconds > 0, throw meaningful exception
+        if (timeoutSeconds <= 0) {
+            throw new ConnectIpsException(
+                    "ConnectIPS timeoutSeconds must be greater than 0. Got: "
+                            + timeoutSeconds +
+                            ". Set nepalpay.connectips.timeout-seconds in application.yml.");
+        }
         this.timeoutSeconds = timeoutSeconds;
 
         // ── Metrics — optional ────────────────────────────────────────────
@@ -224,9 +292,13 @@ public final class ConnectIpsReactiveClient {
         // ── WebClient with configurable timeout ───────────────────────────
         // Uses ReactorClientHttpConnector + Netty HttpClient.responseTimeout()
         // — correct non-blocking approach for WebFlux (no Thread.sleep).
+        //  also add TCP connect timeout so slow/unreachable endpoints
+        // don't hang during connection setup (responseTimeout only covers
+        // the response phase, not the TCP connect phase)
         HttpClient httpClient = HttpClient.create()
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                        (int) Duration.ofSeconds(this.timeoutSeconds).toMillis())
                 .responseTimeout(Duration.ofSeconds(this.timeoutSeconds));
-
         this.webClient = builder
                 .baseUrl(validateBaseUrlOverride)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
@@ -241,34 +313,6 @@ public final class ConnectIpsReactiveClient {
                 this.timeoutSeconds,
                 this.retryProps.summary(),
                 metrics != null ? "enabled" : "disabled");
-    }
-
-    /**
-     * Test-only constructor — accepts pre-built PrivateKey directly.
-     * Package-private — only test code in the same package can use it.
-     */
-    ConnectIpsReactiveClient(
-            int merchantId, String appId, String appName, String appPassword,
-            PrivateKey privateKey, boolean sandbox,
-            WebClient.Builder builder, String validateBaseUrlOverride,
-            RetryProperties retry) {
-
-        this.merchantId     = merchantId;
-        this.appId          = appId;
-        this.appName        = appName;
-        this.appPassword    = appPassword;
-        this.privateKey     = privateKey;
-        this.sandbox        = sandbox;
-        this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
-        this.retryProps     = retry != null ? retry : RetryProperties.DEFAULT;
-        this.timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
-        this.metrics        = null;
-
-        // Test constructor — simple WebClient without timeout connector
-        this.webClient = builder
-                .baseUrl(validateBaseUrlOverride)
-                .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                .build();
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -388,7 +432,7 @@ public final class ConnectIpsReactiveClient {
         return executeValidateRequest(referenceId, txnAmtPaisa, token);
     }
 
-    /** @return form action URL */
+    /** @return form action URL (UAT or production) */
     public String formActionUrl() { return formActionUrl; }
 
     /** @return true if sandbox/UAT mode */
@@ -511,6 +555,13 @@ public final class ConnectIpsReactiveClient {
         }
     }
 
+    /**
+     * Load and extract RSA PrivateKey from a PKCS12 (.pfx) file.
+     *
+     * <p>Iterates all KeyStore aliases and checks {@code isKeyEntry()}
+     * before selecting — safe for PFX files with multiple entries
+     * (certificate chain + private key).
+     */
     private static PrivateKey loadPrivateKey(
             byte[] pfxBytes, String pfxPassword) {
 

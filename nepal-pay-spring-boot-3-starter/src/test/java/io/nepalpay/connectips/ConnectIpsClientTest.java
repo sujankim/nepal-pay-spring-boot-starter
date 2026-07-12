@@ -507,4 +507,47 @@ class ConnectIpsClientTest {
         assertThat(prodClient.formActionUrl())
                 .isEqualTo("https://connectips.com/connectipswebgw/loginpage");
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TIMEOUT CONFIGURATION — updated per D-43
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Timeout configuration")
+    class TimeoutConfiguration {
+
+        @Test
+        @DisplayName("timeoutSeconds() returns 30 by default (9-arg test constructor)")
+        void testConstructor_defaultTimeout_is30() {
+            // 9-arg test constructor always uses DEFAULT_TIMEOUT_SECONDS = 30
+            ConnectIpsClient client = new ConnectIpsClient(
+                    MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                    TEST_PRIVATE_KEY,
+                    true,
+                    RestClient.builder(),
+                    "http://mock.test",
+                    null);
+
+            assertThat(client.timeoutSeconds()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("timeoutSeconds() returns configured value (10-arg test constructor)")
+        void testConstructor_customTimeout_propagates() {
+            // Uses the NEW 10-arg package-private test constructor
+            // (PrivateKey, sandbox, builder, url, retry, timeoutSeconds)
+            // — exercises the configurable timeout behavior introduced in this PR
+            ConnectIpsClient client = new ConnectIpsClient(
+                    MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                    TEST_PRIVATE_KEY,
+                    true,
+                    RestClient.builder(),
+                    "http://mock.test",
+                    RetryProperties.DEFAULT,
+                    60    // custom timeout — should NOT be 30
+            );
+
+            assertThat(client.timeoutSeconds()).isEqualTo(60);
+        }
+    }
 }

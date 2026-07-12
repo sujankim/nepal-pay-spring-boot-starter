@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Getting Started — NepalPay</title>
+    <meta name="description"
+          content="Install NepalPay and integrate Nepal payment gateways in under 5 minutes. Supports blocking and reactive (WebFlux).">
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         (function () {
@@ -17,9 +19,7 @@
 </head>
 <body>
 
-<!-- ═══ PAGE HERO (inner pages use this — not dark hero) ═══ -->
 <div class="page-hero page-nav">
-
     <nav class="topnav">
         <div class="topnav-inner">
             <a class="nav-brand" href="index.html">
@@ -52,22 +52,22 @@
 
     <div class="page-header-body">
         <div class="page-header-left">
-            <div class="page-version-pill">v1.2.0</div>
+            <div class="page-version-pill">✅ v1.2.0</div>
             <h1>Getting Started</h1>
-            <p>Install NepalPay and accept Nepal payments in under 5 minutes.
-                Supports blocking (RestClient) and reactive (WebClient).</p>
+            <p>
+                Install NepalPay and accept Nepal payments in under
+                5 minutes. Supports blocking (RestClient) and
+                reactive (WebClient / WebFlux).
+            </p>
         </div>
     </div>
-
 </div>
 
-<!-- ═══ DOCS LAYOUT ══════════════════════════════════════ -->
 <div class="docs-wrapper">
 
     <!-- Sidebar -->
     <aside class="sidebar">
         <nav class="sidebar-nav">
-
             <div class="sidebar-group-label">Setup</div>
             <a href="#requirements">Requirements</a>
             <a href="#choose">Choose a Starter</a>
@@ -84,7 +84,6 @@
             <div class="sidebar-group-label">Reference</div>
             <a href="#sandbox-creds">Sandbox Credentials</a>
             <a href="#amounts">Amount Units</a>
-
         </nav>
     </aside>
 
@@ -136,10 +135,11 @@
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
-                    Use the <strong>blocking starter</strong> if your app uses
-                    Spring MVC (<code>@RestController</code> returning values directly).
-                    Use the <strong>reactive starter</strong> if your app uses
-                    Spring WebFlux (controllers returning <code>Mono</code>).
+                    Use the <strong>blocking starter</strong> if your app
+                    uses Spring MVC — controllers returning values directly.
+                    Use the <strong>reactive starter</strong> if your app
+                    uses Spring WebFlux — controllers returning
+                    <code>Mono</code> or <code>Flux</code>.
                 </p>
             </div>
 
@@ -161,7 +161,7 @@
                         <td><code>nepal-pay-spring-boot-4-starter</code></td>
                     </tr>
                     <tr>
-                        <td>Spring WebFlux (reactive, non-blocking)</td>
+                        <td>Spring WebFlux (reactive)</td>
                         <td><code>nepal-pay-spring-boot-reactive-starter</code></td>
                     </tr>
                     </tbody>
@@ -172,9 +172,10 @@
                 <span class="callout-icon">✅</span>
                 <p>
                     The <strong>same <code>application.yml</code></strong>
-                    works for all three starters. Same <code>nepalpay.*</code>
-                    properties, same sandbox/production behaviour.
-                    Only the artifact name and injected bean types differ.
+                    works for all three starters. Same
+                    <code>nepalpay.*</code> properties, same sandbox
+                    and production behaviour. Only the artifact name
+                    and injected bean types differ.
                 </p>
             </div>
         </section>
@@ -185,8 +186,10 @@
 
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
-                <p><strong>Available on Maven Central.</strong>
-                    No <code>&lt;repositories&gt;</code> block needed.</p>
+                <p>
+                    <strong>Available on Maven Central.</strong>
+                    No <code>&lt;repositories&gt;</code> block needed.
+                </p>
             </div>
 
             <div class="tabs">
@@ -233,10 +236,10 @@
             </div>
 
             <div id="tab-kts" class="tab-pane">
-                <p><strong>Spring Boot 3.2+:</strong></p>
+                <p><strong>Spring Boot 3.2+ — Blocking:</strong></p>
                 <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0")</code></pre>
 
-                <p><strong>Spring Boot 4.x:</strong></p>
+                <p><strong>Spring Boot 4.x — Blocking:</strong></p>
                 <pre><code>implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.2.0")</code></pre>
 
                 <p><strong>Spring WebFlux — Reactive:</strong></p>
@@ -249,8 +252,9 @@
             <h2>Configure</h2>
 
             <p>
-                Add to <code>application.yml</code>. Only configure the gateways
-                you use — beans are created conditionally when keys are present.
+                Add to <code>application.yml</code>. Only configure
+                the gateways you use — beans are created
+                conditionally when keys are present.
                 The same YAML works for blocking and reactive starters.
             </p>
 
@@ -280,39 +284,42 @@
     app-id:       ${CONNECTIPS_APP_ID}
     app-name:     ${CONNECTIPS_APP_NAME}
     app-password: ${CONNECTIPS_APP_PASSWORD}
-    pfx-path:     ${CONNECTIPS_PFX_PATH}
+    pfx-path:     ${CONNECTIPS_PFX_PATH}        # file:/app/CREDITOR.pfx
     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
+    timeout-seconds: 30                          # optional, default 30s
     sandbox: true</code></pre>
 
             <p>
                 Spring Boot auto-configures the client beans automatically
-                when keys are present. Zero <code>@Bean</code> methods.
-                Zero config classes.
+                when credentials are present. Zero <code>@Bean</code> methods.
+                Zero configuration classes.
             </p>
+
+            <h3>Optional — Metrics &amp; Health (v1.2.0)</h3>
+            <p>
+                Add <code>spring-boot-starter-actuator</code> and everything
+                registers automatically. Opt-out if needed:
+            </p>
+            <pre><code>nepalpay:
+  metrics:
+    enabled: true    # opt-out: set false to disable Micrometer metrics
+  health:
+    enabled: true    # opt-out: set false to disable /actuator/health indicators</code></pre>
 
             <h3>Optional — Retry</h3>
             <pre><code>nepalpay:
   khalti:
     retry:
-      enabled: true          # disabled by default
+      enabled: true          # disabled by default — opt-in
       max-attempts: 3
       initial-delay-ms: 500
       multiplier: 2.0
       max-delay-ms: 5000</code></pre>
 
-            <h3>Optional — Observability (v1.2.0)</h3>
             <p>
-                Add <code>spring-boot-starter-actuator</code> to your project —
-                NepalPay automatically registers Micrometer timers, counters,
-                and health indicators per gateway.
+                See the <a href="configuration.html">full configuration
+                reference →</a>
             </p>
-            <pre><code>nepalpay:
-  metrics:
-    enabled: true    # opt-out: set false to disable all Micrometer metrics
-  health:
-    enabled: true    # opt-out: set false to disable /actuator/health indicators</code></pre>
-
-            <p>See the <a href="configuration.html#retry">retry configuration reference →</a></p>
         </section>
 
         <!-- Khalti Quickstart -->
@@ -329,25 +336,44 @@ public class PaymentService {
     public String startKhalti(String orderId, long amountNPR) {
         var res = khaltiClient.initiatePayment(
             KhaltiInitiateRequest.builder()
-                .amount(amountNPR * 100L)     // NPR → paisa
+                .amount(amountNPR * 100L)  // NPR → paisa
                 .purchaseOrderId(orderId)
                 .purchaseOrderName("Your Product")
                 .build()
         );
-        // IMPORTANT: save res.pidx() to DB before returning!
+        // ✅ ALWAYS save pidx to DB before redirecting
+        orderRepo.savePidx(orderId, res.pidx());
         return res.paymentUrl();
     }
 
-    // Step 2: Verify after callback
+    // Step 2: Verify after callback — NEVER trust redirect alone
     public boolean verifyKhalti(String pidx) {
         KhaltiLookupResponse lookup = khaltiClient.lookupPayment(pidx);
+
+        // Load order from DB using saved pidx
+        String orderId = orderRepo.findOrderByPidx(pidx);
+        long expectedPaisa = orderRepo.getAmountPaisa(orderId);
+
+        // Verify amount was not tampered
+        if (!lookup.isAmountValid(expectedPaisa)) {
+            log.error("SECURITY: Amount mismatch for pidx={}", pidx);
+            return false;
+        }
         return lookup.isPaymentSuccessful();
     }
 
-    // Step 3: Refund (uses transactionId, NOT pidx)
+    // Step 3: Full refund (uses transactionId — NOT pidx)
     public boolean refundKhalti(String transactionId) {
         KhaltiRefundResponse refund =
             khaltiClient.refundPayment(transactionId);
+        return refund.isRefundSuccessful();
+    }
+
+    // Step 3b: Partial refund
+    public boolean partialRefundKhalti(
+            String transactionId, long amountPaisa) {
+        KhaltiRefundResponse refund =
+            khaltiClient.refundPayment(transactionId, amountPaisa);
         return refund.isRefundSuccessful();
     }
 }</code></pre>
@@ -358,6 +384,8 @@ public class PaymentService {
                     <strong>Amount is in Paisa, not NPR.</strong>
                     NPR 100 → send <code>10000L</code>.
                     Minimum payment is NPR 10 = <code>1000L</code> paisa.
+                    Refunds require <code>transactionId</code>
+                    from <code>lookupPayment()</code> — not <code>pidx</code>.
                 </p>
             </div>
 
@@ -375,17 +403,25 @@ public class PaymentService {
     private final EsewaClient esewaClient; // auto-injected
 
     // Step 1: Build signed form payload
-    public EsewaFormPayload startEsewa(BigDecimal amountNPR) {
+    public EsewaFormPayload startEsewa(
+            String orderId, BigDecimal amountNPR) {
+
         String uuid = EsewaClient.generateTransactionUuid();
-        // IMPORTANT: save uuid to DB before returning!
+        // ✅ Save uuid BEFORE returning to frontend
+        orderRepo.saveUuid(orderId, uuid);
+
+        // eSewa uses NPR directly — NOT paisa like Khalti
         return esewaClient.buildFormPayload(amountNPR, uuid);
-        // Frontend POSTs form fields to payload.formActionUrl()
+        // Frontend POSTs all payload fields to payload.formActionUrl()
     }
 
-    // Step 2: Verify after callback (data = Base64 query param)
+    // Step 2: Verify after callback
+    // data = Base64-encoded JSON from eSewa redirect query param
     public boolean verifyEsewa(String encodedData) {
-        return esewaClient.verifyCallback(encodedData)
-                          .isPaymentSuccessful();
+        EsewaClient.EsewaVerificationResult result =
+            esewaClient.verifyCallback(encodedData);
+        // verifyCallback: decodes → verifies HMAC → calls status API
+        return result.isPaymentSuccessful();
     }
 }</code></pre>
 
@@ -394,7 +430,8 @@ public class PaymentService {
                 <p>
                     <strong>eSewa uses NPR directly — not paisa.</strong>
                     NPR 100 → send <code>new BigDecimal("100.00")</code>.
-                    This is the opposite of Khalti which uses paisa.
+                    eSewa status is <code>"COMPLETE"</code>
+                    not <code>"COMPLETED"</code> — do not confuse the two.
                 </p>
             </div>
 
@@ -410,26 +447,46 @@ public class PaymentService {
 public class PaymentService {
 
     private final FonepayClient fonepayClient; // auto-injected
+    private final OrderRepository orderRepo;
 
-    // Step 1: Build signed redirect URL
+   // Step 1: Build signed redirect URL
     public String startFonepay(String orderId, double amountNPR) {
-        String prn = "FP-" + orderId;
-        // IMPORTANT: save prn to DB before returning!
-        return fonepayClient.buildRedirectParams(
+        String prn = "FP-" + orderId; // max 25 chars
+        // ✅ Save prn BEFORE returning to frontend
+        orderRepo.savePrn(orderId, prn);
+
+        FonepayRedirectParams params = fonepayClient.buildRedirectParams(
             FonepayPaymentRequest.builder()
                 .prn(prn)
-                .amount(amountNPR)  // NPR directly — not paisa!
+                .amount(amountNPR)   // NPR directly — not paisa
                 .remarks1("Your Product")
                 .build()
-        ).redirectUrl(); // frontend: window.location.href = this
+        );
+        // Frontend: window.location.href = this URL
+        return params.redirectUrl();
     }
 
     // Step 2: Verify after callback
     public boolean verifyFonepay(FonepayCallbackResponse callback) {
-        return fonepayClient.verifyCallback(callback)
-                            .isPaymentSuccessful();
+        FonepayClient.FonepayVerificationResult result =
+            fonepayClient.verifyCallback(callback);
+        // verifyCallback: re-computes HMAC-SHA512, compares DV,
+        // THEN checks PS=success — never trust PS alone
+        return result.isPaymentSuccessful();
     }
+}
 }</code></pre>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    Fonepay makes <strong>zero server-to-server HTTP
+                    calls</strong> — it is a URL redirect model.
+                    No retry configuration applies.
+                    The blocking <code>FonepayClient</code> works
+                    perfectly inside WebFlux applications.
+                </p>
+            </div>
 
             <p>See the full <a href="fonepay.html">Fonepay guide →</a></p>
         </section>
@@ -440,26 +497,52 @@ public class PaymentService {
 
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
-                <p>Requires NCHL merchant registration.
-                    Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.</p>
+                <p>
+                    Requires NCHL merchant registration.
+                    You will receive a merchant ID, app credentials,
+                    and a <code>CREDITOR.pfx</code> certificate file.
+                    Contact
+                    <a href="mailto:connectips@nchl.com.np">
+                        connectips@nchl.com.np
+                    </a>.
+                </p>
             </div>
 
-            <pre><code>// Step 1: Build RSA-signed form payload
-ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
-    ConnectIpsPaymentRequest.builder()
-        .txnId("TXN-" + orderId)
-        .amountNPR(100L)      // auto-converts to paisa (×100)
-        .referenceId(orderId)
-        .build()
-);
-// Frontend POSTs form to payload.formActionUrl()
+            <pre><code>@Service
+@RequiredArgsConstructor
+public class PaymentService {
 
-// Step 2: Validate after callback
-ConnectIpsValidateResponse res =
-    connectIpsClient.validateTransaction(txnId, referenceId, txnAmtPaisa);
+    private final ConnectIpsClient connectIpsClient; // auto-injected
 
-if (res.isPaymentSuccessful()) {
-    // mark order as paid
+    // Step 1: Build RSA-signed form payload
+    public ConnectIpsFormPayload startConnectIps(
+            String orderId, long amountNPR) {
+
+        String txnId = "TXN-" + orderId + "-"
+                + System.currentTimeMillis();
+        // ✅ Save txnId BEFORE returning to frontend
+        orderRepo.saveTxnId(orderId, txnId);
+
+        return connectIpsClient.buildFormPayload(
+            ConnectIpsPaymentRequest.builder()
+                .txnId(txnId)
+                .amountNPR(amountNPR)   // auto-converts to paisa ×100
+                .referenceId(orderId)
+                .remarks("Payment for " + orderId)
+                .build()
+        );
+        // Frontend POSTs UPPERCASE form fields to payload.formActionUrl()
+    }
+
+    // Step 2: Validate after callback — NEVER trust redirect
+    public boolean verifyConnectIps(
+            String txnId, String referenceId, long txnAmtPaisa) {
+
+        ConnectIpsValidateResponse res =
+            connectIpsClient.validateTransaction(
+                txnId, referenceId, txnAmtPaisa);
+        return res.isPaymentSuccessful();
+    }
 }</code></pre>
 
             <p>See the full <a href="connectips.html">ConnectIPS guide →</a></p>
@@ -474,8 +557,10 @@ if (res.isPaymentSuccessful()) {
                 <p>
                     The reactive starter returns <code>Mono&lt;T&gt;</code>
                     for all HTTP-calling methods.
-                    <code>buildFormPayload()</code> methods are
-                    synchronous — no <code>Mono</code> needed there.
+                    <code>buildFormPayload()</code> methods are synchronous —
+                    no <code>Mono</code> needed there. All validation is
+                    inside <code>Mono.defer()</code> so errors are always
+                    emitted as reactive signals, never thrown.
                 </p>
             </div>
 
@@ -490,7 +575,7 @@ public class ReactivePaymentService {
     private final ConnectIpsReactiveClient connectIpsReactiveClient;
 
     // FonepayClient from blocking starter — no HTTP calls,
-    // works fine in reactive apps without any changes
+    // works in reactive apps without any changes
     private final FonepayClient fonepayClient;
 }</code></pre>
 
@@ -511,14 +596,22 @@ public Mono&lt;String&gt; startKhalti(String orderId, long amountNPR) {
 // Step 2: Verify after callback
 public Mono&lt;Boolean&gt; verifyKhalti(String pidx) {
     return khaltiReactiveClient.lookupPayment(pidx)
-        .map(KhaltiLookupResponse::isPaymentSuccessful);
+        .flatMap(lookup -&gt; {
+            String orderId = orderRepo.findOrderByPidx(pidx);
+            long expectedPaisa = orderRepo.getAmountPaisa(orderId);
+            if (!lookup.isAmountValid(expectedPaisa)) {
+                return Mono.just(false);
+            }
+            return Mono.just(lookup.isPaymentSuccessful());
+        });
 }</code></pre>
 
             <h3>eSewa — Reactive</h3>
             <pre><code>// Step 1: Build payload — synchronous (no HTTP)
-public EsewaFormPayload startEsewa(BigDecimal amount) {
+public EsewaFormPayload startEsewa(
+        String orderId, BigDecimal amount) {
     String uuid = EsewaReactiveClient.generateTransactionUuid();
-    // save uuid to DB first!
+    orderRepo.saveUuid(orderId, uuid); // save first!
     return esewaReactiveClient.buildFormPayload(amount, uuid);
 }
 
@@ -529,6 +622,53 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
                 ::isPaymentSuccessful);
 }</code></pre>
 
+            <h3>ConnectIPS — Reactive</h3>
+            <pre><code>// Step 1: Build payload — synchronous (RSA signing, no HTTP)
+public ConnectIpsFormPayload startConnectIps(
+        String orderId, long amountNPR) {
+    String txnId = "TXN-" + orderId + "-"
+            + System.currentTimeMillis();
+    orderRepo.saveTxnId(orderId, txnId);
+    return connectIpsReactiveClient.buildFormPayload(
+        ConnectIpsPaymentRequest.builder()
+            .txnId(txnId)
+            .amountNPR(amountNPR)
+            .referenceId(orderId)
+            .build()
+    );
+}
+
+// Step 2: Validate — reactive (validation + RSA inside Mono.defer)
+public Mono&lt;Boolean&gt; verifyConnectIps(
+        String txnId, String referenceId, long txnAmtPaisa) {
+    return connectIpsReactiveClient
+        .validateTransaction(txnId, referenceId, txnAmtPaisa)
+        .map(ConnectIpsValidateResponse::isPaymentSuccessful);
+}</code></pre>
+
+            <h3>Fonepay in Reactive Apps</h3>
+            <pre><code>// FonepayClient from blocking starter — no HTTP calls,
+// no event-loop blocking. Use directly.
+public String startFonepay(String orderId, double amountNPR) {
+    String prn = "FP-" + orderId;
+    orderRepo.savePrn(orderId, prn);
+    return fonepayClient.buildRedirectParams(
+        FonepayPaymentRequest.builder()
+            .prn(prn)
+            .amount(amountNPR)
+            .remarks1("Your Product")
+            .build()
+    ).redirectUrl();
+}
+
+// If you need to wrap in Mono for pipeline composition:
+public Mono&lt;Boolean&gt; verifyFonepay(FonepayCallbackResponse callback) {
+    return Mono.fromCallable(() -&gt;
+        fonepayClient.verifyCallback(callback)
+                     .isPaymentSuccessful())
+        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+}</code></pre>
+
             <p>See the full <a href="reactive.html">Reactive guide →</a></p>
         </section>
 
@@ -537,6 +677,11 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
             <h2>Sandbox Credentials</h2>
 
             <h3>eSewa Sandbox</h3>
+            <p>
+                Official sandbox credentials from
+                <a href="https://developer.esewa.com.np"
+                   target="_blank" rel="noopener">developer.esewa.com.np</a>:
+            </p>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -554,22 +699,47 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
             </div>
 
             <h3>Khalti Sandbox</h3>
-            <p>Get your test secret key from
-                <a href="https://test-admin.khalti.com" target="_blank" rel="noopener">test-admin.khalti.com</a>.
+            <p>
+                Get your test secret key from
+                <a href="https://test-admin.khalti.com"
+                   target="_blank" rel="noopener">
+                    test-admin.khalti.com
+                </a>.
+                The sandbox API base URL is
+                <code>https://dev.khalti.com/api/v2</code>.
             </p>
 
             <h3>Fonepay Sandbox</h3>
             <p>
-                Sandbox gateway: <code>https://dev.fonepay.com/api/merchantRequest</code><br>
-                Credentials are provided after registration with Fonepay via your bank.
+                Sandbox gateway:
+                <code>https://dev.fonepay.com/api/merchantRequest</code><br>
+                Credentials are provided by Fonepay after registration
+                via your bank. Set <code>sandbox: true</code> in
+                <code>application.yml</code>.
             </p>
 
-            <h3>ConnectIPS Sandbox</h3>
+            <h3>ConnectIPS Sandbox (UAT)</h3>
             <p>
-                UAT gateway: <code>https://uat.connectips.com</code><br>
+                UAT gateway:
+                <code>https://uat.connectips.com</code><br>
                 Requires NCHL merchant registration.
-                Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.
+                Contact
+                <a href="mailto:connectips@nchl.com.np">
+                    connectips@nchl.com.np
+                </a>
+                to obtain your UAT credentials and
+                <code>CREDITOR.pfx</code> file.
             </p>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <strong>Never commit credentials to Git.</strong>
+                    Even sandbox credentials should be in environment
+                    variables or a local <code>.env</code> file
+                    added to <code>.gitignore</code>.
+                </p>
+            </div>
         </section>
 
         <!-- Amount Units -->
@@ -577,8 +747,8 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
             <h2>Amount Units Per Gateway</h2>
 
             <p>
-                This is the most common source of bugs when integrating Nepal
-                payment gateways. Each gateway uses different units.
+                The most common source of integration bugs.
+                Each gateway uses different units and Java types.
                 The same units apply for both blocking and reactive clients.
             </p>
 
@@ -591,7 +761,9 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
                 <div class="amount-card">
                     <div class="amount-gateway">eSewa</div>
                     <div class="amount-unit">NPR</div>
-                    <div class="amount-example">NPR 100 → "100.00"</div>
+                    <div class="amount-example">
+                        NPR 100 → BigDecimal("100.00")
+                    </div>
                 </div>
                 <div class="amount-card">
                     <div class="amount-gateway">Fonepay</div>
@@ -604,24 +776,37 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
                     <div class="amount-example">NPR 100 → 10000L</div>
                 </div>
             </div>
+
+            <div class="callout callout-info"
+                 style="margin-top:1.5rem">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    Use <code>.amountNPR(100L)</code> on
+                    <code>ConnectIpsPaymentRequest.builder()</code>
+                    for automatic NPR → paisa conversion.
+                    Or use <code>.txnAmtPaisa(10000L)</code> if
+                    you already have paisa.
+                </p>
+            </div>
         </section>
 
     </article>
 </div>
 
-<!-- ═══ FOOTER ═══════════════════════════════════════ -->
 <footer class="footer">
     <div class="footer-inner">
         <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
         <div class="footer-links">
             <a href="index.html">Home</a>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
+            <a href="connectips.html">ConnectIPS</a>
+            <a href="fonepay.html">Fonepay</a>
             <a href="reactive.html">Reactive</a>
             <a href="configuration.html">Config</a>
             <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
-            <a href="https://sujanlamichhane.com.np"
-               target="_blank" rel="noopener">Author</a>
         </div>
         <p class="footer-copy">MIT © 2026 · Built for Nepal's developers 🇳🇵</p>
     </div>
@@ -644,6 +829,24 @@ public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
         document.getElementById('tab-' + name).classList.add('active');
         btn.classList.add('active');
     }
+
+    /* Sidebar active link on scroll */
+    (function () {
+        var links = document.querySelectorAll('.sidebar-nav a');
+        var sections = document.querySelectorAll('.docs-content section');
+        window.addEventListener('scroll', function () {
+            var pos = window.scrollY + 100;
+            sections.forEach(function (s) {
+                if (s.offsetTop <= pos &&
+                    s.offsetTop + s.offsetHeight > pos) {
+                    links.forEach(function (l) { l.classList.remove('active'); });
+                    var active = document.querySelector(
+                        '.sidebar-nav a[href="#' + s.id + '"]');
+                    if (active) active.classList.add('active');
+                }
+            });
+        });
+    }());
 </script>
 </body>
 </html>
