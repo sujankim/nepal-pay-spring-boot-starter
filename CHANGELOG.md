@@ -45,7 +45,7 @@ Applied through `SimpleClientHttpRequestFactory`:
 
 #### PfxLoader Extracted to `nepal-pay-core` (D-35 / D-51)
 
-The six duplicated `loadPfxBytes()` implementations across the auto-configuration modules have been replaced with a shared utility:
+The six duplicated `loadPfxBytes()` implementations across all auto-configuration modules have been replaced with a shared utility:
 
 - `PfxLoader.validatePath(String)` — validates the configured `pfx-path` (Spring-free)
 - `PfxLoader.read(InputStream, String)` — safely reads bytes using try-with-resources (Spring-free)

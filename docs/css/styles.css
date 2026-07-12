@@ -500,9 +500,23 @@ pre code {
     color: var(--hero-text);
 }
 .btn-gold {
-    background: var(--teal-500); color: #fff;
+    background: var(--teal-600);
+    color: var(--teal-900);
+    box-shadow: 0 4px 16px var(--accent-glow);
 }
-.btn-gold:hover { background: var(--teal-600); color: #fff; }
+.btn-gold:hover {
+    background: var(--teal-500);
+    color: var(--teal-900);
+    transform: translateY(-1px);
+}
+[data-theme="dark"] .btn-gold {
+    background: var(--teal-400);
+    color: #040E0D;
+}
+[data-theme="dark"] .btn-gold:hover {
+    background: var(--teal-300);
+    color: #040E0D;
+}
 
 .btn-outline {
     background: var(--surface); color: var(--text-2);
@@ -510,6 +524,15 @@ pre code {
     box-shadow: var(--shadow-sm);
 }
 .btn-outline:hover { background: var(--bg-2); color: var(--accent); border-color: var(--accent-border); }
+
+/* ── Hero accent text classes — Ocean theme ─────────────────── */
+.hero h1 .accent,
+.hero h1 .accent-crimson {
+    color: var(--teal-400);
+}
+.hero h1 .accent-gold {
+    color: var(--teal-300);
+}
 
 /* ══════════════════════════════════════════════════════════════
    INSTALL STRIP — Ocean dark
