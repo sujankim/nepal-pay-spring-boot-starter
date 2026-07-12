@@ -532,7 +532,7 @@ histogram_quantile(0.99,
 )
 
 # eSewa fraud alert — HMAC mismatch spike
-rate(nepalpay_esewa_callback_signature_failed_total[5m]) > 5
+rate(nepalpay_esewa_callback_signature_failed_total[5m]) &gt; 5
 
 # ConnectIPS retry rate
 rate(nepalpay_connectips_retry_attempts_total[5m])</code></pre>

@@ -342,7 +342,7 @@ submitEsewaPayment(payload: EsewaFormPayload): void {
                 <p>
                     The <code>signature</code> is generated entirely
                     on your backend using your HMAC-SHA256 secret key.
-                    The private key never reaches the frontend.
+                    The HMAC secret never reaches the frontend.
                     Only the resulting signature value is sent
                     as a form field.
                 </p>

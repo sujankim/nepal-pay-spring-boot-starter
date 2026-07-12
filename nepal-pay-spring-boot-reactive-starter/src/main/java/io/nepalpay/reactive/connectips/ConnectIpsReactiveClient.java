@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Enumeration;
+import io.netty.channel.ChannelOption;
 
 /**
  * Reactive ConnectIPS Payment Gateway Client.
@@ -291,9 +292,13 @@ public final class ConnectIpsReactiveClient {
         // ── WebClient with configurable timeout ───────────────────────────
         // Uses ReactorClientHttpConnector + Netty HttpClient.responseTimeout()
         // — correct non-blocking approach for WebFlux (no Thread.sleep).
+        //  also add TCP connect timeout so slow/unreachable endpoints
+        // don't hang during connection setup (responseTimeout only covers
+        // the response phase, not the TCP connect phase)
         HttpClient httpClient = HttpClient.create()
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                        (int) Duration.ofSeconds(this.timeoutSeconds).toMillis())
                 .responseTimeout(Duration.ofSeconds(this.timeoutSeconds));
-
         this.webClient = builder
                 .baseUrl(validateBaseUrlOverride)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))

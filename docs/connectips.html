@@ -415,7 +415,8 @@ submitConnectIps(payload: ConnectIpsFormPayload): void {
                 <strong>Always call this</strong> — never trust the redirect.
             </p>
 
-            <pre><code>@GetMapping("/connectips/callback")
+            <pre><code>
+@GetMapping("/connectips/callback")
 public ResponseEntity&lt;String&gt; callback(
         @RequestParam String txnId,
         @RequestParam String referenceId,
@@ -427,15 +428,17 @@ public ResponseEntity&lt;String&gt; callback(
             txnId, referenceId, txnAmt);
 
     if (!res.isPaymentSuccessful()) {
-        log.warn("ConnectIPS payment not confirmed | txnId={} | status={}",
-            txnId, res.status());
         return ResponseEntity.badRequest()
             .body("Payment not confirmed: " + res.statusDesc());
     }
 
-    // Mark paid using the referenceId (your original orderId)
-    orderRepo.markPaid(referenceId);
+    // ✅ Load order from DB using the saved txnId — NOT referenceId from redirect
+    // The redirect referenceId can be attacker-controlled.
+    // Use the txnId you saved during buildFormPayload() to look up the order.
+    String orderId = orderRepo.findOrderByTxnId(txnId);
+    orderRepo.markPaid(orderId);
     return ResponseEntity.ok("Payment confirmed");
+}
 }</code></pre>
 
             <h3 id="response-fields">ConnectIpsValidateResponse fields</h3>
@@ -536,7 +539,7 @@ ConnectIpsValidateResponse res =
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
                 <p>
-                    NepalPay searches all KeyStore aliases using
+                    NepalPay iterates all KeyStore aliases and checks
                     <code>isKeyEntry()</code> before selecting —
                     safe for PFX files with multiple entries
                     (certificate chain + private key).

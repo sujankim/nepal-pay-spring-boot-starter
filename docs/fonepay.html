@@ -268,12 +268,17 @@
             <h2>buildRedirectParams()</h2>
 
             <pre><code>// PRN must be 3–25 chars, unique per transaction
-String prn = "FP-" + orderId;
+// AFTER — Use UUID-based PRN to avoid collision from truncation
+// Distinct orderIds sharing the same first 22 chars would produce
+// the same truncated PRN — risking callback misattribution.
+import java.util.UUID;
+String prn = "FP-" + UUID.randomUUID()
+        .toString()
+        .replace("-", "")
+        .substring(0, 22);   // 3 + 22 = 25 chars — within Fonepay limit
 
-// Ensure PRN is max 25 chars
-if (prn.length() > 25) {
-    prn = prn.substring(0, 25);
-}
+// ✅ Save the generated PRN mapped to orderId BEFORE returning
+orderRepo.savePrn(orderId, prn);
 
 // ✅ Save PRN to DB BEFORE returning redirectUrl
 orderRepo.savePrn(orderId, prn);
