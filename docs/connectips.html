@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ConnectIPS Integration — NepalPay</title>
+    <meta name="description"
+          content="Integrate ConnectIPS payments in Spring Boot. RSA-SHA256 digital signatures via CREDITOR.pfx — bank-to-bank payments through NCHL.">
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         (function () {
@@ -52,8 +54,11 @@
         <div class="page-header-left">
             <div class="page-version-pill">✅ v1.2.0</div>
             <h1>ConnectIPS Integration</h1>
-            <p>RSA-SHA256 digital signatures via CREDITOR.pfx —
-                bank-to-bank payments through NCHL.</p>
+            <p>
+                RSA-SHA256 digital signatures via CREDITOR.pfx —
+                direct bank-to-bank payments through NCHL.
+                Blocking and reactive with configurable timeout.
+            </p>
         </div>
     </div>
 </div>
@@ -73,7 +78,9 @@
             <div class="sidebar-group-label">Reactive</div>
             <a href="#reactive">Reactive Usage</a>
             <div class="sidebar-group-label">Reference</div>
-            <a href="#differences">Differences from Others</a>
+            <a href="#request-fields">Request fields</a>
+            <a href="#response-fields">Response fields</a>
+            <a href="#vs-others">vs Other Gateways</a>
         </nav>
     </aside>
 
@@ -86,28 +93,34 @@
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
                 <p>
-                    <strong>Merchant registration required.</strong>
-                    ConnectIPS requires registration with NCHL before use.
+                    <strong>Merchant registration required before use.</strong>
+                    ConnectIPS requires registration with NCHL.
                     You cannot test without NCHL credentials.
-                    Contact <a href="mailto:connectips@nchl.com.np">connectips@nchl.com.np</a>.
+                    Contact
+                    <a href="mailto:connectips@nchl.com.np">
+                        connectips@nchl.com.np
+                    </a>
+                    or your bank.
                 </p>
             </div>
 
             <p>From NCHL you will receive:</p>
             <ul>
                 <li>Merchant ID (integer)</li>
-                <li>Application ID and Name</li>
-                <li>Application Password</li>
-                <li>CREDITOR.pfx certificate file</li>
-                <li>Password for the .pfx file</li>
+                <li>Application ID and Application Name</li>
+                <li>Application Password (for HTTP Basic Auth)</li>
+                <li><code>CREDITOR.pfx</code> certificate file</li>
+                <li>Password for the <code>.pfx</code> file</li>
             </ul>
 
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
                 <p>
                     <strong>Never commit CREDITOR.pfx to Git.</strong>
-                    Add <code>*.pfx</code> to your <code>.gitignore</code> immediately.
-                    The .pfx contains your RSA private key.
+                    Add <code>*.pfx</code> to your
+                    <code>.gitignore</code> immediately.
+                    The <code>.pfx</code> contains your RSA private key.
+                    Anyone with it can forge ConnectIPS payment tokens.
                 </p>
             </div>
         </section>
@@ -118,29 +131,37 @@
 
             <div class="flow">Your Backend: buildFormPayload()
                 → RSA-SHA256 sign with CREDITOR.pfx private key
-                → returns ConnectIpsFormPayload
+                → Returns ConnectIpsFormPayload (TOKEN field = signature)
+
+                ✅ Save txnId to DB FIRST — before returning to frontend
+
+                Frontend: POST form with UPPERCASE field names
+                to payload.formActionUrl()
                 ↓
-                Frontend: POST form to payload.formActionUrl()
-                ↓
-                User completes bank transfer on ConnectIPS
+                User completes bank transfer on ConnectIPS gateway
                 ↓
                 ConnectIPS redirects to your callback URL
-                ↓
-                ⚠️  NEVER trust this redirect alone!
-                ↓
+                ?txnId=xxx&referenceId=ORD-001&txnAmt=10000
+
+                ⚠️  NEVER trust this redirect alone — it can be faked!
+
                 Your Backend: validateTransaction(txnId, referenceId, txnAmtPaisa)
                 → POST to ConnectIPS validate API with HTTP Basic Auth
-                → response: { status: "SUCCESS" }
+                → { status: "SUCCESS", statusDesc: "TRANSACTION SUCCESSFUL" }
                 ↓
-                ✅ mark order as paid</div>
+                ✅ Mark order as paid ONLY when status == "SUCCESS"</div>
 
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
                     The <strong>RSA private key is cached at startup</strong>
-                    from your CREDITOR.pfx file. If the .pfx is invalid or
-                    missing, the application fails fast at startup with a
-                    clear error — not silently at payment time.
+                    from your <code>CREDITOR.pfx</code> file.
+                    NepalPay iterates all KeyStore aliases and selects
+                    the first <code>isKeyEntry()</code> — safe for
+                    multi-entry PFX files.
+                    If the <code>.pfx</code> is invalid or missing,
+                    startup fails immediately with a clear error —
+                    never silently at payment time.
                 </p>
             </div>
         </section>
@@ -157,7 +178,79 @@
     app-password: ${CONNECTIPS_APP_PASSWORD}
     pfx-path:     ${CONNECTIPS_PFX_PATH}        # file:/app/CREDITOR.pfx
     pfx-password: ${CONNECTIPS_PFX_PASSWORD}
-    sandbox: true</code></pre>
+    timeout-seconds: 30    # default 30s — increase for slow banks
+    sandbox: true          # false for production
+
+    # Optional retry
+    retry:
+      enabled: true
+      max-attempts: 3
+      initial-delay-ms: 500
+      multiplier: 2.0
+      max-delay-ms: 5000</code></pre>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Required</th>
+                        <th>Default</th>
+                        <th>Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><code>merchant-id</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>NCHL integer merchant ID. Bean created when present.</td>
+                    </tr>
+                    <tr>
+                        <td><code>app-id</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Application ID from NCHL.</td>
+                    </tr>
+                    <tr>
+                        <td><code>app-name</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Application name from NCHL.</td>
+                    </tr>
+                    <tr>
+                        <td><code>app-password</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Used for HTTP Basic Auth on the validate API.</td>
+                    </tr>
+                    <tr>
+                        <td><code>pfx-path</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Spring Resource path to CREDITOR.pfx. See formats below.</td>
+                    </tr>
+                    <tr>
+                        <td><code>pfx-password</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Password for the CREDITOR.pfx file.</td>
+                    </tr>
+                    <tr>
+                        <td><code>sandbox</code></td>
+                        <td>—</td>
+                        <td><code>true</code></td>
+                        <td><code>true</code> = uat.connectips.com · <code>false</code> = connectips.com</td>
+                    </tr>
+                    <tr>
+                        <td><code>timeout-seconds</code></td>
+                        <td>—</td>
+                        <td><code>30</code></td>
+                        <td>HTTP timeout in seconds. Default 30s — intentionally longer than other gateways because ConnectIPS validates via NCHL to bank systems which can be slower. Increase if you see timeouts.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <h3>pfx-path formats</h3>
             <div class="table-wrap">
@@ -173,24 +266,15 @@
                     <tr>
                         <td><code>file:</code></td>
                         <td><code>file:/app/CREDITOR.pfx</code></td>
-                        <td>Absolute path on server</td>
+                        <td>Absolute path on server — recommended for production</td>
                     </tr>
                     <tr>
                         <td><code>classpath:</code></td>
                         <td><code>classpath:CREDITOR.pfx</code></td>
-                        <td>Inside JAR (not recommended for production)</td>
+                        <td>Inside JAR — not recommended for production</td>
                     </tr>
                     </tbody>
                 </table>
-            </div>
-
-            <div class="callout callout-warning">
-                <span class="callout-icon">⚠️</span>
-                <p>
-                    Always load the .pfx from an environment variable path,
-                    not hardcoded. Never place the .pfx file inside your
-                    source repository.
-                </p>
             </div>
         </section>
 
@@ -198,31 +282,38 @@
         <section id="build-payload">
             <h2>buildFormPayload()</h2>
 
-            <pre><code>String txnId = "TXN-" + orderId + "-" + System.currentTimeMillis();
-orderRepo.saveTxnId(orderId, txnId); // save BEFORE returning!
+            <pre><code>// Generate a unique transaction ID
+String txnId = "TXN-" + orderId + "-" + System.currentTimeMillis();
+
+// ✅ Save txnId to DB BEFORE returning to frontend
+orderRepo.saveTxnId(orderId, txnId);
 
 ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
     ConnectIpsPaymentRequest.builder()
         .txnId(txnId)
-        .amountNPR(100L)     // ← auto-converts NPR to paisa (×100)
+        .amountNPR(100L)     // auto-converts NPR → paisa (×100)
         .referenceId(orderId)
         .remarks("Payment for order " + orderId)
         .particulars("MyApp")
         .build()
 );
 
-// Return payload to frontend</code></pre>
+// Return payload to frontend
+// Frontend POSTs UPPERCASE field names to payload.formActionUrl()</code></pre>
 
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
                 <p>
-                    Use <code>.amountNPR(100L)</code> for automatic conversion,
-                    or <code>.txnAmtPaisa(10000L)</code> if you already have paisa.
-                    ConnectIPS uses <strong>paisa</strong> internally — NPR 100 = 10000 paisa.
+                    Use <code>.amountNPR(100L)</code> for automatic
+                    NPR → paisa conversion (×100).
+                    Or use <code>.txnAmtPaisa(10000L)</code> if you
+                    already have the paisa amount.
+                    ConnectIPS uses <strong>paisa</strong> internally —
+                    NPR 100 = 10000 paisa.
                 </p>
             </div>
 
-            <h3>Request builder fields</h3>
+            <h3 id="request-fields">ConnectIpsPaymentRequest builder fields</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -236,12 +327,12 @@ ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
                     <tr>
                         <td><code>.txnId(String)</code></td>
                         <td><span class="pill pill-bad">Required</span></td>
-                        <td>Unique transaction ID — store in DB first</td>
+                        <td>Unique transaction ID — save to DB first</td>
                     </tr>
                     <tr>
                         <td><code>.amountNPR(long)</code></td>
                         <td><span class="pill pill-bad">Required</span></td>
-                        <td>Amount in NPR — auto-converts to paisa × 100</td>
+                        <td>Amount in NPR — auto-converts to paisa ×100</td>
                     </tr>
                     <tr>
                         <td><code>.txnAmtPaisa(long)</code></td>
@@ -273,45 +364,46 @@ ConnectIpsFormPayload payload = connectIpsClient.buildFormPayload(
             <h2>Frontend Form Submission</h2>
 
             <p>
-                ConnectIPS uses <strong>UPPERCASE field names</strong> in the
-                form POST. Submit all fields from the payload:
+                ConnectIPS uses <strong>UPPERCASE field names</strong>
+                in the form POST.
+                The <code>TOKEN</code> field contains the RSA-SHA256
+                digital signature — generated on your server using the
+                CREDITOR.pfx private key, which never reaches the frontend.
+                Only the resulting signed token value is sent as a form field.
             </p>
 
-            <pre><code>// Angular / TypeScript
-initiateConnectIps(payload: ConnectIpsFormPayload): void {
+            <pre><code>// Angular / TypeScript example
+submitConnectIps(payload: ConnectIpsFormPayload): void {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = payload.form_action_url;
+    form.action = payload.form_action_url; // formActionUrl()
 
-    // Note: ConnectIPS field names are UPPERCASE
-    const fields = [
-        'MERCHANTID', 'APPID', 'APPNAME', 'TXNID',
-        'TXNDATE', 'TXNCRNCY', 'TXNAMT', 'REFERENCEID',
-        'REMARKS', 'PARTICULARS', 'TOKEN'
-    ];
+    // ConnectIPS field names are UPPERCASE
+    const fields = {
+        MERCHANTID:  payload.MERCHANTID,   // merchantId()
+        APPID:       payload.APPID,        // appId()
+        APPNAME:     payload.APPNAME,      // appName()
+        TXNID:       payload.TXNID,        // txnId()
+        TXNDATE:     payload.TXNDATE,      // txnDate()
+        TXNCRNCY:    payload.TXNCRNCY,     // txnCrncy() — always "NPR"
+        TXNAMT:      payload.TXNAMT,       // txnAmt() — in paisa
+        REFERENCEID: payload.REFERENCEID,  // referenceId()
+        REMARKS:     payload.REMARKS,      // remarks()
+        PARTICULARS: payload.PARTICULARS,  // particulars()
+        TOKEN:       payload.TOKEN         // RSA-SHA256 signature
+    };
 
-    fields.forEach(field => {
+    Object.entries(fields).forEach(([key, value]) =&gt; {
         const input = document.createElement('input');
         input.type  = 'hidden';
-        input.name  = field;
-        input.value = (payload as any)[field.toLowerCase()] ?? '';
+        input.name  = key;
+        input.value = value ?? '';
         form.appendChild(input);
     });
 
     document.body.appendChild(form);
     form.submit();
 }</code></pre>
-
-            <div class="callout callout-info">
-                <span class="callout-icon">ℹ️</span>
-                <p>
-                    The <code>TOKEN</code> field contains the RSA-SHA256 digital
-                    signature generated from your CREDITOR.pfx private key.
-                    It is generated on your server using the CREDITOR.pfx private key,
-                    which never leaves your server. The signed token value is sent to
-                    the frontend as a read-only form field.
-                </p>
-            </div>
         </section>
 
         <!-- validateTransaction -->
@@ -319,7 +411,7 @@ initiateConnectIps(payload: ConnectIpsFormPayload): void {
             <h2>validateTransaction()</h2>
 
             <p>
-                Called after ConnectIPS redirects back to your callback URL.
+                Called after ConnectIPS redirects to your callback URL.
                 <strong>Always call this</strong> — never trust the redirect.
             </p>
 
@@ -329,26 +421,30 @@ public ResponseEntity&lt;String&gt; callback(
         @RequestParam String referenceId,
         @RequestParam long txnAmt) {
 
-    // ✅ Always validate server-side
+    // ✅ Always validate server-side — never trust redirect params
     ConnectIpsValidateResponse res =
-        connectIpsClient.validateTransaction(txnId, referenceId, txnAmt);
+        connectIpsClient.validateTransaction(
+            txnId, referenceId, txnAmt);
 
     if (!res.isPaymentSuccessful()) {
+        log.warn("ConnectIPS payment not confirmed | txnId={} | status={}",
+            txnId, res.status());
         return ResponseEntity.badRequest()
-            .body("Not confirmed: " + res.statusDesc());
+            .body("Payment not confirmed: " + res.statusDesc());
     }
 
+    // Mark paid using the referenceId (your original orderId)
     orderRepo.markPaid(referenceId);
     return ResponseEntity.ok("Payment confirmed");
 }</code></pre>
 
-            <h3>Response fields</h3>
+            <h3 id="response-fields">ConnectIpsValidateResponse fields</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
                     <tr>
                         <th>Method</th>
-                        <th>Type</th>
+                        <th>Returns</th>
                         <th>Description</th>
                     </tr>
                     </thead>
@@ -366,36 +462,43 @@ public ResponseEntity&lt;String&gt; callback(
                     <tr>
                         <td><code>statusDesc()</code></td>
                         <td><code>String</code></td>
-                        <td>Human-readable status description</td>
+                        <td>Human-readable description e.g. <code>"TRANSACTION SUCCESSFUL"</code></td>
                     </tr>
                     <tr>
                         <td><code>referenceId()</code></td>
                         <td><code>String</code></td>
-                        <td>Your original reference/order ID echoed back</td>
+                        <td>Your original order/reference ID echoed back</td>
                     </tr>
                     <tr>
                         <td><code>txnAmt()</code></td>
                         <td><code>String</code></td>
-                        <td>Amount transacted</td>
+                        <td>Amount transacted in paisa</td>
                     </tr>
                     <tr>
                         <td><code>merchantId()</code></td>
                         <td><code>Integer</code></td>
                         <td>Your NCHL merchant ID echoed back</td>
                     </tr>
+                    <tr>
+                        <td><code>paymentStatus()</code></td>
+                        <td><code>ConnectIpsPaymentStatus</code></td>
+                        <td>Typed enum: <code>SUCCESS</code>, <code>FAILED</code>, <code>UNKNOWN</code></td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
 
-            <h3>Also available — test-friendly overload</h3>
+            <h3>Test-friendly overload</h3>
             <pre><code>// Skips RSA signing — useful in tests with mock token
 ConnectIpsValidateResponse res =
     connectIpsClient.validateTransactionWithToken(
-        referenceId, txnAmtPaisa, "MOCK_TOKEN"
+        referenceId,     // your order/reference ID
+        txnAmtPaisa,     // amount in paisa
+        "MOCK_TOKEN"     // pre-built token
     );</code></pre>
         </section>
 
-        <!-- Security Rules -->
+        <!-- Security -->
         <section id="security">
             <h2>Security Rules</h2>
 
@@ -404,7 +507,7 @@ ConnectIpsValidateResponse res =
                 <p>
                     <strong>Never commit CREDITOR.pfx to Git.</strong>
                     Add <code>*.pfx</code> to <code>.gitignore</code>.
-                    Load it via environment variable.
+                    Load it via an environment variable path.
                 </p>
             </div>
 
@@ -412,26 +515,31 @@ ConnectIpsValidateResponse res =
                 <span class="callout-icon">🔴</span>
                 <p>
                     <strong>Never trust the callback redirect.</strong>
-                    Always call <code>validateTransaction()</code> server-side.
+                    Always call <code>validateTransaction()</code>
+                    server-side with HTTP Basic Auth.
+                    The redirect parameters can be faked.
                 </p>
             </div>
 
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
                 <p>
-                    The RSA token is generated entirely on your server using
-                    the CREDITOR.pfx private key, which never reaches the
-                    frontend. Only the resulting signed token value is sent
-                    in the form field.
+                    The RSA private key is generated entirely on your
+                    server using the CREDITOR.pfx certificate.
+                    It is cached at startup — no KeyStore loading
+                    on every payment.
+                    Only the resulting signed TOKEN value reaches
+                    the frontend as a form field.
                 </p>
             </div>
 
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
                 <p>
-                    NepalPay caches the RSA private key at startup — no
-                    KeyStore loading on every payment. If the .pfx is
-                    invalid, the app fails fast at startup with a clear error.
+                    NepalPay searches all KeyStore aliases using
+                    <code>isKeyEntry()</code> before selecting —
+                    safe for PFX files with multiple entries
+                    (certificate chain + private key).
                 </p>
             </div>
 
@@ -439,10 +547,10 @@ ConnectIpsValidateResponse res =
 *.pfx
 CREDITOR.pfx
 
-# application.yml — load from environment
+# application.yml — always load from environment variable
 nepalpay:
   connectips:
-    pfx-path:     ${CONNECTIPS_PFX_PATH}     # file:/app/CREDITOR.pfx
+    pfx-path:     ${CONNECTIPS_PFX_PATH}       # file:/app/CREDITOR.pfx
     pfx-password: ${CONNECTIPS_PFX_PASSWORD}</code></pre>
         </section>
 
@@ -451,11 +559,11 @@ nepalpay:
             <h2>Reactive Usage</h2>
 
             <p>
-                Use <code>ConnectIpsReactiveClient</code> from
-                <code>nepal-pay-spring-boot-reactive-starter</code>.
-                <code>buildFormPayload()</code> is synchronous.
-                <code>validateTransaction()</code> returns <code>Mono</code>
-                with both validation and RSA signing wrapped inside
+                Use <code>ConnectIpsReactiveClient</code> from the
+                reactive starter. <code>buildFormPayload()</code>
+                is synchronous. <code>validateTransaction()</code>
+                returns <code>Mono</code> with both validation
+                and RSA signing wrapped inside
                 <code>Mono.defer()</code>.
             </p>
 
@@ -484,8 +592,8 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         @RequestParam String referenceId,
         @RequestParam long txnAmt) {
 
-    // Both validation and RSA signing are inside Mono.defer()
-    // so all errors are emitted as Mono.error() signals
+    // Both validation and RSA signing inside Mono.defer()
+    // All errors emitted as Mono.error() — never thrown
     return connectIpsReactiveClient
         .validateTransaction(txnId, referenceId, txnAmt)
         .flatMap(res -&gt; {
@@ -494,23 +602,26 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
                     .body("Not confirmed: " + res.statusDesc()));
             }
             return orderRepo.markPaid(referenceId)
-                .thenReturn(ResponseEntity.ok("Payment confirmed"));
+                .thenReturn(ResponseEntity.ok(
+                    "Payment confirmed"));
         });
 }</code></pre>
 
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
-                    In the reactive client, input validation and RSA signing
-                    are both inside <code>Mono.defer()</code> — any
-                    <code>ConnectIpsException</code> is emitted as a reactive
-                    error signal, never thrown outside the pipeline.
+                    The reactive client applies the configurable timeout
+                    via <code>ReactorClientHttpConnector</code> +
+                    Reactor Netty's <code>HttpClient.responseTimeout()</code>
+                    — fully non-blocking, no thread sleep.
+                    Set <code>nepalpay.connectips.timeout-seconds</code>
+                    to increase for slower bank connections.
                 </p>
             </div>
         </section>
 
-        <!-- Differences -->
-        <section id="differences">
+        <!-- vs Others -->
+        <section id="vs-others">
             <h2>How ConnectIPS Differs from Other Gateways</h2>
 
             <div class="table-wrap">
@@ -526,21 +637,21 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
                     <tbody>
                     <tr>
                         <td>Flow</td>
-                        <td>API-first</td>
+                        <td>API POST</td>
                         <td>Form POST</td>
                         <td>Form POST</td>
                     </tr>
                     <tr>
                         <td>Signature</td>
                         <td>API Key header</td>
-                        <td>HMAC-SHA256</td>
-                        <td><strong>RSA-SHA256 (.pfx)</strong></td>
+                        <td>HMAC-SHA256 Base64</td>
+                        <td><strong>RSA-SHA256 via .pfx</strong></td>
                     </tr>
                     <tr>
                         <td>Amount unit</td>
                         <td>Paisa</td>
-                        <td>NPR</td>
-                        <td>Paisa</td>
+                        <td>NPR (BigDecimal)</td>
+                        <td>Paisa (amountNPR auto-converts)</td>
                     </tr>
                     <tr>
                         <td>Verify auth</td>
@@ -552,13 +663,19 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
                         <td>Registration</td>
                         <td>Self-service</td>
                         <td>Self-service</td>
-                        <td><strong>Via NCHL/bank</strong></td>
+                        <td><strong>NCHL / bank required</strong></td>
                     </tr>
                     <tr>
                         <td>Sandbox</td>
                         <td>Self-service</td>
                         <td>Self-service</td>
                         <td><strong>NCHL UAT only</strong></td>
+                    </tr>
+                    <tr>
+                        <td>HTTP timeout</td>
+                        <td>10s (default)</td>
+                        <td>10s (default)</td>
+                        <td><strong>30s (default) — configurable</strong></td>
                     </tr>
                     </tbody>
                 </table>
@@ -574,8 +691,11 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         <div class="footer-links">
             <a href="index.html">Home</a>
             <a href="getting-started.html">Getting Started</a>
+            <a href="khalti.html">Khalti</a>
             <a href="esewa.html">eSewa</a>
             <a href="fonepay.html">Fonepay</a>
+            <a href="reactive.html">Reactive</a>
+            <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
         </div>
@@ -591,6 +711,23 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         r.setAttribute('data-theme', n);
         try { localStorage.setItem('np-theme', n); } catch (e) {}
     }
+
+    (function () {
+        var links = document.querySelectorAll('.sidebar-nav a');
+        var sections = document.querySelectorAll('.docs-content section');
+        window.addEventListener('scroll', function () {
+            var pos = window.scrollY + 100;
+            sections.forEach(function (s) {
+                if (s.offsetTop <= pos &&
+                    s.offsetTop + s.offsetHeight > pos) {
+                    links.forEach(function (l) { l.classList.remove('active'); });
+                    var a = document.querySelector(
+                        '.sidebar-nav a[href="#' + s.id + '"]');
+                    if (a) a.classList.add('active');
+                }
+            });
+        });
+    }());
 </script>
 </body>
 </html>

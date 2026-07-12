@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>eSewa Integration — NepalPay</title>
+    <meta name="description"
+          content="Integrate eSewa payments in Spring Boot. HMAC-SHA256 signed form payload, Base64 callback verification.">
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         (function () {
@@ -52,8 +54,11 @@
         <div class="page-header-left">
             <div class="page-version-pill">✅ v1.2.0</div>
             <h1>eSewa Integration</h1>
-            <p>HMAC-SHA256 signed form payload, Base64 callback
-                verification, and server-side status confirmation.</p>
+            <p>
+                HMAC-SHA256 signed form payload, Base64 callback
+                decode and constant-time signature verification.
+                Blocking and reactive.
+            </p>
         </div>
     </div>
 </div>
@@ -64,6 +69,7 @@
         <nav class="sidebar-nav">
             <div class="sidebar-group-label">Guide</div>
             <a href="#how-it-works">How It Works</a>
+            <a href="#configure">Configure</a>
             <a href="#build-payload">buildFormPayload()</a>
             <a href="#frontend">Frontend Form</a>
             <a href="#verify">verifyCallback()</a>
@@ -72,7 +78,9 @@
             <div class="sidebar-group-label">Reactive</div>
             <a href="#reactive">Reactive Usage</a>
             <div class="sidebar-group-label">Reference</div>
-            <a href="#sandbox">Sandbox Credentials</a>
+            <a href="#payload-fields">Payload fields</a>
+            <a href="#status-values">Status values</a>
+            <a href="#sandbox">Sandbox creds</a>
         </nav>
     </aside>
 
@@ -82,67 +90,108 @@
         <section id="how-it-works">
             <h2>How eSewa Works</h2>
 
+            <div class="flow">Your Backend: buildFormPayload(amount, uuid)
+                → Generates HMAC-SHA256 signature
+                → Returns EsewaFormPayload
+
+                ✅ Save uuid to DB FIRST — before returning to frontend
+
+                Frontend: POST form fields to payload.formActionUrl()
+                ↓
+                User pays on eSewa gateway
+                ↓
+                eSewa redirects to your success-url:
+                ?data=BASE64_ENCODED_JSON
+
+                ⚠️  NEVER trust this redirect alone — Base64 can be forged!
+
+                Your Backend: verifyCallback(data)
+                Step 1: Decode Base64 → JSON
+                Step 2: Verify HMAC-SHA256 signature (constant-time)
+                Step 3: Call eSewa status API for final confirmation
+                ↓
+                ✅ Only mark paid when ALL THREE steps pass</div>
+
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
-                <p>eSewa uses a <strong>form-submission model</strong>.
-                    Your backend generates a signed payload. Your frontend
-                    submits it as an HTML form directly to eSewa.</p>
+                <p>
+                    eSewa uses a <strong>form POST model</strong> —
+                    unlike Khalti which is API-first.
+                    Your backend generates a signed payload,
+                    returns it to the frontend, and the frontend
+                    submits a form directly to eSewa.
+                    The backend never makes a direct HTTP call
+                    to eSewa during initiation.
+                </p>
             </div>
+        </section>
 
-            <div class="flow">Your Backend: buildFormPayload()
-                → HMAC-SHA256 signed payload
-                → return to frontend
-                │
-                Frontend: POST form fields to payload.formActionUrl()
-                │
-                User pays on eSewa payment page
-                │
-                eSewa redirects to: yourSuccessUrl?data=BASE64_JSON
-                │
-                ⚠️  DO NOT trust this redirect alone!
-                │
-                Your Backend: verifyCallback(data)
-                Step 1 — decode Base64 → EsewaCallbackData
-                Step 2 — re-compute HMAC signature, compare
-                Step 3 — call eSewa status API for confirmation
-                │
-                ✅ mark order as paid only when isPaymentSuccessful() = true</div>
+        <!-- Configure -->
+        <section id="configure">
+            <h2>Configure</h2>
 
-            <h3>Key differences from Khalti</h3>
+            <pre><code>nepalpay:
+  esewa:
+    secret-key:   ${ESEWA_SECRET_KEY}
+    product-code: ${ESEWA_PRODUCT_CODE}
+    success-url:  ${ESEWA_SUCCESS_URL}
+    failure-url:  ${ESEWA_FAILURE_URL}
+    sandbox: true    # false for production
+
+    # Optional retry (applies to checkStatus() inside verifyCallback)
+    retry:
+      enabled: true
+      max-attempts: 3
+      initial-delay-ms: 500
+      multiplier: 2.0
+      max-delay-ms: 5000</code></pre>
+
             <div class="table-wrap">
                 <table>
                     <thead>
                     <tr>
-                        <th>Feature</th>
-                        <th>Khalti</th>
-                        <th>eSewa</th>
+                        <th>Property</th>
+                        <th>Required</th>
+                        <th>Default</th>
+                        <th>Description</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr>
-                        <td>Flow</td>
-                        <td>API-first</td>
-                        <td>Form POST</td>
+                        <td><code>secret-key</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>HMAC-SHA256 secret key. Sandbox: <code>8gBm/:&amp;EnhH.1/q</code></td>
                     </tr>
                     <tr>
-                        <td>Signature</td>
-                        <td>API Key header</td>
-                        <td>HMAC-SHA256</td>
+                        <td><code>product-code</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Sandbox: <code>EPAYTEST</code> · Production: your merchant code</td>
                     </tr>
                     <tr>
-                        <td>Amount unit</td>
-                        <td>Paisa</td>
-                        <td><strong>NPR directly</strong></td>
+                        <td><code>success-url</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>eSewa redirects here on successful payment with <code>?data=BASE64</code></td>
                     </tr>
                     <tr>
-                        <td>Verify auth</td>
-                        <td>Bearer key</td>
-                        <td>No auth on status API</td>
+                        <td><code>failure-url</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>eSewa redirects here on failed or canceled payment</td>
                     </tr>
                     <tr>
-                        <td>Registration</td>
-                        <td>Self-service sandbox</td>
-                        <td>Self-service sandbox</td>
+                        <td><code>sandbox</code></td>
+                        <td>—</td>
+                        <td><code>true</code></td>
+                        <td><code>true</code> = rc-epay.esewa.com.np · <code>false</code> = epay.esewa.com.np</td>
+                    </tr>
+                    <tr>
+                        <td><code>timeout-seconds</code></td>
+                        <td>—</td>
+                        <td><code>10</code></td>
+                        <td>HTTP timeout for status API calls in seconds</td>
                     </tr>
                     </tbody>
                 </table>
@@ -153,88 +202,94 @@
         <section id="build-payload">
             <h2>buildFormPayload()</h2>
 
-            <h3>Simple — amount and UUID only</h3>
-            <pre><code>// Generate UUID — MUST save to DB before returning!
+            <h3>Simple overload — amount only</h3>
+            <pre><code>// Generate a unique UUID for this transaction
 String uuid = EsewaClient.generateTransactionUuid();
+
+// ✅ Save uuid to DB BEFORE returning payload to frontend
 orderRepo.saveUuid(orderId, uuid);
 
-// ⚠️ Amount is NPR directly — NOT paisa like Khalti
-EsewaFormPayload payload = esewaClient.buildFormPayload(
-    new BigDecimal("100.00"),
-    uuid
-);
+// eSewa uses NPR directly — NOT paisa like Khalti
+EsewaFormPayload payload =
+    esewaClient.buildFormPayload(
+        new BigDecimal("100.00"),   // NPR 100
+        uuid
+    );
 
-// Return payload to frontend — it will POST the form</code></pre>
+// Return payload to frontend — they will POST it</code></pre>
 
-            <h3>With tax and charges</h3>
-            <pre><code>EsewaFormPayload payload = esewaClient.buildFormPayload(
-    new BigDecimal("100.00"),  // base amount
-    new BigDecimal("13.00"),   // tax
-    uuid,
-    BigDecimal.ZERO,           // service charge
-    BigDecimal.ZERO            // delivery charge
-    // total = 100 + 13 = 113.00
-);</code></pre>
+            <h3>Full overload — with charges</h3>
+            <pre><code>EsewaFormPayload payload =
+    esewaClient.buildFormPayload(
+        new BigDecimal("100.00"),   // base amount NPR
+        new BigDecimal("10.00"),    // tax NPR (null = zero)
+        uuid,
+        new BigDecimal("5.00"),     // service charge NPR (null = zero)
+        new BigDecimal("0.00")      // delivery charge NPR (null = zero)
+    );
+// totalAmount = 100 + 10 + 5 + 0 = 115.00</code></pre>
 
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
                 <p>
-                    <strong>eSewa uses NPR directly — not paisa.</strong>
+                    <strong>eSewa uses NPR — not paisa.</strong>
                     NPR 100 → send <code>new BigDecimal("100.00")</code>.
-                    This is the opposite of Khalti which uses paisa.
+                    Charge components (tax, service, delivery) cannot
+                    be negative — NepalPay validates this and throws
+                    <code>EsewaException</code> if they are.
                 </p>
             </div>
 
-            <h3>Payload fields returned</h3>
+            <h3 id="payload-fields">EsewaFormPayload fields</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
                     <tr>
                         <th>Field</th>
-                        <th>Type</th>
+                        <th>JSON key</th>
                         <th>Description</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr>
-                        <td><code>formActionUrl()</code></td>
-                        <td><code>String</code></td>
-                        <td>The eSewa URL to POST the form to</td>
-                    </tr>
-                    <tr>
                         <td><code>amount()</code></td>
-                        <td><code>String</code></td>
-                        <td>Base amount in NPR</td>
+                        <td><code>amount</code></td>
+                        <td>Base amount as String e.g. <code>"100.00"</code></td>
                     </tr>
                     <tr>
                         <td><code>taxAmount()</code></td>
-                        <td><code>String</code></td>
-                        <td>Tax amount in NPR</td>
+                        <td><code>tax_amount</code></td>
+                        <td>Tax as String</td>
                     </tr>
                     <tr>
                         <td><code>totalAmount()</code></td>
-                        <td><code>String</code></td>
-                        <td>Sum of all amounts — used in signature</td>
+                        <td><code>total_amount</code></td>
+                        <td>Sum of all charges as String</td>
                     </tr>
                     <tr>
                         <td><code>transactionUuid()</code></td>
-                        <td><code>String</code></td>
+                        <td><code>transaction_uuid</code></td>
                         <td>Your unique transaction ID</td>
                     </tr>
                     <tr>
                         <td><code>productCode()</code></td>
-                        <td><code>String</code></td>
-                        <td>Your eSewa merchant/product code</td>
+                        <td><code>product_code</code></td>
+                        <td>Your eSewa merchant code</td>
                     </tr>
                     <tr>
                         <td><code>signature()</code></td>
-                        <td><code>String</code></td>
-                        <td>HMAC-SHA256 Base64 signature</td>
+                        <td><code>signature</code></td>
+                        <td>HMAC-SHA256 Base64 signature — generated by NepalPay</td>
                     </tr>
                     <tr>
                         <td><code>signedFieldNames()</code></td>
-                        <td><code>String</code></td>
-                        <td>Always <code>total_amount,transaction_uuid,product_code</code></td>
+                        <td><code>signed_field_names</code></td>
+                        <td>Always: <code>total_amount,transaction_uuid,product_code</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>formActionUrl()</code></td>
+                        <td><code>form_action_url</code></td>
+                        <td>The eSewa form URL to POST to (sandbox or production)</td>
                     </tr>
                     </tbody>
                 </table>
@@ -246,30 +301,35 @@ EsewaFormPayload payload = esewaClient.buildFormPayload(
             <h2>Frontend Form Submission</h2>
 
             <p>
-                The frontend must POST all payload fields as hidden inputs
-                to <code>payload.formActionUrl()</code>. Here is an Angular /
-                TypeScript example:
+                Your frontend must POST all payload fields as a
+                form submission to <code>payload.formActionUrl()</code>.
             </p>
 
-            <pre><code>// Angular / TypeScript
-initiateEsewa(payload: EsewaFormPayload): void {
+            <pre><code>// Angular / TypeScript example
+submitEsewaPayment(payload: EsewaFormPayload): void {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = payload.form_action_url;
 
-    const fields = [
-        'amount', 'tax_amount', 'total_amount',
-        'transaction_uuid', 'product_code',
-        'product_service_charge', 'product_delivery_charge',
-        'success_url', 'failure_url',
-        'signed_field_names', 'signature'
-    ];
+    const fields = {
+        amount:                 payload.amount,
+        tax_amount:             payload.tax_amount,
+        total_amount:           payload.total_amount,
+        transaction_uuid:       payload.transaction_uuid,
+        product_code:           payload.product_code,
+        product_service_charge: payload.product_service_charge,
+        product_delivery_charge:payload.product_delivery_charge,
+        success_url:            payload.success_url,
+        failure_url:            payload.failure_url,
+        signed_field_names:     payload.signed_field_names,
+        signature:              payload.signature
+    };
 
-    fields.forEach(field => {
+    Object.entries(fields).forEach(([key, value]) =&gt; {
         const input = document.createElement('input');
         input.type  = 'hidden';
-        input.name  = field;
-        input.value = (payload as any)[field] ?? '';
+        input.name  = key;
+        input.value = value ?? '';
         form.appendChild(input);
     });
 
@@ -280,10 +340,11 @@ initiateEsewa(payload: EsewaFormPayload): void {
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
-                    The form is submitted directly from the browser to eSewa.
-                    Your backend is not involved in this step.
-                    After the user pays, eSewa redirects back to your
-                    <code>success_url</code> with a <code>data</code> query parameter.
+                    The <code>signature</code> is generated entirely
+                    on your backend using your HMAC-SHA256 secret key.
+                    The private key never reaches the frontend.
+                    Only the resulting signature value is sent
+                    as a form field.
                 </p>
             </div>
         </section>
@@ -293,39 +354,54 @@ initiateEsewa(payload: EsewaFormPayload): void {
             <h2>verifyCallback()</h2>
 
             <p>
-                eSewa redirects to your <code>successUrl</code> with
-                <code>?data=BASE64_JSON</code>. Call <code>verifyCallback(data)</code>
-                which automatically:
+                eSewa redirects to your <code>success-url</code> with
+                a <code>?data=BASE64_ENCODED_JSON</code> query parameter.
+                <code>verifyCallback()</code> handles all three steps
+                automatically.
             </p>
-            <ul>
-                <li>Decodes the Base64 data</li>
-                <li>Re-computes the HMAC-SHA256 signature and compares</li>
-                <li>Calls the eSewa status API for final confirmation</li>
-            </ul>
 
-            <pre><code>// eSewa redirects to: yourSuccessUrl?data=BASE64_JSON
-@GetMapping("/esewa/callback")
-public ResponseEntity&lt;String&gt; callback(@RequestParam String data) {
+            <pre><code>@GetMapping("/esewa/callback")
+public ResponseEntity&lt;String&gt; callback(
+        @RequestParam String data) {
 
-    // verifyCallback does 3 things automatically:
-    // 1. Decode Base64 → EsewaCallbackData
-    // 2. Verify HMAC-SHA256 signature (tamper protection)
-    // 3. Call eSewa status API for final confirmation
+    // verifyCallback does all three steps:
+    // 1. Decode Base64 → JSON
+    // 2. Verify HMAC-SHA256 signature (constant-time)
+    // 3. Call eSewa status API
     EsewaClient.EsewaVerificationResult result =
         esewaClient.verifyCallback(data);
 
     if (!result.isPaymentSuccessful()) {
         return ResponseEntity.badRequest()
-            .body("Not confirmed: " + result.statusResponse().status());
+            .body("Payment not confirmed: " +
+                result.statusResponse().status());
     }
 
-    // Safe to mark order as paid
-    String uuid  = result.callbackData().transactionUuid();
-    String refId = result.statusResponse().refId();
-    orderRepo.markPaid(uuid, refId);
+    // Load order using saved uuid
+    String uuid = result.callbackData().transactionUuid();
+    orderRepo.markPaid(uuid);
 
     return ResponseEntity.ok("Payment confirmed");
+}
+
+// Handle failure redirect
+@GetMapping("/esewa/failed")
+public ResponseEntity&lt;String&gt; failed() {
+    return ResponseEntity.ok("Payment was canceled or failed");
 }</code></pre>
+
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    If the HMAC signature does not match,
+                    <code>verifyCallback()</code> throws
+                    <code>EsewaException</code> with the message
+                    <code>"signature verification FAILED"</code>.
+                    This increments the
+                    <code>nepalpay.esewa.callback.signature.failed</code>
+                    Micrometer counter — alert on a spike.
+                </p>
+            </div>
 
             <h3>EsewaVerificationResult fields</h3>
             <div class="table-wrap">
@@ -341,31 +417,25 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String data) {
                     <tr>
                         <td><code>isPaymentSuccessful()</code></td>
                         <td><code>boolean</code></td>
-                        <td><code>true</code> only when signature verified AND status is <code>COMPLETE</code></td>
+                        <td><code>true</code> only when HMAC matched AND status is <code>COMPLETE</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>verified()</code></td>
+                        <td><code>boolean</code></td>
+                        <td>Same as <code>isPaymentSuccessful()</code></td>
                     </tr>
                     <tr>
                         <td><code>callbackData()</code></td>
                         <td><code>EsewaCallbackData</code></td>
-                        <td>Decoded Base64 callback — contains <code>transactionUuid</code>, <code>status</code></td>
+                        <td>Decoded callback JSON from eSewa</td>
                     </tr>
                     <tr>
                         <td><code>statusResponse()</code></td>
                         <td><code>EsewaStatusResponse</code></td>
-                        <td>Response from eSewa status API — contains <code>refId</code></td>
+                        <td>Response from the eSewa status API</td>
                     </tr>
                     </tbody>
                 </table>
-            </div>
-
-            <div class="callout callout-danger">
-                <span class="callout-icon">🔴</span>
-                <p>
-                    <strong>Never trust the redirect URL alone.</strong>
-                    Always call <code>verifyCallback(data)</code>.
-                    It verifies the HMAC signature — a mismatch throws
-                    <code>EsewaException</code> with the message
-                    <code>signature verification FAILED</code>.
-                </p>
             </div>
         </section>
 
@@ -374,21 +444,137 @@ public ResponseEntity&lt;String&gt; callback(@RequestParam String data) {
             <h2>checkStatus()</h2>
 
             <p>
-                Poll the eSewa status API directly — useful for background
-                verification jobs or when you want to check status without
-                a callback.
+                Call the eSewa status API directly without going
+                through the callback flow. Useful for:
             </p>
+            <ul>
+                <li>Manually checking a payment status</li>
+                <li>Background reconciliation jobs</li>
+                <li>Handling cases where the callback was missed</li>
+            </ul>
 
-            <pre><code>EsewaStatusResponse status = esewaClient.checkStatus(
-    "your-transaction-uuid",
-    "100.00"  // exact total amount from original transaction
-);
+            <pre><code>// uuid = the transaction_uuid you saved during initiation
+// totalAmount = the exact total amount string used during initiation
+EsewaStatusResponse status =
+    esewaClient.checkStatus(uuid, "100.00");
 
 if (status.isPaymentSuccessful()) {
+    // status.status() == "COMPLETE"
     orderRepo.markPaid(uuid);
 }</code></pre>
 
-            <h3>Status values</h3>
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    eSewa status is <strong><code>COMPLETE</code></strong>
+                    — not <code>COMPLETED</code>.
+                    This is different from Khalti which uses
+                    <code>Completed</code>.
+                    NepalPay handles both correctly — just never compare
+                    the raw status strings directly in your code.
+                    Always use <code>isPaymentSuccessful()</code>.
+                </p>
+            </div>
+        </section>
+
+        <!-- Security -->
+        <section id="security">
+            <h2>Security Rules</h2>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    <strong>Never trust the
+                        <code>?data=BASE64</code> redirect parameter
+                        alone.</strong> The Base64 data can be forged.
+                    Always call <code>verifyCallback(data)</code>
+                    which re-computes the HMAC-SHA256 signature
+                    and calls the status API.
+                </p>
+            </div>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    NepalPay uses <strong>constant-time comparison</strong>
+                    (<code>MessageDigest.isEqual()</code>) in both
+                    blocking and reactive eSewa clients —
+                    preventing timing attacks on the HMAC signature.
+                </p>
+            </div>
+
+            <div class="callout callout-success">
+                <span class="callout-icon">✅</span>
+                <p>
+                    Always save <code>uuid</code> to your database
+                    before returning the payload to the frontend.
+                    Use the saved uuid — not the one from the callback —
+                    when calling <code>checkStatus()</code>.
+                </p>
+            </div>
+
+            <pre><code># Correct eSewa flow — all steps required:
+
+1. generateTransactionUuid()   → save to DB
+2. buildFormPayload()          → return to frontend
+3. Frontend POSTs to eSewa
+4. eSewa redirects ?data=BASE64
+5. verifyCallback(data)        → all 3 sub-steps automatic
+6. isPaymentSuccessful()       → then mark paid</code></pre>
+        </section>
+
+        <!-- Reactive -->
+        <section id="reactive">
+            <h2>Reactive Usage</h2>
+
+            <p>
+                Use <code>EsewaReactiveClient</code> from the reactive
+                starter. <code>buildFormPayload()</code> is synchronous
+                (no HTTP). <code>verifyCallback()</code> and
+                <code>checkStatus()</code> return <code>Mono</code>.
+            </p>
+
+            <h3>Build payload — synchronous</h3>
+            <pre><code>// Synchronous — no Mono needed
+public EsewaFormPayload startEsewa(
+        String orderId, BigDecimal amount) {
+
+    String uuid = EsewaReactiveClient.generateTransactionUuid();
+    orderRepo.saveUuid(orderId, uuid); // save first!
+
+    return esewaReactiveClient.buildFormPayload(amount, uuid);
+}</code></pre>
+
+            <h3>Verify callback — reactive</h3>
+            <pre><code>public Mono&lt;Boolean&gt; verifyEsewa(String encodedData) {
+    return esewaReactiveClient.verifyCallback(encodedData)
+        .map(EsewaReactiveClient.EsewaVerificationResult
+                ::isPaymentSuccessful);
+}</code></pre>
+
+            <h3>Check status directly — reactive</h3>
+            <pre><code>public Mono&lt;Boolean&gt; checkEsewaStatus(
+        String uuid, String totalAmount) {
+    return esewaReactiveClient.checkStatus(uuid, totalAmount)
+        .map(EsewaStatusResponse::isPaymentSuccessful);
+}</code></pre>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    The reactive client uses
+                    <code>Mono.fromCallable()</code> for the
+                    synchronous HMAC and signature verification steps,
+                    so all exceptions are emitted as reactive error
+                    signals — never thrown outside the pipeline.
+                </p>
+            </div>
+        </section>
+
+        <!-- Status values -->
+        <section id="status-values">
+            <h2>eSewa Status Values</h2>
+
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -401,134 +587,30 @@ if (status.isPaymentSuccessful()) {
                     <tbody>
                     <tr>
                         <td><code>COMPLETE</code></td>
-                        <td><span class="pill pill-ok">true</span></td>
+                        <td><span class="pill pill-ok">✅ true</span></td>
                         <td>Payment fully completed — safe to fulfil order</td>
                     </tr>
                     <tr>
                         <td><code>INCOMPLETE</code></td>
-                        <td><span class="pill pill-bad">false</span></td>
-                        <td>Payment not completed</td>
+                        <td><span class="pill pill-gray">false</span></td>
+                        <td>Payment was not completed</td>
                     </tr>
                     <tr>
-                        <td>other / null</td>
-                        <td><span class="pill pill-bad">false</span></td>
-                        <td>Unknown state — do NOT fulfil order</td>
+                        <td>anything else</td>
+                        <td><span class="pill pill-gray">false</span></td>
+                        <td>Unknown status — do not mark as paid</td>
                     </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div class="callout callout-warning">
-                <span class="callout-icon">⚠️</span>
-                <p>
-                    eSewa uses <code>COMPLETE</code> — not <code>COMPLETED</code>
-                    like Khalti. This is a common source of bugs when switching
-                    between gateways.
-                </p>
-            </div>
-        </section>
-
-        <!-- Security Rules -->
-        <section id="security">
-            <h2>Security Rules</h2>
-
             <div class="callout callout-danger">
                 <span class="callout-icon">🔴</span>
                 <p>
-                    <strong>Never trust the redirect URL alone.</strong>
-                    Always call <code>verifyCallback()</code> which verifies
-                    the HMAC-SHA256 signature before calling the status API.
-                </p>
-            </div>
-
-            <div class="callout callout-success">
-                <span class="callout-icon">✅</span>
-                <p>
-                    Save <code>transactionUuid</code> to your database
-                    <strong>before</strong> returning the form payload to the frontend.
-                </p>
-            </div>
-
-            <div class="callout callout-success">
-                <span class="callout-icon">✅</span>
-                <p>
-                    The reactive client uses <code>MessageDigest.isEqual()</code>
-                    for constant-time HMAC comparison — prevents timing attacks.
-                </p>
-            </div>
-
-            <pre><code>// ✅ Correct flow
-String uuid = EsewaClient.generateTransactionUuid();
-orderRepo.saveUuid(orderId, uuid);              // SAVE FIRST
-EsewaFormPayload payload =
-    esewaClient.buildFormPayload(amount, uuid); // THEN build
-return payload;                                 // return to frontend
-
-// ✅ Correct verification — 3 steps happen automatically
-EsewaClient.EsewaVerificationResult result =
-    esewaClient.verifyCallback(data);
-// Step 1: Base64 decode
-// Step 2: HMAC verify — throws EsewaException on mismatch
-// Step 3: Status API call
-
-// ❌ NEVER do this
-if (request.getParam("status").equals("COMPLETE")) {
-    orderRepo.markPaid(); // DANGEROUS — no HMAC check
-}</code></pre>
-        </section>
-
-        <!-- Reactive -->
-        <section id="reactive">
-            <h2>Reactive Usage</h2>
-
-            <p>
-                Use <code>EsewaReactiveClient</code> from
-                <code>nepal-pay-spring-boot-reactive-starter</code>.
-                <code>buildFormPayload()</code> is synchronous — only
-                <code>verifyCallback()</code> and <code>checkStatus()</code>
-                return <code>Mono</code>.
-            </p>
-
-            <h3>Build form payload — synchronous</h3>
-            <pre><code>// No Mono needed — synchronous, no HTTP call
-public EsewaFormPayload startEsewa(BigDecimal amount) {
-    String uuid = EsewaReactiveClient.generateTransactionUuid();
-    orderRepo.saveUuid(orderId, uuid);  // save first!
-    return esewaReactiveClient.buildFormPayload(amount, uuid);
-}</code></pre>
-
-            <h3>Verify callback — reactive</h3>
-            <pre><code>@GetMapping("/esewa/callback")
-public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
-        @RequestParam String data) {
-
-    return esewaReactiveClient.verifyCallback(data)
-        .flatMap(result -&gt; {
-            if (!result.isPaymentSuccessful()) {
-                return Mono.just(ResponseEntity.badRequest()
-                    .body("Not confirmed"));
-            }
-            String uuid = result.callbackData().transactionUuid();
-            return orderRepo.markPaid(uuid)
-                .thenReturn(ResponseEntity.ok("Payment confirmed"));
-        });
-}</code></pre>
-
-            <h3>Check status — reactive</h3>
-            <pre><code>public Mono&lt;Boolean&gt; checkEsewa(String uuid, String amount) {
-    return esewaReactiveClient
-        .checkStatus(uuid, amount)
-        .map(EsewaStatusResponse::isPaymentSuccessful);
-}</code></pre>
-
-            <div class="callout callout-info">
-                <span class="callout-icon">ℹ️</span>
-                <p>
-                    The reactive <code>verifyCallback()</code> uses
-                    <code>MessageDigest.isEqual()</code> for constant-time
-                    HMAC comparison — prevents timing attacks.
-                    All errors are emitted as <code>Mono.error()</code>
-                    signals, never thrown.
+                    eSewa uses <strong><code>COMPLETE</code></strong>
+                    (not <code>COMPLETED</code>). Never compare
+                    raw status strings in your code.
+                    Always use <code>isPaymentSuccessful()</code>.
                 </p>
             </div>
         </section>
@@ -537,61 +619,43 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         <section id="sandbox">
             <h2>Sandbox Credentials</h2>
 
-            <p>
-                eSewa provides a self-service sandbox. Use these credentials
-                to test payments without real money.
-            </p>
-
             <div class="table-wrap">
                 <table>
                     <thead>
-                    <tr><th>Field</th><th>Value</th></tr>
+                    <tr><th>Field</th><th>Sandbox Value</th></tr>
                     </thead>
                     <tbody>
+                    <tr><td>eSewa ID</td><td><code>9806800001</code></td></tr>
+                    <tr><td>Password</td><td><code>Nepal@123</code></td></tr>
+                    <tr><td>MPIN</td><td><code>1122</code></td></tr>
+                    <tr><td>Token</td><td><code>123456</code></td></tr>
                     <tr>
-                        <td>eSewa ID</td>
-                        <td><code>9806800001</code></td>
-                    </tr>
-                    <tr>
-                        <td>Password</td>
-                        <td><code>Nepal@123</code></td>
-                    </tr>
-                    <tr>
-                        <td>MPIN</td>
-                        <td><code>1122</code></td>
-                    </tr>
-                    <tr>
-                        <td>Token</td>
-                        <td><code>123456</code></td>
-                    </tr>
-                    <tr>
-                        <td>Secret Key</td>
+                        <td>Secret Key (<code>secret-key</code>)</td>
                         <td><code>8gBm/:&amp;EnhH.1/q</code></td>
                     </tr>
                     <tr>
-                        <td>Product Code</td>
+                        <td>Product Code (<code>product-code</code>)</td>
                         <td><code>EPAYTEST</code></td>
+                    </tr>
+                    <tr>
+                        <td>Form Action URL</td>
+                        <td><code>https://rc-epay.esewa.com.np/api/epay/main/v2/form</code></td>
+                    </tr>
+                    <tr>
+                        <td>Status API</td>
+                        <td><code>https://rc.esewa.com.np/api/epay/transaction/status/</code></td>
                     </tr>
                     </tbody>
                 </table>
             </div>
 
-            <h3>Sandbox YAML</h3>
-            <pre><code>nepalpay:
-  esewa:
-    secret-key:   8gBm/:&amp;EnhH.1/q
-    product-code: EPAYTEST
-    success-url:  http://localhost:8080/api/esewa/callback
-    failure-url:  http://localhost:8080/api/esewa/failed
-    sandbox: true</code></pre>
-
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
                 <p>
-                    For production, replace <code>secret-key</code> and
-                    <code>product-code</code> with your real merchant credentials
-                    from the eSewa merchant dashboard.
-                    Set <code>sandbox: false</code>.
+                    <strong>Never hardcode sandbox credentials.</strong>
+                    Even though these are public sandbox values,
+                    always use environment variables so you have
+                    a consistent pattern when switching to production.
                 </p>
             </div>
         </section>
@@ -606,7 +670,10 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
             <a href="index.html">Home</a>
             <a href="getting-started.html">Getting Started</a>
             <a href="khalti.html">Khalti</a>
+            <a href="connectips.html">ConnectIPS</a>
+            <a href="fonepay.html">Fonepay</a>
             <a href="reactive.html">Reactive</a>
+            <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
         </div>
@@ -622,6 +689,23 @@ public Mono&lt;ResponseEntity&lt;String&gt;&gt; callback(
         r.setAttribute('data-theme', n);
         try { localStorage.setItem('np-theme', n); } catch (e) {}
     }
+
+    (function () {
+        var links = document.querySelectorAll('.sidebar-nav a');
+        var sections = document.querySelectorAll('.docs-content section');
+        window.addEventListener('scroll', function () {
+            var pos = window.scrollY + 100;
+            sections.forEach(function (s) {
+                if (s.offsetTop <= pos &&
+                    s.offsetTop + s.offsetHeight > pos) {
+                    links.forEach(function (l) { l.classList.remove('active'); });
+                    var a = document.querySelector(
+                        '.sidebar-nav a[href="#' + s.id + '"]');
+                    if (a) a.classList.add('active');
+                }
+            });
+        });
+    }());
 </script>
 </body>
 </html>

@@ -15,6 +15,7 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * test constructor — no real .pfx file is needed.
  *
  * <p>Uses {@link StepVerifier} (reactor-test) for all reactive assertions.
- * Uses {@link MockWebServer} (OkHttp) to mock HTTP responses.
+ * Uses {@link MockWebServer} (OkHttp3) to mock HTTP responses.
  *
  * <p>Key reactive pattern:
  * <pre>{@code
@@ -51,19 +52,15 @@ class ConnectIpsReactiveClientTest {
     /**
      * Throwaway RSA key pair — generated ONCE for the entire test class.
      *
-     * <p>2048-bit is used per security best practices.
-     * 512-bit is deprecated in modern JVMs and triggers security warnings.
-     *
-     * <p>{@code @BeforeAll} runs once — keeps the test suite fast despite
-     * the slightly higher cost of 2048-bit generation (~50-100ms).
+     * <p>2048-bit per CONTRIBUTING.md mandate. Generated once with
+     * {@code @BeforeAll} to keep the test suite fast.
      */
-    // 512 → 2048 — avoids JVM security deprecation warnings
     private static PrivateKey TEST_PRIVATE_KEY;
 
     // ── Per-test instances ────────────────────────────────────────────────
-    private MockWebServer             mockWebServer;
-    private ConnectIpsReactiveClient  clientMockServer;
-    private ConnectIpsReactiveClient  retryClient;
+    private MockWebServer            mockWebServer;
+    private ConnectIpsReactiveClient clientMockServer;
+    private ConnectIpsReactiveClient retryClient;
 
     // ─────────────────────────────────────────────────────────────────────
     // LIFECYCLE
@@ -72,7 +69,6 @@ class ConnectIpsReactiveClientTest {
     @BeforeAll
     static void generateTestKey() throws Exception {
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        //  was 512-bit which triggers JVM security warnings
         keyGen.initialize(2048);
         TEST_PRIVATE_KEY = keyGen.generateKeyPair().getPrivate();
     }
@@ -82,6 +78,7 @@ class ConnectIpsReactiveClientTest {
         mockWebServer = new MockWebServer();
         mockWebServer.start();
 
+        // 9-arg package-private test constructor — default timeout 30s
         clientMockServer = new ConnectIpsReactiveClient(
                 MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
                 TEST_PRIVATE_KEY,
@@ -174,7 +171,6 @@ class ConnectIpsReactiveClientTest {
         @Test
         @DisplayName("success: returns signed payload with all fields populated")
         void buildFormPayload_success_allFieldsSet() {
-            // Synchronous — no StepVerifier needed
             ConnectIpsFormPayload payload = clientMockServer.buildFormPayload(
                     ConnectIpsPaymentRequest.builder()
                             .txnId("TXN-001")
@@ -186,18 +182,19 @@ class ConnectIpsReactiveClientTest {
 
             assertThat(payload).isNotNull();
             assertThat(payload.txnId()).isEqualTo("TXN-001");
-            assertThat(payload.txnAmt()).isEqualTo(10000L);   // 100 NPR → paisa
+            assertThat(payload.txnAmt()).isEqualTo(10000L); // 100 NPR → paisa
             assertThat(payload.referenceId()).isEqualTo("ORD-001");
             assertThat(payload.remarks()).isEqualTo("Test");
             assertThat(payload.particulars()).isEqualTo("NepalPay");
-            assertThat(payload.token()).isNotBlank();          // RSA signed
+            assertThat(payload.token()).isNotBlank();        // RSA signed
             assertThat(payload.formActionUrl())
-                    .contains("uat.connectips.com");           // sandbox URL
+                    .contains("uat.connectips.com");         // sandbox URL
         }
 
         @Test
         @DisplayName("throws ConnectIpsException when request is null")
         void buildFormPayload_nullRequest_throws() {
+            // Cast required to disambiguate overload — compiler warning is expected
             assertThatThrownBy(() ->
                     clientMockServer.buildFormPayload(
                             (ConnectIpsPaymentRequest) null))
@@ -270,17 +267,15 @@ class ConnectIpsReactiveClientTest {
         @Test
         @DisplayName("emits ConnectIpsException when txnId is blank")
         void validateTransaction_blankTxnId_emitsError() {
-            // validateTransaction wraps everything in Mono.defer —
-            // validation errors are now emitted as Mono.error signals, not thrown.
             StepVerifier.create(
                             clientMockServer.validateTransaction(
                                     "  ", REFERENCE_ID, TXN_AMT_PAISA))
                     .expectErrorMatches(err ->
                             err instanceof ConnectIpsException
-                                    && err.getMessage().contains("txnId is required"))
+                                    && err.getMessage().contains(
+                                    "txnId is required"))
                     .verify();
 
-            // No HTTP request — rejected before RSA signing
             assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
         }
 
@@ -292,7 +287,8 @@ class ConnectIpsReactiveClientTest {
                                     null, REFERENCE_ID, TXN_AMT_PAISA))
                     .expectErrorMatches(err ->
                             err instanceof ConnectIpsException
-                                    && err.getMessage().contains("txnId is required"))
+                                    && err.getMessage().contains(
+                                    "txnId is required"))
                     .verify();
 
             assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
@@ -306,7 +302,8 @@ class ConnectIpsReactiveClientTest {
                                     "TXN-001", "  ", TXN_AMT_PAISA))
                     .expectErrorMatches(err ->
                             err instanceof ConnectIpsException
-                                    && err.getMessage().contains("referenceId is required"))
+                                    && err.getMessage().contains(
+                                    "referenceId is required"))
                     .verify();
 
             assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
@@ -320,7 +317,8 @@ class ConnectIpsReactiveClientTest {
                                     "TXN-001", null, TXN_AMT_PAISA))
                     .expectErrorMatches(err ->
                             err instanceof ConnectIpsException
-                                    && err.getMessage().contains("referenceId is required"))
+                                    && err.getMessage().contains(
+                                    "referenceId is required"))
                     .verify();
 
             assertThat(mockWebServer.getRequestCount()).isEqualTo(0);
@@ -357,7 +355,7 @@ class ConnectIpsReactiveClientTest {
         }
 
         @Test
-        @DisplayName("success: emits validated response when all inputs are valid")
+        @DisplayName("success: emits validated response when all inputs valid")
         void validateTransaction_validInputs_success() {
             mockWebServer.enqueue(new MockResponse()
                     .setResponseCode(200)
@@ -373,7 +371,6 @@ class ConnectIpsReactiveClientTest {
                             }
                             """));
 
-            // validateTransaction signs with real RSA key — still hits mock server
             StepVerifier.create(
                             clientMockServer.validateTransaction(
                                     "TXN-001", REFERENCE_ID, TXN_AMT_PAISA))
@@ -439,7 +436,8 @@ class ConnectIpsReactiveClientTest {
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {"merchantId":123,"referenceId":"REF-ORDER-001","status":"FAILED","statusDesc":"FAILED"}
+                            {"merchantId":123,"referenceId":"REF-ORDER-001",
+                             "status":"FAILED","statusDesc":"FAILED"}
                             """));
 
             StepVerifier.create(
@@ -493,7 +491,8 @@ class ConnectIpsReactiveClientTest {
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {"referenceId":"REF-ORDER-001","status":"SUCCESS","statusDesc":"OK"}
+                            {"referenceId":"REF-ORDER-001",
+                             "status":"SUCCESS","statusDesc":"OK"}
                             """));
 
             StepVerifier.create(
@@ -527,13 +526,15 @@ class ConnectIpsReactiveClientTest {
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {"referenceId":"REF-ORDER-001","status":"SUCCESS","statusDesc":"SUCCESSFUL"}
+                            {"referenceId":"REF-ORDER-001","status":"SUCCESS",
+                             "statusDesc":"SUCCESSFUL"}
                             """));
 
             StepVerifier.create(
                             retryClient.validateTransactionWithToken(
                                     REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
-                    .expectNextMatches(ConnectIpsValidateResponse::isPaymentSuccessful)
+                    .expectNextMatches(
+                            ConnectIpsValidateResponse::isPaymentSuccessful)
                     .verifyComplete();
 
             assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
@@ -548,13 +549,15 @@ class ConnectIpsReactiveClientTest {
                     .setResponseCode(200)
                     .setHeader("Content-Type", "application/json")
                     .setBody("""
-                            {"referenceId":"REF-ORDER-001","status":"SUCCESS","statusDesc":"SUCCESSFUL"}
+                            {"referenceId":"REF-ORDER-001","status":"SUCCESS",
+                             "statusDesc":"SUCCESSFUL"}
                             """));
 
             StepVerifier.create(
                             retryClient.validateTransactionWithToken(
                                     REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
-                    .expectNextMatches(ConnectIpsValidateResponse::isPaymentSuccessful)
+                    .expectNextMatches(
+                            ConnectIpsValidateResponse::isPaymentSuccessful)
                     .verifyComplete();
 
             assertThat(mockWebServer.getRequestCount()).isEqualTo(3);
@@ -651,7 +654,8 @@ class ConnectIpsReactiveClientTest {
     @DisplayName("formActionUrl() returns UAT gateway URL in sandbox mode")
     void formActionUrl_uatInSandbox() {
         assertThat(clientMockServer.formActionUrl())
-                .isEqualTo("https://uat.connectips.com/connectipswebgw/loginpage");
+                .isEqualTo(
+                        "https://uat.connectips.com/connectipswebgw/loginpage");
     }
 
     @Test
@@ -666,7 +670,137 @@ class ConnectIpsReactiveClientTest {
                 RetryProperties.DEFAULT);
 
         assertThat(prod.formActionUrl())
-                .isEqualTo("https://connectips.com/connectipswebgw/loginpage");
+                .isEqualTo(
+                        "https://connectips.com/connectipswebgw/loginpage");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TIMEOUT CONFIGURATION — Copilot C-3 / C-4
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("timeoutSeconds() returns 30 by default (9-arg test constructor)")
+    void timeoutSeconds_defaultIs30() {
+        // 9-arg test constructor always sets DEFAULT_TIMEOUT_SECONDS = 30
+        assertThat(clientMockServer.timeoutSeconds()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("timeoutSeconds() returns configured value (10-arg test constructor)")
+    void timeoutSeconds_configurable() {
+        // Uses the 10-arg package-private test constructor:
+        // (merchantId, appId, appName, appPassword,
+        //  privateKey, sandbox, builder, url, retry, timeoutSeconds)
+        ConnectIpsReactiveClient customClient = new ConnectIpsReactiveClient(
+                MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                TEST_PRIVATE_KEY,
+                true,
+                WebClient.builder(),
+                mockWebServer.url("/").toString(),
+                RetryProperties.DISABLED,
+                60   // custom timeout — verified via timeoutSeconds()
+        );
+
+        assertThat(customClient.timeoutSeconds()).isEqualTo(60);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TIMEOUT BEHAVIOR — Copilot C-4
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Timeout behavior")
+    class TimeoutBehavior {
+
+        /**
+         * Tests that a response delayed beyond the configured timeout
+         * emits a reactive error signal — not a thread block.
+         *
+         * <p>Uses the 10-arg package-private test constructor to create
+         * a client with a 1-second timeout. Enqueues a mock response
+         * delayed by 2 seconds. The Mono must emit an error before the
+         * 5-second StepVerifier deadline — confirming the timeout fires
+         * reactively via {@code HttpClient.responseTimeout()}.
+         *
+         * <p>Addresses Copilot comment C-4: "no tests exercising
+         * the timeout behavior".
+         */
+        @Test
+        @DisplayName("emits error when server response exceeds timeout")
+        void validateTransaction_emitsError_whenResponseExceedsTimeout() {
+
+            // ── 1-second timeout client ────────────────────────────────
+            ConnectIpsReactiveClient timeoutClient =
+                    new ConnectIpsReactiveClient(
+                            MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                            TEST_PRIVATE_KEY,
+                            true,
+                            WebClient.builder(),
+                            mockWebServer.url("/").toString(),
+                            RetryProperties.DISABLED,
+                            1    // 1-second timeout
+                    );
+
+            // ── Mock response delayed by 2 seconds ────────────────────
+            // setHeadersDelay delays before any response bytes arrive
+            // → correctly triggers Reactor Netty responseTimeout
+            mockWebServer.enqueue(
+                    new MockResponse()
+                            .setResponseCode(200)
+                            .setHeadersDelay(2, TimeUnit.SECONDS)
+                            .setHeader("Content-Type", "application/json")
+                            .setBody("""
+                                    {"referenceId":"REF-001","status":"SUCCESS"}
+                                    """)
+            );
+
+            // ── StepVerifier deadline 5s > server delay 2s > timeout 1s
+            StepVerifier.create(
+                            timeoutClient.validateTransactionWithToken(
+                                    REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
+                    .expectErrorMatches(err -> err != null)
+                    .verify(java.time.Duration.ofSeconds(5));
+
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("succeeds when server responds within timeout")
+        void validateTransaction_succeeds_whenResponseWithinTimeout() {
+
+            // ── 5-second timeout — mock responds immediately ───────────
+            ConnectIpsReactiveClient generousClient =
+                    new ConnectIpsReactiveClient(
+                            MERCHANT_ID, APP_ID, APP_NAME, APP_PASSWORD,
+                            TEST_PRIVATE_KEY,
+                            true,
+                            WebClient.builder(),
+                            mockWebServer.url("/").toString(),
+                            RetryProperties.DISABLED,
+                            5    // 5-second timeout
+                    );
+
+            mockWebServer.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("""
+                            {
+                                "merchantId": 123,
+                                "referenceId": "REF-ORDER-001",
+                                "status": "SUCCESS",
+                                "statusDesc": "TRANSACTION SUCCESSFUL"
+                            }
+                            """));
+
+            StepVerifier.create(
+                            generousClient.validateTransactionWithToken(
+                                    REFERENCE_ID, TXN_AMT_PAISA, MOCK_TOKEN))
+                    .expectNextMatches(
+                            ConnectIpsValidateResponse::isPaymentSuccessful)
+                    .verifyComplete();
+
+            assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────

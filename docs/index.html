@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NepalPay — Spring Boot Starter for Nepal Payments</title>
     <meta name="description"
-          content="The first production-grade Java library for Nepal payment gateways — Khalti, eSewa, ConnectIPS, and Fonepay.">
+          content="The first production-grade Java library for Nepal payment gateways — Khalti, eSewa, ConnectIPS, and Fonepay. Spring Boot 3.2+, 4.x, and WebFlux.">
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         (function () {
@@ -19,7 +19,7 @@
 </head>
 <body>
 
-<!-- ═══ HERO (dark, same structure as 1st docs) ═════ -->
+<!-- ═══ HERO ═══════════════════════════════════════════════════ -->
 <div class="hero">
 
     <nav class="topnav">
@@ -47,35 +47,46 @@
                 </button>
                 <a class="nav-cta"
                    href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
-                   target="_blank" rel="noopener">
-                    GitHub ↗
-                </a>
+                   target="_blank" rel="noopener">GitHub ↗</a>
             </div>
         </div>
     </nav>
 
     <div class="hero-body">
+
         <div class="hero-eyebrow">
             <span class="eyebrow-dot"></span>
-            Spring Boot 3.2+ / 4.x / WebFlux &nbsp;·&nbsp; Java 17+ &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; v1.2.0
+            v1.2.0 — Now on Maven Central
         </div>
 
-        <h1>Nepal Payments<br>
-            <span class="accent">for Spring Boot</span>
+        <h1>
+            Nepal's Payment Gateways.<br>
+            <span class="accent-crimson">One Library.</span>
+            <span class="accent-gold"> Zero Boilerplate.</span>
         </h1>
 
         <p class="hero-sub">
-            The first production-grade Java library for Nepal payment gateways.
-            Khalti, eSewa, ConnectIPS, and Fonepay — with blocking and reactive
-            (WebFlux) support, retry, refund, and security baked in. Zero boilerplate.
+            The first production-grade Java starter for Khalti, eSewa,
+            ConnectIPS, and Fonepay. Blocking, reactive, retry, metrics,
+            and security — trusted by Nepal's developer community.
         </p>
 
         <div class="hero-actions">
-            <a class="btn btn-primary" href="getting-started.html">Get Started →</a>
-            <a class="btn btn-hero"    href="reactive.html">Reactive Docs ⚡</a>
+            <a class="btn btn-gold" href="getting-started.html">
+                Get Started →
+            </a>
+            <a class="btn btn-hero" href="reactive.html">
+                Reactive ⚡
+            </a>
             <a class="btn btn-hero"
                href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
-               target="_blank" rel="noopener">View on GitHub</a>
+               target="_blank" rel="noopener">
+                View on GitHub
+            </a>
+        </div>
+
+        <div class="hero-divider">
+            <div class="hero-divider-symbol">◆ ◆ ◆</div>
         </div>
 
         <div class="hero-stats">
@@ -85,7 +96,7 @@
             </div>
             <div>
                 <div class="hero-stat-n">400+</div>
-                <div class="hero-stat-l">Tests passing</div>
+                <div class="hero-stat-l">Tests</div>
             </div>
             <div>
                 <div class="hero-stat-n">3</div>
@@ -93,18 +104,20 @@
             </div>
             <div>
                 <div class="hero-stat-n">0</div>
-                <div class="hero-stat-l">Config classes needed</div>
+                <div class="hero-stat-l">Config classes</div>
             </div>
         </div>
+
     </div>
+</div>
 
-</div><!-- /hero -->
-
-<!-- ═══ INSTALL STRIP ════════════════════════════════ -->
+<!-- ═══ INSTALL ════════════════════════════════════════════════ -->
 <div class="install-strip">
     <div class="install-strip-inner">
         <div class="install-strip-header">
-            <span class="install-strip-title">Quick Install — no &lt;repositories&gt; block needed</span>
+            <span class="install-strip-title">
+                Quick Install — no &lt;repositories&gt; block needed
+            </span>
             <div class="install-tabs">
                 <button class="install-tab-btn active"
                         onclick="switchTab('maven', this)">Maven</button>
@@ -115,7 +128,6 @@
             </div>
         </div>
 
-        <!-- Maven Boot 3 -->
         <div id="tab-maven" class="install-pane active">
             <div class="install-sublabel">Spring Boot 3.2+ (Java 17+)</div>
             <pre class="install-pre"><code>&lt;dependency&gt;
@@ -123,13 +135,13 @@
     &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
     &lt;version&gt;1.2.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
-            <div class="install-sublabel" style="margin-top:1rem">Spring Boot 4.x (Java 21+)</div>
+            <div class="install-sublabel">Spring Boot 4.x (Java 21+)</div>
             <pre class="install-pre"><code>&lt;dependency&gt;
     &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-4-starter&lt;/artifactId&gt;
     &lt;version&gt;1.2.0&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
-            <div class="install-sublabel" style="margin-top:1rem">Spring WebFlux — Reactive (Boot 3.2+)</div>
+            <div class="install-sublabel">Spring WebFlux — Reactive (Boot 3.2+)</div>
             <pre class="install-pre"><code>&lt;dependency&gt;
     &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
     &lt;artifactId&gt;nepal-pay-spring-boot-reactive-starter&lt;/artifactId&gt;
@@ -137,147 +149,162 @@
 &lt;/dependency&gt;</code></pre>
         </div>
 
-        <!-- Gradle -->
         <div id="tab-gradle" class="install-pane">
             <div class="install-sublabel">Spring Boot 3.2+</div>
             <pre class="install-pre"><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0'</code></pre>
-            <div class="install-sublabel" style="margin-top:1rem">Spring Boot 4.x</div>
+            <div class="install-sublabel">Spring Boot 4.x</div>
             <pre class="install-pre"><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-4-starter:1.2.0'</code></pre>
-            <div class="install-sublabel" style="margin-top:1rem">Spring WebFlux — Reactive</div>
+            <div class="install-sublabel">Spring WebFlux — Reactive</div>
             <pre class="install-pre"><code>implementation 'io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.2.0'</code></pre>
         </div>
 
-        <!-- Kotlin DSL -->
         <div id="tab-kts" class="install-pane">
-            <div class="install-sublabel">Spring Boot 3.2+</div>
+            <div class="install-sublabel">Spring Boot 3.2+ — Blocking</div>
             <pre class="install-pre"><code>implementation("io.github.sujankim:nepal-pay-spring-boot-3-starter:1.2.0")</code></pre>
-            <div class="install-sublabel" style="margin-top:1rem">Spring Boot 4.x</div>
+            <div class="install-sublabel">Spring Boot 4.x — Blocking</div>
             <pre class="install-pre"><code>implementation("io.github.sujankim:nepal-pay-spring-boot-4-starter:1.2.0")</code></pre>
-            <div class="install-sublabel" style="margin-top:1rem">Spring WebFlux — Reactive</div>
+            <div class="install-sublabel">Spring WebFlux — Reactive</div>
             <pre class="install-pre"><code>implementation("io.github.sujankim:nepal-pay-spring-boot-reactive-starter:1.2.0")</code></pre>
         </div>
 
         <p class="install-note">
-            Public API is identical in both blocking starters.
-            &nbsp;·&nbsp; Previously on JitPack as <code style="color:#FDA4AF;background:transparent;border:none">com.github.sujankim</code> — v0.6.0 and earlier still work.
-            &nbsp;·&nbsp; <a href="getting-started.html">Full install guide →</a>
+            All starters share the same
+            <code style="color:#F0C040;background:transparent;border:none">nepalpay.*</code>
+            YAML — same config, switch artifact to migrate.
+            &nbsp;·&nbsp;
+            <a href="getting-started.html">Full install guide →</a>
         </p>
     </div>
 </div>
 
-<!-- ═══ WHY NEPALPAY ═════════════════════════════════ -->
-<section class="section section-alt section-border">
+<!-- ═══ WHY NEPALPAY ══════════════════════════════════════════ -->
+<section class="section section-border">
     <div class="section-inner">
         <div class="section-label">Why NepalPay</div>
-        <h2 class="section-title">Stop writing payment boilerplate</h2>
+        <h2 class="section-title">
+            Built for Nepal's developers.<br>
+            Ready for production.
+        </h2>
         <p class="section-desc">
-            Every project needs payments. None of them should need 500 lines
-            of HMAC signing code — or 200 lines of Reactor pipelines.
+            After integrating Nepal payment gateways from scratch three
+            different times — the same HMAC debugging, the same RSA
+            certificate handling — NepalPay was built to solve
+            this once and for all.
         </p>
 
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
-                <h3>5-Minute Setup</h3>
+                <h3>5-Minute Integration</h3>
                 <p>Add dependency → configure keys → inject and use.
-                    No <code>@Bean</code>, no config class, no boilerplate at all.
-                    Works the same in blocking and reactive apps.</p>
+                    No <code>@Bean</code>, no config class.
+                    Auto-configured by Spring Boot.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔄</div>
-                <h3>Reactive (WebFlux)</h3>
-                <p>New in v1.1.0 — <code>Mono&lt;T&gt;</code> responses via
-                    <code>WebClient</code>. Fully non-blocking for WebFlux apps.
-                    Same YAML config as blocking.</p>
+                <h3>Blocking + Reactive</h3>
+                <p>Spring MVC or WebFlux — same YAML,
+                    same API pattern. Reactive returns
+                    <code>Mono&lt;T&gt;</code> via WebClient.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔐</div>
-                <h3>Secure by Default</h3>
-                <p>HMAC-SHA256, HMAC-SHA512, RSA-SHA256, server-side verification,
-                    constant-time HMAC comparison — all implemented correctly and tested.</p>
+                <h3>Secure by Design</h3>
+                <p>HMAC-SHA256, HMAC-SHA512, RSA-SHA256,
+                    constant-time comparison, server-side
+                    verification — all built in.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔁</div>
-                <h3>Retry Built In</h3>
-                <p>Exponential backoff with jitter. Blocking uses
-                    <code>Thread.sleep()</code>. Reactive uses
-                    Reactor's <code>Retry.backoff()</code>.
+                <h3>Smart Retry</h3>
+                <p>Exponential backoff with jitter.
+                    Never retries 4xx or signature failures.
                     Opt-in, configurable per gateway.</p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">💳</div>
-                <h3>Refund Support</h3>
-                <p>Khalti full and partial refunds supported. More gateways
-                    coming with community contributions.
-                    Blocking and reactive.</p>
+                <div class="feature-icon">📊</div>
+                <h3>Micrometer Metrics</h3>
+                <p>Operation timers, per-operation retry counters,
+                    HMAC failure alerts. Auto-registered when
+                    Actuator is on the classpath.</p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">🧪</div>
-                <h3>Fully Tested</h3>
-                <p>MockWebServer HTTP tests, StepVerifier reactive tests,
-                    signature correctness, retry behavior. 400+ tests total.</p>
+                <div class="feature-icon">🩺</div>
+                <h3>Actuator Health</h3>
+                <p>Every configured gateway under
+                    <code>/actuator/health</code>.
+                    Config-only health check —
+                    no outbound pings.</p>
             </div>
         </div>
     </div>
 </section>
 
-<!-- ═══ GATEWAYS ══════════════════════════════════════ -->
-<section class="section section-border">
+<!-- ═══ GATEWAYS ══════════════════════════════════════════════ -->
+<section class="section section-alt section-border">
     <div class="section-inner">
         <div class="section-label">Gateways</div>
-        <h2 class="section-title">All major Nepal payment gateways</h2>
+        <h2 class="section-title">
+            All four Nepal payment gateways
+        </h2>
         <p class="section-desc">
-            One library. Four gateways. Consistent API across all of them —
-            in both blocking and reactive flavours.
+            One library. Consistent API across Khalti, eSewa,
+            ConnectIPS, and Fonepay — blocking and reactive.
         </p>
 
         <div class="gateways-grid">
             <a class="gateway-card" href="khalti.html">
                 <div class="gateway-badge">✅ v0.5.0</div>
                 <h3>Khalti</h3>
-                <p>API-first payment initiation, server-side lookup verification,
-                    and full/partial refund support.</p>
-                <span class="gateway-arrow">View docs →</span>
+                <p>API-first initiation, server-side lookup,
+                    full and partial refund support.</p>
+                <span class="gateway-arrow">Explore docs →</span>
             </a>
             <a class="gateway-card" href="esewa.html">
                 <div class="gateway-badge">✅ v0.1.0</div>
                 <h3>eSewa</h3>
-                <p>HMAC-SHA256 signed form payload, Base64 callback decode
-                    and signature verification.</p>
-                <span class="gateway-arrow">View docs →</span>
+                <p>HMAC-SHA256 signed form payload,
+                    Base64 callback decode and
+                    signature verification.</p>
+                <span class="gateway-arrow">Explore docs →</span>
             </a>
             <a class="gateway-card" href="connectips.html">
                 <div class="gateway-badge">✅ v0.2.0</div>
                 <h3>ConnectIPS</h3>
-                <p>RSA-SHA256 digital signing via CREDITOR.pfx certificate.
-                    Direct bank-to-bank via NCHL.</p>
-                <span class="gateway-arrow">View docs →</span>
+                <p>RSA-SHA256 signing via CREDITOR.pfx.
+                    Bank-to-bank via NCHL.
+                    Configurable timeout.</p>
+                <span class="gateway-arrow">Explore docs →</span>
             </a>
             <a class="gateway-card" href="fonepay.html">
                 <div class="gateway-badge">✅ v0.4.0</div>
                 <h3>Fonepay</h3>
-                <p>HMAC-SHA512 signed URL redirect for QR, mobile banking,
+                <p>HMAC-SHA512 signed URL redirect
+                    for QR, mobile banking,
                     and wallet payments.</p>
-                <span class="gateway-arrow">View docs →</span>
+                <span class="gateway-arrow">Explore docs →</span>
             </a>
         </div>
     </div>
 </section>
 
-<!-- ═══ DEVELOPER EXPERIENCE ═════════════════════════ -->
-<section class="section section-alt section-border">
+<!-- ═══ CODE COMPARE ══════════════════════════════════════════ -->
+<section class="section section-border">
     <div class="section-inner">
         <div class="section-label">Developer Experience</div>
-        <h2 class="section-title">Three lines. Not three hundred.</h2>
+        <h2 class="section-title">
+            Three lines. Not three hundred.
+        </h2>
         <p class="section-desc">
-            Compare the same Khalti payment initiation with and without NepalPay.
+            Khalti payment initiation — the honest comparison.
         </p>
 
         <div class="code-compare">
             <div class="code-compare-block">
-                <span class="code-compare-label label-bad">❌ Without NepalPay</span>
-                <pre><code>// 90+ lines of boilerplate per gateway
-HttpClient client = HttpClient.newHttpClient();
+                <div class="code-compare-label label-bad">
+                    ❌ Without NepalPay — 90+ lines per gateway
+                </div>
+                <pre><code>HttpClient client = HttpClient.newHttpClient();
 
 String json = """
     {
@@ -287,7 +314,7 @@ String json = """
       "purchase_order_id": "%s",
       "purchase_order_name": "%s"
     }
-    """.formatted(returnUrl, url, amount, id, name);
+    """.formatted(returnUrl, url, amt, id, name);
 
 HttpRequest req = HttpRequest.newBuilder()
     .uri(URI.create(
@@ -297,15 +324,15 @@ HttpRequest req = HttpRequest.newBuilder()
     .POST(BodyPublishers.ofString(json))
     .build();
 
-// parse response manually...
-// handle errors manually...
-// write HMAC logic for eSewa manually...
-// repeat for every project...</code></pre>
+// parse manually, handle errors manually,
+// write HMAC for eSewa manually,
+// repeat for every new project...</code></pre>
             </div>
-
             <div class="code-compare-block">
-                <span class="code-compare-label label-good">✅ With NepalPay</span>
-                <pre><code>// Inject — auto-configured, zero setup
+                <div class="code-compare-label label-good">
+                    ✅ With NepalPay — auto-configured
+                </div>
+                <pre><code>// Zero @Bean. Zero @EnableNepalPay.
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -317,13 +344,13 @@ public class PaymentService {
 
         var res = khaltiClient.initiatePayment(
             KhaltiInitiateRequest.builder()
-                .amount(nprAmount * 100L) // NPR → paisa
+                .amount(nprAmount * 100L)
                 .purchaseOrderId(orderId)
                 .purchaseOrderName("Pro Plan")
                 .build()
         );
 
-        // Save res.pidx() to DB, redirect to:
+        // Save pidx to DB, then redirect:
         return res.paymentUrl();
     }
 }</code></pre>
@@ -332,103 +359,137 @@ public class PaymentService {
     </div>
 </section>
 
-<!-- ═══ STARTERS ══════════════════════════════════════ -->
-<section class="section section-border">
+<!-- ═══ STARTERS ══════════════════════════════════════════════ -->
+<section class="section section-alt section-border">
     <div class="section-inner">
         <div class="section-label">All Starters</div>
-        <h2 class="section-title">Pick the right starter for your app</h2>
+        <h2 class="section-title">
+            Three starters — one API
+        </h2>
         <p class="section-desc">
-            Three starters — one library. All share the same
-            <code>nepalpay.*</code> YAML. Only the HTTP client and return type differ.
+            All share the same <code>nepalpay.*</code> YAML.
+            Switch the artifact name to migrate.
+            Only the HTTP client and return type differ.
         </p>
 
         <div class="starter-table">
             <div class="starter-card">
                 <span class="starter-label">Spring Boot 3</span>
                 <h3>Blocking — Boot 3</h3>
-                <p>RestClient-based. Use with Spring MVC. Jackson 2 internally.</p>
-                <code class="starter-id">nepal-pay-spring-boot-3-starter</code>
+                <p>RestClient-based. Use with Spring MVC.
+                    Jackson 2 internally. Java 17+.</p>
+                <code class="starter-id">
+                    nepal-pay-spring-boot-3-starter
+                </code>
                 <span class="starter-meta">Spring Boot 3.2+ · Java 17+</span>
             </div>
             <div class="starter-card">
                 <span class="starter-label">Spring Boot 4</span>
                 <h3>Blocking — Boot 4</h3>
-                <p>Same API as Boot 3. Uses Jackson 3 internally. Required for Boot 4.x.</p>
-                <code class="starter-id">nepal-pay-spring-boot-4-starter</code>
+                <p>Same API as Boot 3. Jackson 3 internally.
+                    Required for Spring Boot 4.x.</p>
+                <code class="starter-id">
+                    nepal-pay-spring-boot-4-starter
+                </code>
                 <span class="starter-meta">Spring Boot 4.x · Java 21+</span>
             </div>
             <div class="starter-card">
                 <span class="starter-label">WebFlux</span>
                 <h3>Reactive — WebFlux</h3>
-                <p>WebClient-based. Returns <code>Mono&lt;T&gt;</code>. Use with Spring WebFlux.</p>
-                <code class="starter-id">nepal-pay-spring-boot-reactive-starter</code>
+                <p>WebClient-based. Returns
+                    <code>Mono&lt;T&gt;</code>.
+                    Use with Spring WebFlux.</p>
+                <code class="starter-id">
+                    nepal-pay-spring-boot-reactive-starter
+                </code>
                 <span class="starter-meta">Spring Boot 3.2+ · Java 17+</span>
             </div>
         </div>
     </div>
 </section>
 
-<!-- ═══ NEW IN v1.2.0 ═════════════════════════════════ -->
-<section class="section section-alt section-border">
+<!-- ═══ NEW IN v1.2.0 ══════════════════════════════════════════ -->
+<section class="section section-border">
     <div class="section-inner">
         <div class="section-label">New in v1.2.0</div>
-        <h2 class="section-title">Micrometer metrics + health indicators</h2>
+        <h2 class="section-title">
+            Observability — metrics + health
+        </h2>
         <p class="section-desc">
-            Add <code>spring-boot-starter-actuator</code> — NepalPay automatically
-            records timers, counters, and registers a health indicator per gateway.
+            Add <code>spring-boot-starter-actuator</code> — NepalPay
+            automatically instruments every gateway and registers
+            a health indicator per configured gateway.
         </p>
 
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">⏱</div>
                 <h3>Operation Timers</h3>
-                <p>Every HTTP call timed and tagged by <code>gateway</code>,
-                    <code>operation</code>, and <code>status</code>.
-                    Use for latency dashboards in Grafana.</p>
+                <p>Every HTTP call timed and tagged by
+                    <code>gateway</code>, <code>operation</code>,
+                    <code>status</code>. P99 in Grafana.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔢</div>
-                <h3>Retry Counters</h3>
-                <p>Each retry attempt increments a counter per operation.
-                    Shows how often gateway 5xx errors force your app to retry.</p>
+                <h3>Per-Operation Retry Counters</h3>
+                <p>Initiate, lookup, and refund each get their
+                    own retry counter — not a shared one.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🛡</div>
-                <h3>Signature Failure Counter</h3>
-                <p><code>nepalpay.esewa.callback.signature.failed</code> increments
-                    on every HMAC mismatch. Alert on a spike — it means tampering.</p>
+                <h3>Signature Failure Alert</h3>
+                <p>
+                    <code style="font-size:0.8em">
+                        nepalpay.esewa.callback<br>.signature.failed
+                    </code>
+                    — spike means tampering.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🩺</div>
                 <h3>Health per Gateway</h3>
-                <p>Each configured gateway appears as its own component under
-                    <code>/actuator/health</code>. Config-only — no live pings.</p>
+                <p>Each gateway under
+                    <code>/actuator/health</code>.
+                    Config-only — no outbound pings.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
                 <h3>Reactive-Safe Timing</h3>
-                <p>Uses <code>Timer.Sample</code> with
-                    <code>doOnSuccess</code>/<code>doOnError</code> on the Mono.
+                <p><code>Timer.Sample</code> +
+                    <code>doOnSuccess</code>/<code>doOnError</code>.
                     Fully non-blocking throughout.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔘</div>
                 <h3>Opt-Out Anytime</h3>
-                <p>Set <code>nepalpay.metrics.enabled=false</code> or
+                <p><code>nepalpay.metrics.enabled=false</code>
+                    or
                     <code>nepalpay.health.enabled=false</code>.
-                    No Actuator on classpath means nothing registers.</p>
+                    No Actuator = nothing registers.</p>
             </div>
+        </div>
+
+        <div style="margin-top:2rem">
+            <pre><code># Khalti P99 initiation latency
+histogram_quantile(0.99,
+  rate(nepalpay_khalti_payment_initiate_duration_seconds_bucket[5m])
+)
+
+# eSewa fraud alert — HMAC mismatch spike
+rate(nepalpay_esewa_callback_signature_failed_total[5m]) > 5</code></pre>
         </div>
     </div>
 </section>
 
-<!-- ═══ RETRY ═════════════════════════════════════════ -->
-<section class="section section-border">
+<!-- ═══ RETRY ══════════════════════════════════════════════════ -->
+<section class="section section-alt section-border">
     <div class="section-inner">
-        <div class="section-label">Retry with Exponential Backoff</div>
-        <h2 class="section-title">Built-in retry — opt-in per gateway</h2>
+        <div class="section-label">Retry</div>
+        <h2 class="section-title">
+            Exponential backoff — opt-in per gateway
+        </h2>
         <p class="section-desc">
-            Retry is disabled by default. Enable it for any HTTP-backed gateway with four YAML lines.
+            Disabled by default. Enable for any HTTP-backed
+            gateway with four YAML lines.
         </p>
 
         <pre><code>nepalpay:
@@ -452,12 +513,17 @@ public class PaymentService {
                 <tbody>
                 <tr>
                     <td>Khalti</td>
-                    <td><code>initiatePayment()</code>, <code>lookupPayment()</code>, <code>refundPayment()</code></td>
+                    <td>
+                        <code>initiatePayment()</code>
+                        <code>lookupPayment()</code>
+                        <code>refundPayment()</code>
+                    </td>
                     <td><span class="pill pill-ok">✅ Yes</span></td>
                 </tr>
                 <tr>
                     <td>eSewa</td>
-                    <td><code>checkStatus()</code> inside <code>verifyCallback()</code></td>
+                    <td><code>checkStatus()</code> inside
+                        <code>verifyCallback()</code></td>
                     <td><span class="pill pill-ok">✅ Yes</span></td>
                 </tr>
                 <tr>
@@ -473,25 +539,26 @@ public class PaymentService {
                 </tbody>
             </table>
         </div>
-        <p style="color:var(--text-3);font-size:0.875rem;margin-top:1rem">
-            <strong>Retries:</strong> 5xx errors and network timeouts &nbsp;·&nbsp;
-            <strong>No retries:</strong> 4xx errors and signature failures
-            &nbsp;·&nbsp;
-            <strong>Note:</strong> Refund retries require idempotency — verify
-            the refund status with <code>lookupPayment()</code> before retrying
+        <p style="color:var(--text-4);font-size:0.875rem;margin-top:1rem;line-height:1.75">
+            <strong>Retries:</strong> 5xx + network timeouts &nbsp;·&nbsp;
+            <strong>Never:</strong> 4xx + signature failures &nbsp;·&nbsp;
+            <strong>Refund safety:</strong> verify with
+            <code>lookupPayment()</code> before retrying
             to avoid double-refunds.
         </p>
     </div>
 </section>
 
-<!-- ═══ AMOUNT UNITS ══════════════════════════════════ -->
-<section class="section section-alt section-border">
+<!-- ═══ AMOUNT UNITS ══════════════════════════════════════════ -->
+<section class="section section-border">
     <div class="section-inner">
-        <div class="section-label">⚠️ Amount Units</div>
-        <h2 class="section-title">Different unit per gateway</h2>
+        <div class="section-label">⚠ Important</div>
+        <h2 class="section-title">
+            Different amount unit per gateway
+        </h2>
         <p class="section-desc">
-            This is the most common source of integration bugs. Each gateway
-            expects a different Java type and unit.
+            The most common source of integration bugs.
+            Each gateway expects a different Java type and amount unit.
         </p>
 
         <div class="amount-grid">
@@ -503,7 +570,9 @@ public class PaymentService {
             <div class="amount-card">
                 <div class="amount-gateway">eSewa</div>
                 <div class="amount-unit">NPR</div>
-                <div class="amount-example">NPR 100 → "100.00"</div>
+                <div class="amount-example">
+                    NPR 100 → BigDecimal("100.00")
+                </div>
             </div>
             <div class="amount-card">
                 <div class="amount-gateway">Fonepay</div>
@@ -519,36 +588,40 @@ public class PaymentService {
     </div>
 </section>
 
-<!-- ═══ SECURITY ══════════════════════════════════════ -->
-<section class="section section-border">
+<!-- ═══ SECURITY ══════════════════════════════════════════════ -->
+<section class="section section-alt section-border">
     <div class="section-inner">
         <div class="section-label">Security</div>
-        <h2 class="section-title">Never trust redirect parameters alone</h2>
+        <h2 class="section-title">
+            Never trust redirect parameters alone
+        </h2>
         <p class="section-desc">
-            Payment gateways redirect users back with URL parameters.
-            These can be faked. Always verify server-side.
+            Gateway redirect URL parameters can be faked by anyone.
+            Always verify server-side.
         </p>
 
         <div class="features-grid">
             <div class="feature-card">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">🔐</div>
                 <h3>Server-side Only</h3>
                 <p>Secret keys never leave your backend.
-                    <code>lookupPayment()</code> and <code>verifyCallback()</code>
-                    enforce server-side confirmation.</p>
+                    <code>lookupPayment()</code> and
+                    <code>verifyCallback()</code> enforce
+                    server-side confirmation.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔏</div>
                 <h3>HMAC Verification</h3>
-                <p>eSewa and Fonepay callback signatures are always verified
-                    before marking any payment as successful.
-                    Constant-time comparison prevents timing attacks.</p>
+                <p>eSewa and Fonepay signatures verified
+                    before marking payment successful.
+                    Constant-time comparison — timing-safe.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">💰</div>
                 <h3>Amount Validation</h3>
-                <p><code>isAmountValid(expectedPaisa)</code> on Khalti lookup
-                    detects tampered amounts. Always call this after success.</p>
+                <p><code>isAmountValid(expectedPaisa)</code>
+                    on Khalti lookup detects tampered amounts.
+                    Always call after success.</p>
             </div>
         </div>
 
@@ -556,27 +629,32 @@ public class PaymentService {
             <div class="callout callout-danger">
                 <span class="callout-icon">❌</span>
                 <p>Never trust redirect URL parameters alone —
-                    <code>?status=Completed</code>, <code>?PS=success</code>,
-                    <code>?data=BASE64</code> can all be faked.</p>
+                    <code>?status=Completed</code>,
+                    <code>?PS=success</code>,
+                    <code>?data=BASE64</code>
+                    can all be faked.</p>
             </div>
             <div class="callout callout-danger">
                 <span class="callout-icon">❌</span>
-                <p>Never put secret keys in frontend code. Never hardcode credentials in source.
-                    Use environment variables for all real credentials.</p>
+                <p>Never put secret keys in frontend code or
+                    hardcode them in source. Use environment
+                    variables for all credentials.</p>
             </div>
             <div class="callout callout-danger">
                 <span class="callout-icon">❌</span>
                 <p>Never commit <code>CREDITOR.pfx</code> to Git.
-                    Add <code>*.pfx</code> to <code>.gitignore</code> immediately.</p>
+                    Add <code>*.pfx</code> to
+                    <code>.gitignore</code> before your first commit.</p>
             </div>
         </div>
+
         <p style="margin-top:1.25rem">
             <a href="security.html">Read the full security guide →</a>
         </p>
     </div>
 </section>
 
-<!-- ═══ FOOTER ════════════════════════════════════════ -->
+<!-- ═══ FOOTER ════════════════════════════════════════════════ -->
 <footer class="footer">
     <div class="footer-inner">
         <a class="footer-brand" href="index.html">🇳🇵 NepalPay</a>
@@ -591,6 +669,8 @@ public class PaymentService {
             <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
+            <a href="https://medium.com/@sujan.lamichhane32"
+               target="_blank" rel="noopener">Blog</a>
             <a href="https://sujanlamichhane.com.np"
                target="_blank" rel="noopener">Author</a>
         </div>
@@ -599,7 +679,6 @@ public class PaymentService {
 </footer>
 
 <script>
-    /* Theme toggle — flash-free IIFE in head already applied theme */
     function toggleTheme() {
         var r = document.documentElement;
         var c = r.getAttribute('data-theme') || 'light';
@@ -608,7 +687,6 @@ public class PaymentService {
         try { localStorage.setItem('np-theme', n); } catch (e) {}
     }
 
-    /* Install tab switcher */
     function switchTab(name, btn) {
         var ps = document.querySelectorAll('.install-pane');
         var bs = document.querySelectorAll('.install-tab-btn');

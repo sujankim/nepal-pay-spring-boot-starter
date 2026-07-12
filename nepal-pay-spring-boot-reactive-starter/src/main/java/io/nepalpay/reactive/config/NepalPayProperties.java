@@ -75,6 +75,22 @@ public record NepalPayProperties(
         }
     }
 
+    /**
+     * ConnectIPS payment gateway configuration.
+     *
+     * @param merchantId  NCHL-assigned merchant ID
+     * @param appId       Application ID from NCHL
+     * @param appName     Application name from NCHL
+     * @param appPassword Application password for HTTP Basic Auth
+     * @param pfxPath     Path to CREDITOR.pfx (Spring Resource format)
+     * @param pfxPassword Password for the CREDITOR.pfx file
+     * @param sandbox     true = UAT / false = production
+     * @param timeoutSeconds HTTP connect and read timeout in seconds.
+     *                       Default 30s — intentionally longer than other
+     *                       gateways because ConnectIPS validates via NCHL
+     *                       to bank systems which can be slower.
+     * @param retry       Retry configuration — null = defaults (disabled)
+     */
     public record ConnectIpsProperties(
             int merchantId,
             String appId,
@@ -82,8 +98,8 @@ public record NepalPayProperties(
             String appPassword,
             String pfxPath,
             String pfxPassword,
-            @DefaultValue("true")  boolean sandbox,
-            @DefaultValue("30")    int timeoutSeconds,
+            @DefaultValue("true") boolean sandbox,
+            @DefaultValue("30")   int timeoutSeconds,
             RetryProperties retry
     ) {
         public RetryProperties retryOrDefault() {

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fonepay Integration — NepalPay</title>
+    <meta name="description"
+          content="Integrate Fonepay payments in Spring Boot. HMAC-SHA512 signed URL redirect for QR, mobile banking, and wallets.">
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         (function () {
@@ -52,8 +54,11 @@
         <div class="page-header-left">
             <div class="page-version-pill">✅ v0.4.0</div>
             <h1>Fonepay Integration</h1>
-            <p>HMAC-SHA512 signed URL redirect for QR payments,
-                mobile banking, and wallets.</p>
+            <p>
+                HMAC-SHA512 signed URL redirect for QR payments,
+                mobile banking, and wallets. Zero server-to-server
+                HTTP calls — URL redirect only.
+            </p>
         </div>
     </div>
 </div>
@@ -73,7 +78,9 @@
             <div class="sidebar-group-label">Reactive</div>
             <a href="#reactive">Reactive Apps</a>
             <div class="sidebar-group-label">Reference</div>
-            <a href="#callback-params">Callback Parameters</a>
+            <a href="#request-fields">Request fields</a>
+            <a href="#redirect-fields">RedirectParams fields</a>
+            <a href="#callback-params">Callback parameters</a>
         </nav>
     </aside>
 
@@ -87,30 +94,33 @@
                 <span class="callout-icon">ℹ️</span>
                 <p>
                     Fonepay uses a <strong>URL redirect model</strong>.
-                    Your backend builds a signed URL. The frontend navigates
-                    the user directly to it.
-                    <strong>No HTTP API calls are made from your backend.</strong>
+                    Your backend builds a signed URL.
+                    The frontend navigates the user to it.
+                    <strong>No server-to-server HTTP calls
+                        are made from your backend during initiation.</strong>
                 </p>
             </div>
 
             <div class="flow">Your Backend: buildRedirectParams()
-                → HMAC-SHA512 signature (hex lowercase)
-                → returns FonepayRedirectParams with full redirectUrl
-                ↓
+                → HMAC-SHA512 signature (hex lowercase) of field string
+                → Returns FonepayRedirectParams with redirectUrl
+
+                ✅ Save PRN to DB FIRST — before returning redirectUrl
+
                 Frontend: window.location.href = params.redirectUrl()
                 ↓
                 User pays on Fonepay (QR, bank, wallet)
                 ↓
                 Fonepay redirects to your returnUrl:
-                ?PRN=xxx&amp;PID=xxx&amp;PS=success&amp;RC=200&amp;DV=HMAC_HEX
-                ↓
-                ⚠️  NEVER trust PS=success alone — DV can be faked!
-                ↓
+                ?PRN=FP-ORD-001&PID=MERCHANT&PS=success&DV=HMAC_SHA512_HEX
+
+                ⚠️  NEVER trust PS=success alone — DV can be forged!
+
                 Your Backend: verifyCallback(callback)
-                → re-compute HMAC-SHA512, compare with DV
-                → check PS = "success"
+                → Re-compute HMAC-SHA512, compare with DV (constant-time)
+                → Check PS = "success" — ONLY after HMAC passes
                 ↓
-                ✅ mark as paid only when both match</div>
+                ✅ Mark as paid only when BOTH signature + status pass</div>
         </section>
 
         <!-- Key Differences -->
@@ -148,18 +158,18 @@
                     </tr>
                     <tr>
                         <td>Server HTTP calls</td>
-                        <td>Yes — RestClient</td>
-                        <td>Yes — RestClient</td>
+                        <td>Yes</td>
+                        <td>Yes (status API)</td>
                         <td><strong>None</strong></td>
                     </tr>
                     <tr>
-                        <td>Retry support</td>
+                        <td>Retry</td>
                         <td>Yes</td>
                         <td>Yes</td>
-                        <td><strong>N/A</strong></td>
+                        <td><strong>N/A — no HTTP calls</strong></td>
                     </tr>
                     <tr>
-                        <td>Reactive</td>
+                        <td>Reactive starter</td>
                         <td>KhaltiReactiveClient</td>
                         <td>EsewaReactiveClient</td>
                         <td><strong>Use blocking FonepayClient</strong></td>
@@ -171,10 +181,11 @@
             <div class="callout callout-info">
                 <span class="callout-icon">ℹ️</span>
                 <p>
-                    Because Fonepay makes <strong>no server-side HTTP calls</strong>,
-                    retry does not apply and the blocking
-                    <code>FonepayClient</code> works perfectly inside reactive
-                    WebFlux apps — no wrapping needed.
+                    Because Fonepay makes <strong>zero server-side
+                    HTTP calls</strong>, the blocking
+                    <code>FonepayClient</code> works perfectly inside
+                    WebFlux reactive applications — it never touches
+                    the event loop. No reactive wrapper is needed.
                 </p>
             </div>
         </section>
@@ -185,11 +196,50 @@
 
             <pre><code>nepalpay:
   fonepay:
-    merchant-code: ${FONEPAY_MERCHANT_CODE}
+    merchant-code: ${FONEPAY_MERCHANT_CODE}    # your PID
     secret-key:    ${FONEPAY_SECRET_KEY}
     return-url:    ${FONEPAY_RETURN_URL}
     sandbox: true  # false for production
-    # ← no retry block — Fonepay makes no HTTP calls</code></pre>
+    # No retry config — Fonepay makes no HTTP calls</code></pre>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Required</th>
+                        <th>Default</th>
+                        <th>Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td><code>merchant-code</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Your Fonepay PID (merchant code).</td>
+                    </tr>
+                    <tr>
+                        <td><code>secret-key</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>HMAC-SHA512 secret key. Bean created when present.</td>
+                    </tr>
+                    <tr>
+                        <td><code>return-url</code></td>
+                        <td>✅</td>
+                        <td>—</td>
+                        <td>Fonepay redirects here after payment with all callback params.</td>
+                    </tr>
+                    <tr>
+                        <td><code>sandbox</code></td>
+                        <td>—</td>
+                        <td><code>true</code></td>
+                        <td><code>true</code> = dev.fonepay.com · <code>false</code> = fonepay.com</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <div class="table-wrap">
                 <table>
@@ -219,29 +269,39 @@
 
             <pre><code>// PRN must be 3–25 chars, unique per transaction
 String prn = "FP-" + orderId;
-orderRepo.savePrn(orderId, prn); // save BEFORE returning!
+
+// Ensure PRN is max 25 chars
+if (prn.length() > 25) {
+    prn = prn.substring(0, 25);
+}
+
+// ✅ Save PRN to DB BEFORE returning redirectUrl
+orderRepo.savePrn(orderId, prn);
 
 FonepayRedirectParams params = fonepayClient.buildRedirectParams(
     FonepayPaymentRequest.builder()
         .prn(prn)
-        .amount(100.0)        // ⚠️ NPR directly — not paisa!
-        .remarks1("Pro Plan") // shown to user
-        .remarks2("MyApp")    // optional, max 50 chars
+        .amount(100.0)         // ⚠️ NPR directly — NOT paisa
+        .remarks1("Pro Plan")  // shown to user, max 160 chars
+        .remarks2("MyApp")     // optional, max 50 chars
         .build()
 );
 
-// Return params.redirectUrl() to frontend</code></pre>
+// Return redirectUrl to frontend
+return params.redirectUrl();</code></pre>
 
             <div class="callout callout-warning">
                 <span class="callout-icon">⚠️</span>
                 <p>
                     <strong>Amount is NPR as a double — not paisa.</strong>
                     NPR 100 → send <code>100.0</code>.
-                    PRN must be 3–25 characters.
+                    PRN must be between 3 and 25 characters.
+                    <code>remarks1</code> is required (max 160 chars).
+                    <code>remarks2</code> is optional (max 50 chars).
                 </p>
             </div>
 
-            <h3>Request builder fields</h3>
+            <h3 id="request-fields">FonepayPaymentRequest builder fields</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -255,12 +315,12 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
                     <tr>
                         <td><code>.prn(String)</code></td>
                         <td><span class="pill pill-bad">Required</span></td>
-                        <td>Product Reference Number — unique, 3–25 chars, store in DB</td>
+                        <td>Product Reference Number — unique, 3–25 chars, save to DB</td>
                     </tr>
                     <tr>
                         <td><code>.amount(double)</code></td>
                         <td><span class="pill pill-bad">Required</span></td>
-                        <td>Amount in NPR as a double — not paisa</td>
+                        <td>Amount in NPR as double — NOT paisa</td>
                     </tr>
                     <tr>
                         <td><code>.remarks1(String)</code></td>
@@ -276,7 +336,7 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
                 </table>
             </div>
 
-            <h3>FonepayRedirectParams fields</h3>
+            <h3 id="redirect-fields">FonepayRedirectParams fields</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -300,7 +360,7 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
                     </tr>
                     <tr>
                         <td><code>amt()</code></td>
-                        <td>Amount string</td>
+                        <td>Amount string (whole numbers have no decimal — 100.0 → "100")</td>
                     </tr>
                     <tr>
                         <td><code>ru()</code></td>
@@ -315,27 +375,25 @@ FonepayRedirectParams params = fonepayClient.buildRedirectParams(
         <section id="frontend">
             <h2>Frontend Redirect</h2>
 
-            <pre><code>// Angular
-initiatePayment(orderId: string, amount: number): void {
-    this.paymentService.startFonepay(orderId, amount).subscribe(res =&gt; {
-        window.location.href = res.redirectUrl;
-    });
+            <p>
+                Unlike eSewa and ConnectIPS which use form POST,
+                Fonepay uses a simple URL redirect.
+            </p>
+
+            <pre><code>// JavaScript / TypeScript
+startFonepayPayment(redirectUrl: string): void {
+    // Simple redirect — no form needed
+    window.location.href = redirectUrl;
 }
 
-// Plain JavaScript
-fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
-  .then(res =&gt; res.json())
-  .then(data =&gt; window.location.href = data.redirect_url);</code></pre>
-
-            <div class="callout callout-info">
-                <span class="callout-icon">ℹ️</span>
-                <p>
-                    Unlike eSewa and ConnectIPS, Fonepay uses a simple
-                    <code>window.location.href</code> redirect — no form
-                    submission required. The entire signed URL is built
-                    server-side and returned to the frontend.
-                </p>
-            </div>
+// Angular example
+initiatePayment(orderId: string, amount: number): void {
+    this.paymentService
+        .startFonepay(orderId, amount)
+        .subscribe(res =&gt; {
+            window.location.href = res.redirectUrl;
+        });
+}</code></pre>
         </section>
 
         <!-- verifyCallback -->
@@ -343,10 +401,10 @@ fetch('/api/payment/fonepay/initiate', { method: 'POST', ... })
             <h2>verifyCallback()</h2>
 
             <p>
-                Fonepay redirects to your <code>returnUrl</code> with all
-                payment parameters as GET query parameters.
-                <strong>Always verify the DV signature</strong> before
-                trusting <code>PS=success</code>.
+                Fonepay redirects to your <code>returnUrl</code>
+                with all payment parameters as GET query parameters.
+                <strong>Always verify the DV signature</strong>
+                before trusting <code>PS=success</code>.
             </p>
 
             <pre><code>@GetMapping("/fonepay/callback")
@@ -366,21 +424,42 @@ public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
         FonepayCallbackResponse.of(
             PRN, PID, PS, RC, UID, BC, INI, pAmt, rAmt, dv);
 
-    // ✅ ALWAYS verify signature first — redirect params can be faked!
+    // ✅ ALWAYS verify signature first — redirect params can be faked
+    // verifyCallback re-computes HMAC-SHA512 and compares with DV
+    // THEN checks PS=success — only after HMAC passes
     FonepayClient.FonepayVerificationResult result =
         fonepayClient.verifyCallback(callback);
 
     if (!result.isPaymentSuccessful()) {
-        return ResponseEntity.ok(
-            Map.of("verified", false, "message", "Payment not successful"));
+        return ResponseEntity.ok(Map.of(
+            "verified", false,
+            "message",  "Payment not successful"
+        ));
     }
 
-    orderService.markAsPaid(PRN);
-    return ResponseEntity.ok(
-        Map.of("verified", true, "message", "Payment confirmed"));
+    // Load order using saved PRN
+    orderRepo.markPaid(PRN);
+    return ResponseEntity.ok(Map.of(
+        "verified", true,
+        "message",  "Payment confirmed"
+    ));
 }</code></pre>
 
-            <h3>FonepayVerificationResult</h3>
+            <div class="callout callout-warning">
+                <span class="callout-icon">⚠️</span>
+                <p>
+                    <code>verifyCallback()</code> throws
+                    <code>FonepayException</code> when the HMAC-SHA512
+                    signature does not match — treat this as a potential
+                    fraud attempt and log it.
+                    <strong>Never call <code>callback.paymentStatus()</code>
+                        directly</strong> — it bypasses HMAC verification.
+                    There is no <code>isPaymentSuccessful()</code> on
+                    <code>FonepayCallbackResponse</code> by design.
+                </p>
+            </div>
+
+            <h3>FonepayVerificationResult fields</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -409,21 +488,9 @@ public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
                     </tbody>
                 </table>
             </div>
-
-            <div class="callout callout-warning">
-                <span class="callout-icon">⚠️</span>
-                <p>
-                    <code>verifyCallback()</code> throws
-                    <code>FonepayException</code> when the HMAC-SHA512
-                    signature does not match. Treat this as a potential
-                    fraud attempt and log it.
-                    <strong>Never call <code>callback.paymentStatus()</code>
-                        directly</strong> — it bypasses HMAC verification.
-                </p>
-            </div>
         </section>
 
-        <!-- Security Rules -->
+        <!-- Security -->
         <section id="security">
             <h2>Security Rules</h2>
 
@@ -431,48 +498,62 @@ public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
                 <span class="callout-icon">🔴</span>
                 <p>
                     <strong>Never trust <code>PS=success</code> alone.</strong>
-                    The DV signature is the only real proof. Always call
-                    <code>verifyCallback()</code> which re-computes
-                    HMAC-SHA512.
+                    The DV signature is the only real proof.
+                    Always call <code>verifyCallback()</code>
+                    which re-computes HMAC-SHA512 first.
+                </p>
+            </div>
+
+            <div class="callout callout-danger">
+                <span class="callout-icon">🔴</span>
+                <p>
+                    <strong>There is no
+                        <code>FonepayCallbackResponse.isPaymentSuccessful()</code>
+                        method.</strong> This was intentionally removed in
+                    v1.1.1 because it allowed bypassing HMAC verification.
+                    The only safe path is
+                    <code>fonepayClient.verifyCallback(callback)</code>.
                 </p>
             </div>
 
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
                 <p>
-                    Save the PRN to your database before returning the
-                    redirect URL to the frontend.
+                    NepalPay uses <strong>constant-time comparison</strong>
+                    (<code>MessageDigest.isEqual()</code>) when comparing
+                    the expected and received DV signatures —
+                    preventing timing attacks on the HMAC.
                 </p>
             </div>
 
             <div class="callout callout-success">
                 <span class="callout-icon">✅</span>
                 <p>
-                    <code>verifyCallback()</code> throws
-                    <code>FonepayException</code> on signature mismatch —
-                    treat this as a potential fraud attempt and log it.
+                    Save the PRN to your database before returning
+                    the redirect URL to the frontend. Use the saved PRN
+                    to look up the order on callback —
+                    never trust the PRN from the redirect params alone.
                 </p>
             </div>
 
             <pre><code>// ✅ Correct flow
 String prn = "FP-" + orderId;
-orderRepo.savePrn(orderId, prn);        // SAVE FIRST
-FonepayRedirectParams params =
-    fonepayClient.buildRedirectParams(request);
-return params.redirectUrl();            // return to frontend
+orderRepo.savePrn(orderId, prn);       // SAVE FIRST
+String url = fonepayClient
+    .buildRedirectParams(request)
+    .redirectUrl();                     // return to frontend
 
-// ✅ Correct verification
+// ✅ Correct verification — always verify signature first
 FonepayClient.FonepayVerificationResult result =
     fonepayClient.verifyCallback(callback);
-// Throws FonepayException if DV mismatch
-
+// Throws FonepayException if DV mismatch — log as fraud attempt
 if (result.isPaymentSuccessful()) {
     orderRepo.markPaid(PRN);
 }
 
 // ❌ NEVER do this
 if ("success".equals(ps)) {
-    orderRepo.markPaid(PRN); // DANGEROUS — DV not checked
+    orderRepo.markPaid(PRN); // DV not checked — dangerous!
 }</code></pre>
         </section>
 
@@ -483,31 +564,19 @@ if ("success".equals(ps)) {
             <p>
                 Fonepay makes <strong>zero server-side HTTP calls</strong>.
                 The blocking <code>FonepayClient</code> is safe to use
-                inside WebFlux applications — it never touches the event loop.
+                inside WebFlux applications — it never touches the
+                event loop because all it does is HMAC signing
+                (pure CPU, no I/O).
             </p>
 
-            <h3>Add alongside the reactive starter</h3>
-            <pre><code>&lt;!-- Reactive starter for Khalti, eSewa, ConnectIPS --&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
-    &lt;artifactId&gt;nepal-pay-spring-boot-reactive-starter&lt;/artifactId&gt;
-    &lt;version&gt;1.2.0&lt;/version&gt;
-&lt;/dependency&gt;
-
-&lt;!-- Blocking starter for FonepayClient only --&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;io.github.sujankim&lt;/groupId&gt;
-    &lt;artifactId&gt;nepal-pay-spring-boot-3-starter&lt;/artifactId&gt;
-    &lt;version&gt;1.2.0&lt;/version&gt;
-&lt;/dependency&gt;</code></pre>
-
-            <h3>Wrap in Mono.fromCallable if needed</h3>
+            <h3>Direct usage in reactive service</h3>
             <pre><code>@Service
 @RequiredArgsConstructor
 public class FonepayService {
 
-    // Blocking client — works fine in reactive apps
+    // Blocking client — inject directly in reactive apps
     private final FonepayClient fonepayClient;
+    private final OrderRepository orderRepo;
 
     public String buildRedirect(String orderId, double amountNPR) {
         String prn = "FP-" + orderId;
@@ -522,25 +591,39 @@ public class FonepayService {
         ).redirectUrl();
     }
 
-    // Optional: offload to boundedElastic to avoid running HMAC
-    // work on the WebFlux event-loop thread
+    // Wrap in Mono if needed for reactive pipeline composition
+    // subscribeOn(boundedElastic) offloads HMAC work off event-loop
     public Mono&lt;Boolean&gt; verifyFonepay(
             FonepayCallbackResponse callback) {
         return Mono.fromCallable(() -&gt;
             fonepayClient.verifyCallback(callback)
                          .isPaymentSuccessful())
-            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+            .subscribeOn(
+                reactor.core.scheduler.Schedulers.boundedElastic());
     }
 }</code></pre>
+
+            <div class="callout callout-info">
+                <span class="callout-icon">ℹ️</span>
+                <p>
+                    If you use both the reactive starter (for Khalti,
+                    eSewa, ConnectIPS) and need Fonepay, add the
+                    blocking <code>nepal-pay-spring-boot-3-starter</code>
+                    alongside the reactive starter.
+                    Both starters share the same
+                    <code>nepalpay.*</code> YAML configuration —
+                    no duplicate config needed.
+                </p>
+            </div>
         </section>
 
         <!-- Callback Parameters -->
         <section id="callback-params">
-            <h2>Callback Parameters</h2>
+            <h2>Callback Parameters Reference</h2>
 
             <p>
-                Fonepay redirects to your <code>returnUrl</code> with these
-                GET query parameters:
+                Fonepay redirects to your <code>returnUrl</code>
+                with these GET query parameters:
             </p>
 
             <div class="table-wrap">
@@ -565,7 +648,7 @@ public class FonepayService {
                     </tr>
                     <tr>
                         <td><code>PS</code></td>
-                        <td>Payment status</td>
+                        <td>Payment status — verify DV first!</td>
                         <td><code>success</code> or <code>failed</code></td>
                     </tr>
                     <tr>
@@ -580,7 +663,7 @@ public class FonepayService {
                     </tr>
                     <tr>
                         <td><code>BC</code></td>
-                        <td>Bank code</td>
+                        <td>Bank code of the paying bank</td>
                         <td><code>GBIME</code></td>
                     </tr>
                     <tr>
@@ -600,22 +683,23 @@ public class FonepayService {
                     </tr>
                     <tr>
                         <td><code>DV</code></td>
-                        <td>HMAC-SHA512 signature (uppercase hex) — <strong>verify this!</strong></td>
-                        <td><code>A1B2C3...</code></td>
+                        <td><strong>HMAC-SHA512 signature — VERIFY THIS FIRST</strong></td>
+                        <td><code>A1B2C3...</code> (UPPERCASE hex)</td>
                     </tr>
                     </tbody>
                 </table>
             </div>
 
-            <h3>Signature algorithm — how DV is computed</h3>
-            <pre><code>// Field order is MANDATORY per Fonepay spec — request signature:
-// PID,MD,PRN,AMT,CRN,DT,R1,R2,RU
+            <h3>Signature algorithm</h3>
+            <pre><code># Request signature field order (MANDATORY per Fonepay spec):
+# PID,MD,PRN,AMT,CRN,DT,R1,R2,RU
 
-// Response verification field order:
-// PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT
+# Response verification field order (MANDATORY):
+# PRN,PID,PS,RC,UID,BC,INI,P_AMT,R_AMT
 
-// Hash: HMAC-SHA512(secretKey, message, UTF-8) → hex lowercase
-// DV from Fonepay is UPPERCASE hex — NepalPay normalizes before comparing</code></pre>
+# HMAC-SHA512(secretKey, message, UTF-8) → hex lowercase
+# DV from Fonepay is UPPERCASE hex
+# NepalPay normalizes BOTH to UPPERCASE before constant-time comparison</code></pre>
         </section>
 
     </article>
@@ -627,8 +711,11 @@ public class FonepayService {
         <div class="footer-links">
             <a href="index.html">Home</a>
             <a href="getting-started.html">Getting Started</a>
+            <a href="khalti.html">Khalti</a>
+            <a href="esewa.html">eSewa</a>
             <a href="connectips.html">ConnectIPS</a>
             <a href="reactive.html">Reactive</a>
+            <a href="security.html">Security</a>
             <a href="https://github.com/sujankim/nepal-pay-spring-boot-starter"
                target="_blank" rel="noopener">GitHub</a>
         </div>
@@ -644,6 +731,23 @@ public class FonepayService {
         r.setAttribute('data-theme', n);
         try { localStorage.setItem('np-theme', n); } catch (e) {}
     }
+
+    (function () {
+        var links = document.querySelectorAll('.sidebar-nav a');
+        var sections = document.querySelectorAll('.docs-content section');
+        window.addEventListener('scroll', function () {
+            var pos = window.scrollY + 100;
+            sections.forEach(function (s) {
+                if (s.offsetTop <= pos &&
+                    s.offsetTop + s.offsetHeight > pos) {
+                    links.forEach(function (l) { l.classList.remove('active'); });
+                    var a = document.querySelector(
+                        '.sidebar-nav a[href="#' + s.id + '"]');
+                    if (a) a.classList.add('active');
+                }
+            });
+        });
+    }());
 </script>
 </body>
 </html>
