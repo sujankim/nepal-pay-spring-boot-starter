@@ -3,6 +3,7 @@ package io.nepalpay.reactive.autoconfigure;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.reactive.config.NepalPayProperties;
+import io.nepalpay.core.util.PfxLoader;
 import io.nepalpay.reactive.connectips.ConnectIpsReactiveClient;
 import io.nepalpay.reactive.esewa.EsewaReactiveClient;
 import io.nepalpay.reactive.khalti.KhaltiReactiveClient;

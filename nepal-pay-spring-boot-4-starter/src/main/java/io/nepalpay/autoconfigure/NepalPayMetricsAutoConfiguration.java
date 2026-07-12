@@ -2,6 +2,7 @@ package io.nepalpay.autoconfigure;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.nepalpay.config.NepalPayProperties;
+import io.nepalpay.core.util.PfxLoader;
 import io.nepalpay.connectips.ConnectIpsClient;
 import io.nepalpay.core.exception.ConnectIpsException;
 import io.nepalpay.esewa.EsewaClient;
@@ -148,38 +149,20 @@ public class NepalPayMetricsAutoConfiguration {
     // ── Private helpers ───────────────────────────────────────────────────
 
     private byte[] loadPfxBytes(String pfxPath, ResourceLoader resourceLoader) {
-        if (pfxPath == null || pfxPath.isBlank()) {
+        // Step 1 — validatePath is Spring-free, lives in nepal-pay-core
+        PfxLoader.validatePath(pfxPath);
+
+        Resource resource = resourceLoader.getResource(pfxPath);
+
+        if (!resource.exists()) {
             throw new ConnectIpsException(
-                    "ConnectIPS pfx-path is not configured. " +
-                            "Set nepalpay.connectips.pfx-path in application.yml. " +
-                            "Example: file:/app/CREDITOR.pfx or classpath:CREDITOR.pfx. " +
-                            "Contact NCHL at connectips@nchl.com.np.");
+                    "ConnectIPS .pfx file not found at path: " + pfxPath +
+                            ". Ensure the file exists at this location.");
         }
 
         try {
-            Resource resource = resourceLoader.getResource(pfxPath);
-
-            if (!resource.exists()) {
-                throw new ConnectIpsException(
-                        "ConnectIPS .pfx file not found at path: " + pfxPath +
-                                ". Ensure the file exists at this location.");
-            }
-
-            final byte[] bytes;
-            try (var inputStream = resource.getInputStream()) {
-                bytes = inputStream.readAllBytes();
-            }
-
-            if (bytes.length == 0) {
-                throw new ConnectIpsException(
-                        "ConnectIPS .pfx file is empty at path: " + pfxPath);
-            }
-
-            log.info("[NepalPay Metrics] ConnectIPS .pfx loaded" +
-                    " | path={} | bytes={}", pfxPath, bytes.length);
-
-            return bytes;
-
+            // Step 2 — PfxLoader.read() owns and closes the stream (Bug #13 fix)
+            return PfxLoader.read(resource.getInputStream(), pfxPath);
         } catch (ConnectIpsException e) {
             throw e;
         } catch (Exception e) {
