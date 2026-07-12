@@ -12,10 +12,12 @@ import io.nepalpay.core.metrics.ConnectIpsMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 import reactor.util.retry.Retry;
 
 import java.io.ByteArrayInputStream;
@@ -34,6 +36,11 @@ import java.util.Enumeration;
  *
  * <p>Uses Spring {@link WebClient} and returns {@link Mono} responses.
  * Drop-in reactive replacement for the blocking {@code ConnectIpsClient}.
+ *
+ * <p><strong>Timeout:</strong>
+ * Configurable via {@code nepalpay.connectips.timeout-seconds}.
+ * Default: 30 seconds. Applied as Reactor Netty
+ * {@code HttpClient.responseTimeout()} — fully non-blocking.
  *
  * <p><strong>Metrics:</strong>
  * If constructed with a {@link MeterRegistry}, validateTransaction()
@@ -62,6 +69,18 @@ public final class ConnectIpsReactiveClient {
     private static final String            TOKEN_SUFFIX = "TOKEN=TOKEN";
     private static final DateTimeFormatter DATE_FORMAT  =
             DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+    /**
+     * Default HTTP timeout for ConnectIPS API calls.
+     *
+     * <p>30 seconds is intentionally longer than Khalti/eSewa's 10s default.
+     * ConnectIPS validates bank transfers via NCHL — bank systems can
+     * legitimately be slower than commercial payment gateway APIs.
+     *
+     * <p>Configurable via {@code nepalpay.connectips.timeout-seconds}.
+     * This constant is used as the fallback when no properties are injected
+     * (e.g. in the test-only PrivateKey constructor).
+     */
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     // ── Fields ────────────────────────────────────────────────────────────
@@ -74,6 +93,7 @@ public final class ConnectIpsReactiveClient {
     private final WebClient       webClient;
     private final RetryProperties retryProps;
     private final PrivateKey      privateKey;
+    private final int             timeoutSeconds;
 
     /**
      * Optional Micrometer metrics — null when Actuator not on classpath.
@@ -86,7 +106,7 @@ public final class ConnectIpsReactiveClient {
     // ─────────────────────────────────────────────────────────────────────
 
     /**
-     * Production constructor — no metrics, DEFAULT retry.
+     * Production constructor — no metrics, DEFAULT retry, default timeout.
      * Used by auto-configuration when Actuator is absent.
      */
     public ConnectIpsReactiveClient(
@@ -97,11 +117,12 @@ public final class ConnectIpsReactiveClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                RetryProperties.DEFAULT, null);
+                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Test constructor — custom validate URL, DEFAULT retry, no metrics.
+     * Test constructor — custom validate URL, DEFAULT retry, no metrics,
+     * default timeout.
      */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -110,11 +131,11 @@ public final class ConnectIpsReactiveClient {
 
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder, validateBaseUrlOverride,
-                RetryProperties.DEFAULT, null);
+                RetryProperties.DEFAULT, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Constructor with explicit retry — no metrics.
+     * Constructor with explicit retry — no metrics, default timeout.
      */
     public ConnectIpsReactiveClient(
             int merchantId, String appId, String appName, String appPassword,
@@ -124,11 +145,11 @@ public final class ConnectIpsReactiveClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                retry, null);
+                retry, null, DEFAULT_TIMEOUT_SECONDS);
     }
 
     /**
-     * Constructor with explicit retry + optional metrics.
+     * Constructor with explicit retry + optional metrics + default timeout.
      *
      * <p>Used by {@code NepalPayReactiveMetricsAutoConfiguration} when
      * Actuator is on the classpath.
@@ -145,7 +166,33 @@ public final class ConnectIpsReactiveClient {
         this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
                 sandbox, builder,
                 sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
-                retry, meterRegistry);
+                retry, meterRegistry, DEFAULT_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * Constructor with explicit retry + optional metrics + configurable timeout.
+     *
+     * <p><strong>Fix (Issue #8):</strong> Exposes
+     * {@code nepalpay.connectips.timeout-seconds} as a constructor parameter
+     * so auto-configuration can pass the user-configured value.
+     *
+     * <p>Timeout is applied as Reactor Netty
+     * {@code HttpClient.responseTimeout()} — fully non-blocking.
+     *
+     * @param retry          retry configuration
+     * @param meterRegistry  Micrometer registry — null = no metrics
+     * @param timeoutSeconds HTTP response timeout in seconds
+     */
+    public ConnectIpsReactiveClient(
+            int merchantId, String appId, String appName, String appPassword,
+            byte[] pfxBytes, String pfxPassword, boolean sandbox,
+            WebClient.Builder builder, RetryProperties retry,
+            MeterRegistry meterRegistry, int timeoutSeconds) {
+
+        this(merchantId, appId, appName, appPassword, pfxBytes, pfxPassword,
+                sandbox, builder,
+                sandbox ? UAT_VALIDATE_BASE : PROD_VALIDATE_BASE,
+                retry, meterRegistry, timeoutSeconds);
     }
 
     /**
@@ -156,31 +203,42 @@ public final class ConnectIpsReactiveClient {
             int merchantId, String appId, String appName, String appPassword,
             byte[] pfxBytes, String pfxPassword, boolean sandbox,
             WebClient.Builder builder, String validateBaseUrlOverride,
-            RetryProperties retry, MeterRegistry meterRegistry) {
+            RetryProperties retry, MeterRegistry meterRegistry,
+            int timeoutSeconds) {
 
-        this.merchantId    = merchantId;
-        this.appId         = appId;
-        this.appName       = appName;
-        this.appPassword   = appPassword;
-        this.sandbox       = sandbox;
-        this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
-        this.retryProps    = retry != null ? retry : RetryProperties.DEFAULT;
-        this.privateKey    = loadPrivateKey(pfxBytes, pfxPassword);
+        this.merchantId     = merchantId;
+        this.appId          = appId;
+        this.appName        = appName;
+        this.appPassword    = appPassword;
+        this.sandbox        = sandbox;
+        this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
+        this.retryProps     = retry != null ? retry : RetryProperties.DEFAULT;
+        this.privateKey     = loadPrivateKey(pfxBytes, pfxPassword);
+        this.timeoutSeconds = timeoutSeconds;
 
         // ── Metrics — optional ────────────────────────────────────────────
         this.metrics = (meterRegistry != null)
                 ? new ConnectIpsMetrics(meterRegistry, sandbox)
                 : null;
 
+        // ── WebClient with configurable timeout ───────────────────────────
+        // Uses ReactorClientHttpConnector + Netty HttpClient.responseTimeout()
+        // — correct non-blocking approach for WebFlux (no Thread.sleep).
+        HttpClient httpClient = HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(this.timeoutSeconds));
+
         this.webClient = builder
                 .baseUrl(validateBaseUrlOverride)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
         log.info("[NepalPay Reactive] ConnectIpsReactiveClient initialized" +
-                        " | mode={} | merchantId={} | retry={} | metrics={}",
+                        " | mode={} | merchantId={} | timeout={}s" +
+                        " | retry={} | metrics={}",
                 sandbox ? "UAT" : "PRODUCTION",
                 merchantId,
+                this.timeoutSeconds,
                 this.retryProps.summary(),
                 metrics != null ? "enabled" : "disabled");
     }
@@ -195,16 +253,18 @@ public final class ConnectIpsReactiveClient {
             WebClient.Builder builder, String validateBaseUrlOverride,
             RetryProperties retry) {
 
-        this.merchantId    = merchantId;
-        this.appId         = appId;
-        this.appName       = appName;
-        this.appPassword   = appPassword;
-        this.privateKey    = privateKey;
-        this.sandbox       = sandbox;
-        this.formActionUrl = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
-        this.retryProps    = retry != null ? retry : RetryProperties.DEFAULT;
-        this.metrics       = null;
+        this.merchantId     = merchantId;
+        this.appId          = appId;
+        this.appName        = appName;
+        this.appPassword    = appPassword;
+        this.privateKey     = privateKey;
+        this.sandbox        = sandbox;
+        this.formActionUrl  = sandbox ? UAT_GATEWAY_URL : PROD_GATEWAY_URL;
+        this.retryProps     = retry != null ? retry : RetryProperties.DEFAULT;
+        this.timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
+        this.metrics        = null;
 
+        // Test constructor — simple WebClient without timeout connector
         this.webClient = builder
                 .baseUrl(validateBaseUrlOverride)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -334,15 +394,13 @@ public final class ConnectIpsReactiveClient {
     /** @return true if sandbox/UAT mode */
     public boolean isSandbox() { return sandbox; }
 
+    /** @return configured HTTP timeout in seconds */
+    public int timeoutSeconds() { return timeoutSeconds; }
+
     // ─────────────────────────────────────────────────────────────────────
     // PRIVATE — Reactive timer helper
-    // Timer accessors come from ConnectIpsMetrics — not from this class.
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Wraps a Mono with validateTransaction timing.
-     * No-op when metrics is null.
-     */
     private <T> Mono<T> timedValidate(Mono<T> source) {
         if (metrics == null) return source;
         return Mono.defer(() -> {
@@ -404,10 +462,6 @@ public final class ConnectIpsReactiveClient {
     // PRIVATE — Retry
     // ─────────────────────────────────────────────────────────────────────
 
-    /**
-     * Applies Reactor retry with exponential backoff.
-     * Increments ConnectIpsMetrics retry counter on each attempt.
-     */
     private <T> Mono<T> withRetry(Mono<T> source) {
         if (!retryProps.isActive()) return source;
         return source.retryWhen(

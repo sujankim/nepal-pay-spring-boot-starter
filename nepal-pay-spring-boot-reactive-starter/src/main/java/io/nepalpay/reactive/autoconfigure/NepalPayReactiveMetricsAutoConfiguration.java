@@ -198,7 +198,9 @@ public class NepalPayReactiveMetricsAutoConfiguration {
                 props.sandbox(),
                 webClientBuilder,
                 props.retryOrDefault(),
-                meterRegistry);
+                meterRegistry,
+                props.timeoutSeconds()
+        );
     }
 
     // ── Fonepay — no reactive metrics ─────────────────────────────────────

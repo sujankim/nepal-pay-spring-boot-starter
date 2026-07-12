@@ -23,26 +23,18 @@ import static org.assertj.core.api.Assertions.assertThat;
  * application context. No server, no network, very fast.
  *
  * <p>{@code RestClient.Builder} is registered manually via
- * {@code withBean()} — this avoids needing
- * {@code RestClientAutoConfiguration} on the classpath and keeps
- * the test scope minimal and focused.
+ * {@code withBean()} — avoids needing {@code RestClientAutoConfiguration}
+ * on the classpath and keeps the test scope minimal.
  *
  * <p>ConnectIPS URL/sandbox tests live in {@code ConnectIpsClientTest}
  * (same package as the client) where the package-private test constructor
- * is accessible. This class only tests auto-configuration behavior:
- * beans created, beans not created, context failures.
+ * is accessible.
  */
 @DisplayName("NepalPayAutoConfiguration")
 class NepalPayAutoConfigurationTest {
 
     /**
      * Base runner shared by all tests.
-     *
-     * <p>WHY withBean(RestClient.Builder.class, RestClient::builder)?
-     * Our auto-configuration needs a {@code RestClient.Builder} bean
-     * to create {@code KhaltiClient}, {@code EsewaClient}, and
-     * {@code ConnectIpsClient}. Registering it directly is simpler
-     * and faster than pulling in the full RestClient auto-config chain.
      *
      * <p>Note: {@code FonepayClient} does NOT need {@code RestClient.Builder}
      * because Fonepay uses URL redirect — no server-to-server HTTP calls.
@@ -82,7 +74,8 @@ class NepalPayAutoConfigurationTest {
         void notCreatedWhenSecretKeyAbsent() {
             contextRunner
                     .run(context ->
-                            assertThat(context).doesNotHaveBean(KhaltiClient.class));
+                            assertThat(context)
+                                    .doesNotHaveBean(KhaltiClient.class));
         }
 
         @Test
@@ -126,16 +119,12 @@ class NepalPayAutoConfigurationTest {
                             "custom_key",
                             "https://custom.com/callback",
                             "https://custom.com",
-                            true,
-                            10,
-                            null
-                    );
+                            true, 10, null);
 
             KhaltiClient customBean = new KhaltiClient(
                     customProps,
                     RestClient.builder(),
-                    "https://custom-mock.com"
-            );
+                    "https://custom-mock.com");
 
             contextRunner
                     .withPropertyValues(
@@ -223,7 +212,8 @@ class NepalPayAutoConfigurationTest {
         void notCreatedWhenSecretKeyAbsent() {
             contextRunner
                     .run(context ->
-                            assertThat(context).doesNotHaveBean(EsewaClient.class));
+                            assertThat(context)
+                                    .doesNotHaveBean(EsewaClient.class));
         }
 
         @Test
@@ -274,16 +264,12 @@ class NepalPayAutoConfigurationTest {
                             "CUSTOM_CODE",
                             "https://custom.com/success",
                             "https://custom.com/failure",
-                            true,
-                            10,
-                            null
-                    );
+                            true, 10, null);
 
             EsewaClient customBean = new EsewaClient(
                     customProps,
                     RestClient.builder(),
-                    "https://custom-esewa-status.com"
-            );
+                    "https://custom-esewa-status.com");
 
             contextRunner
                     .withPropertyValues(
@@ -353,6 +339,56 @@ class NepalPayAutoConfigurationTest {
                         "Could not create temp file for test: " + e.getMessage());
             }
         }
+
+        /**
+         * Tests timeout property binding WITHOUT triggering ConnectIpsClient
+         * bean creation.
+         *
+         * <p><strong>Why no merchant-id:</strong>
+         * {@code @ConditionalOnProperty(name = "merchant-id")} prevents the
+         * ConnectIpsClient bean from being created when merchant-id is absent.
+         * This avoids a {@code BeanCreationException} from an invalid pfx-path,
+         * which would make {@code context.getBean(NepalPayProperties.class)} fail.
+         * The {@code timeoutSeconds} property is still bound correctly by Spring Boot
+         * regardless of whether the client bean is created.
+         */
+        @Test
+        @DisplayName("timeout-seconds defaults to 30 when not configured")
+        void connectIps_timeoutDefaultsTo30() {
+            contextRunner
+                    .withPropertyValues(
+                            // merchant-id intentionally absent — prevents
+                            // ConnectIpsClient bean creation so context starts
+                            // cleanly and we can assert on NepalPayProperties
+                            "nepalpay.connectips.app-id=APP-001",
+                            "nepalpay.connectips.app-name=TestApp"
+                            // timeout-seconds not set → should default to 30
+                    )
+                    .run(context -> {
+                        NepalPayProperties props =
+                                context.getBean(NepalPayProperties.class);
+                        assertThat(props.connectips().timeoutSeconds())
+                                .isEqualTo(30);
+                    });
+        }
+
+        @Test
+        @DisplayName("timeout-seconds can be configured via properties")
+        void connectIps_timeoutConfigurable() {
+            contextRunner
+                    .withPropertyValues(
+                            // merchant-id intentionally absent — see comment above
+                            "nepalpay.connectips.app-id=APP-001",
+                            "nepalpay.connectips.app-name=TestApp",
+                            "nepalpay.connectips.timeout-seconds=60"
+                    )
+                    .run(context -> {
+                        NepalPayProperties props =
+                                context.getBean(NepalPayProperties.class);
+                        assertThat(props.connectips().timeoutSeconds())
+                                .isEqualTo(60);
+                    });
+        }
     }
 
     // ── FonepayClient ─────────────────────────────────────────────────────
@@ -382,7 +418,8 @@ class NepalPayAutoConfigurationTest {
         void notCreatedWhenSecretKeyAbsent() {
             contextRunner
                     .run(context ->
-                            assertThat(context).doesNotHaveBean(FonepayClient.class));
+                            assertThat(context)
+                                    .doesNotHaveBean(FonepayClient.class));
         }
 
         @Test
@@ -417,7 +454,8 @@ class NepalPayAutoConfigurationTest {
                         FonepayClient bean = context.getBean(FonepayClient.class);
                         assertThat(bean.isSandbox()).isFalse();
                         assertThat(bean.gatewayUrl())
-                                .isEqualTo("https://fonepay.com/api/merchantRequest");
+                                .isEqualTo(
+                                        "https://fonepay.com/api/merchantRequest");
                     });
         }
 
@@ -429,13 +467,11 @@ class NepalPayAutoConfigurationTest {
                             "CUSTOM_MERCHANT",
                             "custom_secret",
                             "https://custom.com/callback",
-                            true
-                    );
+                            true);
 
             FonepayClient customBean = new FonepayClient(
                     customProps,
-                    "https://custom-fonepay-gateway.com"
-            );
+                    "https://custom-fonepay-gateway.com");
 
             contextRunner
                     .withPropertyValues(
